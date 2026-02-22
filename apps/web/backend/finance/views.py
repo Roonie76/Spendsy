@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt # Add this import
 from django.http import JsonResponse
 import json
 from django.shortcuts import get_object_or_404
+
 # --- AUTH ENDPOINTS ---
 
 @api_view(['POST'])
@@ -81,25 +82,52 @@ def profile_settings(request, user_id):
 
 # --- TRANSACTION ENDPOINTS ---
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny]) 
 def add_transaction(request):
     try:
-        user_id = request.data.get('user_id')
-        user = User.objects.get(id=user_id)
+        data = request.data
+        user_id = data.get('user_id')
         
+        # 1. Validation: Check if User ID exists
+        if not user_id:
+            return Response({"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Data Cleaning: Ensure amount is a valid float
+        # This prevents crashes if OCR sends symbols or commas
+        raw_amount = data.get('amount', 0)
+        try:
+            # Strip commas and convert to float
+            clean_amount = float(str(raw_amount).replace(',', ''))
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid amount format"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3. Creation
         Transaction.objects.create(
             user=user,
-            title=request.data.get('title', 'No Title'),
-            amount=request.data.get('amount'),
-            type=request.data.get('type', 'expense'),
-            category=request.data.get('category', 'other'),
-            is_recurring=request.data.get('is_recurring', False) 
+            title=data.get('title') or data.get('description') or 'Untitled Transaction',
+            amount=clean_amount,
+            type=data.get('type', 'expense').lower(), # Ensure lowercase for DB consistency
+            category=data.get('category', 'other').lower(),
+            is_recurring=data.get('is_recurring', False) 
         )
-        return Response({"message": "Transaction saved"}, status=status.HTTP_201_CREATED)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({
+            "status": "success",
+            "message": "Transaction saved successfully"
+        }, status=status.HTTP_201_CREATED)
 
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in add_transaction: {str(e)}")
+        return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_transaction_history(request, user_id):

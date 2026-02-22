@@ -139,10 +139,42 @@ export default function App() {
 
   async function fetchHistory() {
     if (!currentUser?.id) return;
-    // Use the constant!
-    const response = await fetch(`${API_BASE_URL}/history/${currentUser.id}/`);
-    const data = await response.json();
-    setTransactions(data);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/history/${currentUser.id}/`,
+      );
+      const data = await response.json();
+
+      if (Array.isArray(data)) {
+        const cleanedData = data.map((item) => {
+          const normalizedType = String(item.type || "expense").toLowerCase();
+
+          return {
+            ...item,
+            // Use item.id from Django or fallback to item.pk
+            id: item.id || item.pk,
+            title: item.title || item.description || "Unnamed",
+            amount: parseFloat(item.amount || 0),
+            type: normalizedType,
+            date: item.date || new Date().toISOString(),
+          };
+        });
+
+        // SORTING LOGIC: Descending order of entry (ID)
+        // If IDs are equal or missing, it falls back to Date
+        cleanedData.sort((a, b) => {
+          if (b.id !== a.id) {
+            return b.id - a.id;
+          }
+          return new Date(b.date) - new Date(a.date);
+        });
+
+        console.log("Sorted Data (Newest Entry First):", cleanedData);
+        setTransactions([...cleanedData]);
+      }
+    } catch (err) {
+      console.error("Fetch Error:", err);
+    }
   }
 
   async function fetchSettings() {
@@ -229,27 +261,29 @@ export default function App() {
   }, [currentUser?.id, fetchWealth, fetchTaxProfile]); // Add fetchTaxProfile to dependencies
 
   // Inside your App() function, add this useEffect or update your existing one
-useEffect(() => {
-  if (currentUser?.id && !currentUser.email) {
-    // If we have an ID but no email, fetch the full profile from Django
-    const fetchFullProfile = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/profile/${currentUser.id}/`);
-        const data = await response.json();
-        if (response.ok) {
-          // Merge the existing user data with the new email/details from Django
-          setCurrentUser(prev => ({
-            ...prev,
-            email: data.email || data.user_email // Match your Django field name
-          }));
+  useEffect(() => {
+    if (currentUser?.id && !currentUser.email) {
+      // If we have an ID but no email, fetch the full profile from Django
+      const fetchFullProfile = async () => {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/profile/${currentUser.id}/`,
+          );
+          const data = await response.json();
+          if (response.ok) {
+            // Merge the existing user data with the new email/details from Django
+            setCurrentUser((prev) => ({
+              ...prev,
+              email: data.email || data.user_email, // Match your Django field name
+            }));
+          }
+        } catch (err) {
+          console.error("Could not fetch full user profile:", err);
         }
-      } catch (err) {
-        console.error("Could not fetch full user profile:", err);
-      }
-    };
-    fetchFullProfile();
-  }
-}, [currentUser?.id]);
+      };
+      fetchFullProfile();
+    }
+  }, [currentUser?.id]);
 
   const deleteTransaction = async (id) => {
     try {
@@ -566,7 +600,10 @@ useEffect(() => {
                   setActiveTab={setActiveTab}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
-                  onSuccess={fetchHistory}
+                  onSuccess={() => {
+                    fetchHistory(); // Refresh data
+                    setActiveTab(TABS.HISTORY); // Redirect to show the user the data
+                  }}
                 />
               )}
               {activeTab === TABS.PROFILE && (

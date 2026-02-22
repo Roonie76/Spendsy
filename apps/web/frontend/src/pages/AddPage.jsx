@@ -21,7 +21,14 @@ import { loadScript } from "../../../../../packages/shared/utils/helpers";
 import UnitSelector from "../components/domain/UnitSelector";
 import TransactionItem from "../components/domain/TransactionItem";
 
-const AddPage = ({ user, appId, setActiveTab, showToast, triggerConfirm }) => {
+const AddPage = ({
+  user,
+  appId,
+  setActiveTab,
+  showToast,
+  triggerConfirm,
+  refreshData,
+}) => {
   // --- MANUAL ENTRY STATE ---
   const [mode, setMode] = useState("manual");
   const [amount, setAmount] = useState("");
@@ -183,35 +190,63 @@ const AddPage = ({ user, appId, setActiveTab, showToast, triggerConfirm }) => {
   };
 
   const handleSyncToCloud = () => {
+    // 1. Session Check
+    if (!user || (!user.user_id && !user.id)) {
+      showToast("User session not found. Please re-login.", "error");
+      return;
+    }
+
     triggerConfirm(
       `Sync ${draftTransactions.length} items to your Database?`,
       async () => {
         setIsSubmitting(true);
         try {
-          // Option A: Send items one by one (Easiest if backend isn't set for bulk)
-          const promises = draftTransactions.map((t) =>
-            fetch(`http://127.0.0.1:8000/api/finance/add-transaction/`, {
+          const userId = user.user_id || user.id;
+
+          // Map the promises for individual POST requests
+          const promises = draftTransactions.map((t) => {
+            // Data Normalization for Django Backend
+            const normalizedType =
+              t.type?.toLowerCase().includes("income") ||
+              t.type?.toLowerCase() === "cr"
+                ? "income"
+                : "expense";
+
+            return fetch(`http://127.0.0.1:8000/api/finance/add-transaction/`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              // Inside draftTransactions.map((t) => ...)
               body: JSON.stringify({
-                user_id: user.user_id || user.id,
-                title: t.description || t.title,
-                amount: t.amount,
-                type: t.type,
-                category: t.category || "other",
-                is_recurring: t.is_recurring || false, // Add this line
+                user_id: userId,
+                title: t.description || t.title || "Scanned Transaction",
+                amount: parseFloat(t.amount),
+                type: normalizedType,
+                category: t.category?.toLowerCase() || "other",
+                is_recurring: false,
               }),
-            }),
-          );
+            });
+          });
 
-          await Promise.all(promises);
+          const results = await Promise.all(promises);
 
-          await LocalRepository.clearDrafts();
-          setDraftTransactions([]);
-          showToast("Synced to Database successfully!", "success");
-          setActiveTab(TABS.HOME);
+          // Check if any requests failed
+          const failed = results.filter((r) => !r.ok);
+
+          if (failed.length === 0) {
+            await LocalRepository.clearDrafts();
+            setDraftTransactions([]);
+            showToast("All items synced to Cloud!", "success");
+
+            if (refreshData) refreshData(); // <--- THIS triggers the frontend to pull the new Django data
+
+            setTimeout(() => setActiveTab(TABS.HOME), 1500);
+          } else {
+            showToast(
+              `Synced ${results.length - failed.length} items. ${failed.length} failed.`,
+              "warning",
+            );
+          }
         } catch (e) {
+          console.error("Sync Error:", e);
           showToast("Sync failed. Check server connection.", "error");
         } finally {
           setIsSubmitting(false);

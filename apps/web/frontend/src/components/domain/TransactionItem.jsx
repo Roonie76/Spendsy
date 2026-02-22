@@ -6,7 +6,8 @@ import { normalizeDate } from "../../../../../../packages/shared/utils/helpers";
 
 const TransactionItem = ({ item, onDelete, onEdit }) => {
   const category =
-    CATEGORIES.find((c) => c.id === item.category) || CATEGORIES[9];
+    CATEGORIES.find((c) => c.id === item.category) ||
+    CATEGORIES.find((c) => c.id === "other");
   const Icon = category.icon;
   const isExpense = item.type === "expense";
 
