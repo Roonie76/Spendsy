@@ -10,7 +10,7 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # 2. CORE SECURITY SETTINGS
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost','smart-spend-fyp.onrender.com']
+ALLOWED_HOSTS = ['127.0.0.1','smart-spend-fyp.onrender.com',"localhost"]
 
 # 3. APPLICATION DEFINITION
 INSTALLED_APPS = [
@@ -54,7 +54,6 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
 
 # 5. DATABASE & PATHS
 ROOT_URLCONF = 'core.urls'
@@ -103,3 +102,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 CORS_ALLOWED_ORIGINS = ["https://smart-spend-fyp-cy5s.vercel.app","http://localhost:5173",]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://smart-spend-fyp-cy5s.vercel.app",
+]
+
+
+CORS_ALLOW_CREDENTIALS = True
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
