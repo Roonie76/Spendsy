@@ -31,8 +31,7 @@ import StatsPage from "./pages/StatsPage";
 import ITRPage from "./pages/ITRPage";
 
 export default function App() {
-  const API_BASE_URL =
-    `${import.meta.env.VITE_API_URL}/api/finance` || "http://127.0.0.1:8000/api/finance";
+  const API_BASE_URL =`${import.meta.env.VITE_API_URL}/api/finance` || "http://127.0.0.1:8000/api/finance";
   const initialDefaultProfile = useMemo(
     () => ({
       annualRent: 0,
