@@ -22,12 +22,14 @@ import {
   Scale,
   FileCheck,
   ArrowRight,
+  RefreshCw,
 } from "lucide-react";
 import { TaxService } from "../../../../../packages/shared/services/taxService";
 import { AIService } from "../../../../../packages/shared/services/aiService";
 import { formatIndianCompact } from "../../../../../packages/shared/utils/helpers";
 import { TABS } from "../../../../../packages/shared/config/constants";
 
+// --- Sub-components ---
 const DeductionBar = ({
   label,
   used,
@@ -154,7 +156,6 @@ const ProfileWizard = ({
         <h3 className="text-xl font-bold text-white mb-6">
           Update Tax Profile
         </h3>
-
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
           <div
             className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
@@ -181,7 +182,6 @@ const ProfileWizard = ({
               </span>
             </div>
           </div>
-
           {fields.map((field) => (
             <div key={field.key} className="space-y-2">
               <div className="flex justify-between items-center">
@@ -221,7 +221,6 @@ const ProfileWizard = ({
             </div>
           ))}
         </div>
-
         <div className="pt-6 mt-2 border-t border-white/5">
           <button
             onClick={() => {
@@ -238,7 +237,7 @@ const ProfileWizard = ({
   );
 };
 
-// Inside your AuditPage or parent component
+// --- Main AuditPage Component ---
 const AuditPage = ({
   transactions,
   wealthItems,
@@ -251,6 +250,19 @@ const AuditPage = ({
   const [adviceCards, setAdviceCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+
+  // 1. Load cached advice on mount
+  useEffect(() => {
+    const cachedAdvice = localStorage.getItem("tax_audit_advice");
+    if (cachedAdvice) {
+      try {
+        setAdviceCards(JSON.parse(cachedAdvice));
+      } catch (e) {
+        console.error("Failed to parse cached advice", e);
+      }
+    }
+  }, []);
 
   const data = useMemo(() => {
     const results = TaxService.calculate(
@@ -259,9 +271,7 @@ const AuditPage = ({
       wealthItems,
       settings,
     );
-
     const isNewCheaper = results.taxNew <= results.taxOld;
-
     return {
       ...results,
       isNewCheaper,
@@ -271,6 +281,7 @@ const AuditPage = ({
       recommendedTax: isNewCheaper ? results.taxNew : results.taxOld,
     };
   }, [transactions, taxProfile, wealthItems, settings]);
+
   const detectedValues = useMemo(() => {
     const result = { rent: 0, epf: 0, health: 0, nps: 0 };
     transactions.forEach((t) => {
@@ -299,14 +310,10 @@ const AuditPage = ({
     const tags = [];
     const hasSalary = data.heads.salary > 0;
     const hasBusiness = taxProfile.isBusiness;
-
     if (hasSalary && hasBusiness) tags.push("Hybrid (Job + Business)");
     else if (hasBusiness) tags.push("Freelancer");
     else tags.push("Salaried Employee");
-
     if (data.sources.total > 1500000) tags.push("High Net Worth");
-    else if (data.sources.total < 500000) tags.push("Tax Exempt");
-
     return tags;
   }, [taxProfile, data]);
 
@@ -318,18 +325,24 @@ const AuditPage = ({
     return Math.round((verifiedCount / transactions.length) * 100);
   }, [transactions]);
 
-  let integrityColor = "text-emerald-400";
-  let integrityLabel = "Audit Ready";
-  if (integrityScore < 50) {
-    integrityColor = "text-rose-400";
-    integrityLabel = "High Audit Risk";
-  } else if (integrityScore < 80) {
-    integrityColor = "text-amber-400";
-    integrityLabel = "Verification Needed";
-  }
+  const integrityColor =
+    integrityScore < 50
+      ? "text-rose-400"
+      : integrityScore < 80
+        ? "text-amber-400"
+        : "text-emerald-400";
+  const integrityLabel =
+    integrityScore < 50
+      ? "High Audit Risk"
+      : integrityScore < 80
+        ? "Verification Needed"
+        : "Audit Ready";
 
+  // 2. Main AI Fetching Logic with 429 Error Handling
   const getAdvice = async () => {
+    if (loading || isRateLimited) return;
     setLoading(true);
+
     try {
       const contextData = JSON.stringify({
         persona: userPersona.join(", "),
@@ -343,23 +356,38 @@ const AuditPage = ({
         unused80C: data.deductions.c80.limit - data.deductions.c80.used,
       });
 
-      const systemPrompt = `
-                Act as an Indian Tax CA. Generate 3 specific tax-saving actions for this persona.
-                Output JSON array: [{ "action": "...", "section": "...", "savings": "...", "deadline": "..." }]
-            `;
+      const systemPrompt = `Act as an Indian Tax CA. Generate 3 specific tax-saving actions for this persona based on Indian Income Tax laws (FY 2025-26). Output JSON array only: [{ "action": "...", "section": "...", "savings": "...", "deadline": "..." }]`;
 
       const result = await AIService.askForJSON(systemPrompt, contextData);
       setAdviceCards(result);
+      localStorage.setItem("tax_audit_advice", JSON.stringify(result));
+      setIsRateLimited(false);
     } catch (e) {
-      console.error(e);
-      showToast("AI Service Unavailable", "error");
+      console.error("Audit AI Error:", e);
+
+      // Check for 429 specifically
+      if (e.message?.includes("429") || e.toString().includes("429")) {
+        setIsRateLimited(true);
+        showToast("Rate limit reached (429). Please wait 60s.", "error");
+        setTimeout(() => setIsRateLimited(false), 60000); // Reset after 1 min
+      } else {
+        showToast("AI Service Unavailable. Try again shortly.", "error");
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const clearAdvice = () => {
+    localStorage.removeItem("tax_audit_advice");
+    setAdviceCards([]);
+    setIsRateLimited(false);
+    showToast("AI Cache Cleared", "info");
+  };
+
   return (
     <div className="space-y-6 pb-4 animate-in fade-in print:pb-0 print:text-black print:bg-white">
+      {/* Header */}
       <div className="flex justify-between items-start print:hidden">
         <div>
           <h2 className="text-2xl font-bold text-white mb-2">Tax Audit</h2>
@@ -381,36 +409,20 @@ const AuditPage = ({
         <div className="flex gap-2">
           <button
             onClick={() => window.print()}
-            className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors text-slate-300"
+            className="p-2 bg-white/10 rounded-full hover:bg-white/20 text-slate-300 transition-colors"
           >
             <Printer className="w-5 h-5" />
           </button>
           <button
             onClick={() => setShowWizard(true)}
-            className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors text-white"
+            className="p-2 bg-white/10 rounded-full hover:bg-white/20 text-white transition-colors"
           >
             <Edit3 className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      <div className="hidden print:block text-center mb-8 border-b-2 border-black pb-4">
-        <h1 className="text-3xl font-bold text-black uppercase tracking-wider">
-          Tax Audit Report
-        </h1>
-        <div className="flex justify-between mt-4 text-sm text-gray-600">
-          <p>
-            <strong>Name:</strong> {settings?.name || "User"}
-          </p>
-          <p>
-            <strong>FY:</strong> {data.fiscalYear}
-          </p>
-          <p>
-            <strong>Date:</strong> {new Date().toLocaleDateString()}
-          </p>
-        </div>
-      </div>
-
+      {/* Hero Card */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-1 rounded-[2rem] shadow-2xl print:hidden">
         <div className="bg-slate-900/50 backdrop-blur-md rounded-[1.8rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
@@ -422,7 +434,7 @@ const AuditPage = ({
               <p className="text-xs text-blue-200">
                 Your estimated tax is ₹{data.recommendedTax.toLocaleString()}.
                 {data.isNewCheaper &&
-                  ` You're saving ₹${(data.taxOld - data.taxNew).toLocaleString()} with the New Regime!`}
+                  ` Saving ₹${(data.taxOld - data.taxNew).toLocaleString()} with New Regime!`}
               </p>
             </div>
           </div>
@@ -435,6 +447,7 @@ const AuditPage = ({
         </div>
       </div>
 
+      {/* Main Stats Grid */}
       <div className="bg-gradient-to-br from-indigo-900/40 to-blue-900/40 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 shadow-2xl relative overflow-hidden print:border print:border-gray-300 print:shadow-none print:bg-none print:text-black break-inside-avoid">
         <div className="relative z-10 grid grid-cols-2 gap-6">
           <div>
@@ -442,7 +455,7 @@ const AuditPage = ({
               Taxable Income
             </p>
             <h3 className="text-2xl font-bold text-white print:text-black">
-              ₹{data.recommendedTaxable.toLocaleString()}{" "}
+              ₹{data.recommendedTaxable.toLocaleString()}
             </h3>
             <p className="text-[10px] text-indigo-300 mt-1 print:text-gray-500">
               FY {data.fiscalYear}
@@ -453,27 +466,20 @@ const AuditPage = ({
               Recommended
             </p>
             <div
-              className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${data.taxNew < data.taxOld ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}
+              className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${data.isNewCheaper ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}
             >
-              {data.taxNew < data.taxOld ? "NEW REGIME" : "OLD REGIME"}
+              {data.isNewCheaper ? "NEW REGIME" : "OLD REGIME"}
             </div>
             <p className="text-[10px] text-slate-400 mt-1 print:text-gray-500">
               Est. Liability: ₹{data.recommendedTax.toLocaleString()}
             </p>
-            {data.taxNew === 0 &&
-              data.heads.salary > 0 &&
-              data.sources.total <= 1275000 && (
-                <span className="block text-[10px] text-emerald-400 font-bold">
-                  ✨ TAX FREE LIMIT
-                </span>
-              )}
           </div>
         </div>
       </div>
 
+      {/* AI Consultant Section */}
       <div className="bg-[#0f172a] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-xl print:hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none"></div>
-
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -486,25 +492,46 @@ const AuditPage = ({
               Tailored for {userPersona[0]}
             </p>
           </div>
-          <button
-            onClick={getAdvice}
-            disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 text-yellow-300" />
+          <div className="flex gap-2">
+            {adviceCards.length > 0 && !loading && (
+              <button
+                onClick={clearAdvice}
+                className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-all border border-white/5"
+                title="Clear cache"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
             )}
-            {loading ? "Analyzing..." : "Identify Savings"}
-          </button>
+            <button
+              onClick={getAdvice}
+              disabled={loading || isRateLimited}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2 ${
+                isRateLimited
+                  ? "bg-rose-900/50 text-rose-300 cursor-not-allowed border border-rose-500/30"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
+              }`}
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              {isRateLimited
+                ? "Limit Reached"
+                : loading
+                  ? "Analyzing..."
+                  : adviceCards.length > 0
+                    ? "Update Advice"
+                    : "Identify Savings"}
+            </button>
+          </div>
         </div>
-
         <div className="relative z-10 min-h-[50px]">
           {!loading && adviceCards.length === 0 && (
             <div className="text-center py-6 text-slate-500 text-xs border border-dashed border-slate-700 rounded-xl">
-              Tap 'Identify Savings' to generate a plan specific to your
-              profession.
+              {isRateLimited
+                ? "API rate limit reached. Please wait a minute before retrying."
+                : "Tap 'Identify Savings' to generate your report."}
             </div>
           )}
           {adviceCards.length > 0 && (
@@ -517,95 +544,58 @@ const AuditPage = ({
         </div>
       </div>
 
-      <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 print:border-gray-300 print:bg-white print:text-black break-inside-avoid">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2 print:text-black">
-          <Scale className="w-4 h-4" /> 5 Heads of Income
-        </h3>
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-300 print:text-gray-700">
-              1. Salary
-            </span>
-            <span className="text-white font-medium print:text-black">
-              ₹{data.heads.salary.toLocaleString()}
-            </span>
+      {/* Deductions & Details */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 print:border-gray-300 print:bg-white print:text-black break-inside-avoid">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2 print:text-black">
+            <Scale className="w-4 h-4" /> 5 Heads of Income
+          </h3>
+          <div className="space-y-3">
+            {[
+              { l: "1. Salary", v: data.heads.salary },
+              { l: "2. House Property", v: data.heads.houseProperty },
+              { l: "3. Business", v: data.heads.business },
+              { l: "4. Capital Gains", v: data.heads.capitalGains, star: true },
+              { l: "5. Other Sources", v: data.heads.other },
+            ].map((item, i) => (
+              <div key={i} className="flex justify-between text-sm">
+                <span className="text-slate-300 print:text-gray-700">
+                  {item.l}
+                </span>
+                <span className="text-white font-medium print:text-black">
+                  ₹{item.v.toLocaleString()}
+                  {item.star ? "*" : ""}
+                </span>
+              </div>
+            ))}
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-300 print:text-gray-700">
-              2. House Property
-            </span>
-            <span className="text-white font-medium print:text-black">
-              ₹{data.heads.houseProperty.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-300 print:text-gray-700">
-              3. Business / Profession
-            </span>
-            <span className="text-white font-medium print:text-black">
-              ₹{data.heads.business.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-300 print:text-gray-700">
-              4. Capital Gains
-            </span>
-            <span className="text-yellow-400 font-medium print:text-black">
-              ₹{data.heads.capitalGains.toLocaleString()}*
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-300 print:text-gray-700">
-              5. Other Sources
-            </span>
-            <span className="text-white font-medium print:text-black">
-              ₹{data.heads.other.toLocaleString()}
-            </span>
-          </div>
+        </div>
+        <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 print:border-gray-300 print:bg-white print:text-black break-inside-avoid">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2 print:text-black">
+            <Target className="w-4 h-4" /> Deductions (Old Regime)
+          </h3>
+          <DeductionBar
+            label="80C Investments"
+            used={data.deductions.c80.used}
+            limit={150000}
+            color="bg-cyan-500"
+          />
+          <DeductionBar
+            label="80D Health Ins."
+            used={data.deductions.d80.used}
+            limit={75000}
+            color="bg-pink-500"
+          />
+          <DeductionBar
+            label="NPS (80CCD 1B)"
+            used={data.deductions.nps.used}
+            limit={50000}
+            color="bg-purple-500"
+          />
         </div>
       </div>
 
-      <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 print:border-gray-300 print:bg-white print:text-black break-inside-avoid">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2 print:text-black">
-          <Target className="w-4 h-4" /> Deductions (Old Regime)
-        </h3>
-        <DeductionBar
-          label="80C Investments"
-          used={data.deductions.c80.used}
-          limit={150000}
-          color="bg-cyan-500"
-          pace={data.mode === "PLANNING" ? data.deductions.c80.pace : 0}
-        />
-        <DeductionBar
-          label="80D Health Ins."
-          used={data.deductions.d80.used}
-          limit={75000}
-          color="bg-pink-500"
-        />
-        <DeductionBar
-          label="NPS (80CCD 1B)"
-          used={data.deductions.nps.used}
-          limit={50000}
-          color="bg-purple-500"
-        />
-
-        {data.missedSavings > 0 && (
-          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 print:border-gray-300 print:bg-gray-50">
-            <AlertOctagon className="w-5 h-5 text-red-400 print:text-red-600" />
-            <div>
-              <p className="text-xs text-red-200 font-bold print:text-black">
-                Leakage Detected
-              </p>
-              <p className="text-[10px] text-red-300/70 print:text-gray-600">
-                You are missing out on ~₹
-                {Math.round(data.missedSavings).toLocaleString()} in potential
-                tax savings.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
+      {/* Integrity Score */}
       <div className="p-4 rounded-[1.5rem] bg-white/5 border border-white/10 flex flex-col gap-3 print:border-gray-300 print:bg-white print:text-black break-inside-avoid">
         <div className="flex justify-between items-start">
           <div className="flex items-start gap-3">
@@ -632,26 +622,18 @@ const AuditPage = ({
             </p>
           </div>
         </div>
-
         <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden flex print:bg-gray-200">
           <div
             className="h-full bg-emerald-500 print:bg-black"
             style={{ width: `${integrityScore}%` }}
           ></div>
         </div>
-
-        {integrityScore < 80 && (
-          <p className="text-[10px] text-rose-300 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 print:border-gray-300 print:bg-white print:text-black">
-            <strong>Note:</strong> Low verification score. Ensure transactions
-            are backed by OCR or bank statements before filing.
-          </p>
-        )}
       </div>
 
-      <div className="text-center pt-8 pb-8 print:pb-4 border-t border-white/5 print:border-black mt-8">
-        <p className="text-[10px] text-slate-600 print:text-gray-500">
-          <strong>DISCLAIMER:</strong> This report is a computer-generated
-          estimate based on user-provided financial data.
+      <div className="text-center pt-8 pb-8 border-t border-white/5 print:border-black mt-8">
+        <p className="text-[10px] text-slate-600 print:text-gray-500 uppercase font-bold">
+          Disclaimer: Report based on estimated data for educational purposes
+          only.
         </p>
       </div>
 

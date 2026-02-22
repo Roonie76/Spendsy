@@ -1,6 +1,5 @@
-//Database needed
 // Section 5 Stats Page
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Bot,
   Sparkles,
@@ -11,6 +10,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 import {
   PieChart as RePieChart,
@@ -104,7 +104,7 @@ const InsightCard = ({ type, title, message, impact }) => {
 
   return (
     <div
-      className={`p-4 rounded-2xl border ${styles} relative overflow-hidden transition-all hover:scale-[1.02]`}
+      className={`p-4 rounded-2xl border ${styles} relative overflow-hidden transition-all hover:scale-[1.01]`}
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">
@@ -126,62 +126,55 @@ const InsightCard = ({ type, title, message, impact }) => {
 
 // --- MAIN PAGE COMPONENT ---
 const StatsPage = ({ transactions }) => {
-  // State
   const [aiInsights, setAiInsights] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [viewMode, setViewMode] = useState("expense");
   const [range, setRange] = useState("6M");
 
-  // --- 1. Pie Chart Data (Category Breakdown) ---
+  // Load cached insights on mount
+  useEffect(() => {
+    const cached = localStorage.getItem("watchdog_insights");
+    if (cached) setAiInsights(JSON.parse(cached));
+  }, []);
+
   const pieChartData = useMemo(() => {
     const categoryMap = {};
     let total = 0;
-
-    // ADDED: Filter out transactions with no amount or type
     transactions.forEach((t) => {
       if (t.type === viewMode && t.amount) {
         const amt = parseFloat(t.amount);
-        // ADDED: Null check for t.category to prevent .toLowerCase() or .find() errors
         const catId = t.category || "uncategorized";
         const catName = CATEGORIES.find((c) => c.id === catId)?.name || catId;
-
         categoryMap[catName] = (categoryMap[catName] || 0) + amt;
         total += amt;
       }
     });
-
-    const data = Object.entries(categoryMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-
-    return { data, total };
+    return {
+      data: Object.entries(categoryMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value),
+      total,
+    };
   }, [transactions, viewMode]);
 
-  // --- 2. Bar Chart Data (Robust Logic) ---
   const trendChartData = useMemo(() => {
     const dataMap = new Map();
-
-    // Helper to Generate Unique Keys
     const getKey = (dateObj, unit) => {
-      const y = dateObj.getFullYear();
-      const m = dateObj.getMonth();
-      const d = dateObj.getDate();
-      const h = dateObj.getHours();
-
+      const y = dateObj.getFullYear(),
+        m = dateObj.getMonth(),
+        d = dateObj.getDate(),
+        h = dateObj.getHours();
       if (unit === "hour") return `${y}-${m}-${d}-${h}`;
       if (unit === "day") return `${y}-${m}-${d}`;
       if (unit === "month") return `${y}-${m}`;
       return "";
     };
 
-    // Helper to Initialize Buckets
     const initData = (count, unit) => {
       for (let i = count - 1; i >= 0; i--) {
         const d = new Date();
         let label = "";
-
-        // Adjust date back by 'i' units
         if (unit === "hour") {
           d.setHours(d.getHours() - i);
           const hr = d.getHours();
@@ -200,11 +193,10 @@ const StatsPage = ({ transactions }) => {
             day: "numeric",
           });
         } else if (unit === "month") {
-          d.setDate(1); // Safety fix for 31st bug
+          d.setDate(1);
           d.setMonth(d.getMonth() - i);
           label = d.toLocaleDateString("en-US", { month: "short" });
         }
-
         const key = getKey(d, unit);
         dataMap.set(key, {
           name: label,
@@ -215,7 +207,6 @@ const StatsPage = ({ transactions }) => {
       }
     };
 
-    // Initialize Buckets based on Range
     let unit = "month";
     if (range === "1D") {
       initData(24, "hour");
@@ -234,11 +225,9 @@ const StatsPage = ({ transactions }) => {
       unit = "month";
     }
 
-    // Fill Data from ALL Transactions
     transactions.forEach((t) => {
       const tDate = normalizeDate(t.date);
       const key = getKey(tDate, unit);
-
       if (dataMap.has(key)) {
         const entry = dataMap.get(key);
         const amt = parseFloat(t.amount);
@@ -246,13 +235,11 @@ const StatsPage = ({ transactions }) => {
         else entry.expense += amt;
       }
     });
-
     return Array.from(dataMap.values()).sort((a, b) => a.sortKey - b.sortKey);
   }, [transactions, range]);
 
-  // --- 3. AI Watchdog Engine ---
+  // --- 3. THE WATCHDOG ENGINE ---
   const generateAIInsights = async () => {
-    // ADDED: Prevention logic for empty data
     if (transactions.length === 0) {
       setAiError("Add some transactions first to see AI insights!");
       return;
@@ -260,28 +247,70 @@ const StatsPage = ({ transactions }) => {
 
     setAiLoading(true);
     setAiError(null);
+
     try {
-      // ... (rest of the logic)
+      // Create a snapshot of financial health for the AI
+      const topCategories = pieChartData.data
+        .slice(0, 3)
+        .map((c) => `${c.name}: ₹${c.value}`)
+        .join(", ");
+      const totalIn = transactions
+        .filter((t) => t.type === "income")
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const totalOut = transactions
+        .filter((t) => t.type === "expense")
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+      const contextData = JSON.stringify({
+        summary: {
+          income: totalIn,
+          expense: totalOut,
+          balance: totalIn - totalOut,
+        },
+        topExpenses: topCategories,
+        transactionCount: transactions.length,
+        recentTrend: trendChartData.slice(-3), // Send the last 3 data points
+      });
+
+      const systemPrompt = `Act as "The Watchdog", a sharp financial surveillance AI. Analyze the user's spending. 
+      Output exactly 3 insights in a JSON array. 
+      Types allowed: "alert" (danger), "tip" (advice), "praise" (good habit), "trend" (patterns).
+      Impact: "high" or "normal".
+      Format: [{ "type": "...", "title": "...", "message": "...", "impact": "..." }]`;
+
       const jsonInsights = await AIService.askForJSON(
         systemPrompt,
         contextData,
       );
-      setAiInsights(Array.isArray(jsonInsights) ? jsonInsights : []);
+
+      if (Array.isArray(jsonInsights)) {
+        setAiInsights(jsonInsights);
+        localStorage.setItem("watchdog_insights", JSON.stringify(jsonInsights));
+      }
     } catch (error) {
-      // ... error handling
+      console.error("Watchdog Error:", error);
+      if (error.message?.includes("429")) {
+        setAiError("Watchdog is resting (Rate Limit). Try again in a minute.");
+      } else {
+        setAiError("Failed to wake up the Watchdog. Check connection.");
+      }
     } finally {
       setAiLoading(false);
     }
   };
 
+  const clearInsights = () => {
+    localStorage.removeItem("watchdog_insights");
+    setAiInsights([]);
+  };
+
   return (
     <div className="space-y-6 pb-4 animate-in fade-in">
-      {/* Header */}
       <div className="flex justify-between items-center px-1">
         <h2 className="text-2xl font-bold text-white">Analytics</h2>
       </div>
 
-      {/* 1. Watchdog Section (AI) */}
+      {/* Watchdog Section */}
       <div className="bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none"></div>
         <div className="flex justify-between items-start mb-6 relative z-10">
@@ -296,18 +325,32 @@ const StatsPage = ({ transactions }) => {
               AI-powered financial surveillance
             </p>
           </div>
-          <button
-            onClick={generateAIInsights}
-            disabled={aiLoading}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2"
-          >
-            {aiLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 text-yellow-300" />
+          <div className="flex gap-2">
+            {aiInsights.length > 0 && !aiLoading && (
+              <button
+                onClick={clearInsights}
+                className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
             )}
-            {aiLoading ? "Analyzing..." : "Run Scan"}
-          </button>
+            <button
+              onClick={generateAIInsights}
+              disabled={aiLoading}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2"
+            >
+              {aiLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-yellow-300" />
+              )}
+              {aiLoading
+                ? "Analyzing..."
+                : aiInsights.length > 0
+                  ? "Re-Scan"
+                  : "Run Scan"}
+            </button>
+          </div>
         </div>
         <div className="relative z-10 min-h-[50px]">
           {aiError && (
@@ -317,7 +360,7 @@ const StatsPage = ({ transactions }) => {
           )}
           {!aiLoading && !aiError && aiInsights.length === 0 && (
             <div className="text-center py-6 text-slate-500 text-xs border border-dashed border-slate-700 rounded-xl">
-              Tap 'Run Scan' to detect anomalies.
+              Tap 'Run Scan' to detect anomalies and patterns.
             </div>
           )}
           {aiInsights.length > 0 && (
@@ -330,7 +373,7 @@ const StatsPage = ({ transactions }) => {
         </div>
       </div>
 
-      {/* 2. Donut Chart Section */}
+      {/* Category Breakdown */}
       <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
           <PieChart className="w-4 h-4" /> Category Breakdown
@@ -389,7 +432,6 @@ const StatsPage = ({ transactions }) => {
             </div>
           )}
         </div>
-        {/* Legend - Responsive Grid for Mobile */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
           {pieChartData.data.map((entry, index) => (
             <div
@@ -411,7 +453,7 @@ const StatsPage = ({ transactions }) => {
         </div>
       </div>
 
-      {/* 3. Monthly Trends Bar Chart */}
+      {/* Trend Analysis */}
       <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -429,7 +471,7 @@ const StatsPage = ({ transactions }) => {
             ))}
           </div>
         </div>
-        <div className="h-64 w-full -ml-4">
+        <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={trendChartData} barGap={4}>
               <CartesianGrid

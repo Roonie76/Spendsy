@@ -1,13 +1,5 @@
-// correct code
 import React, { createContext, useContext, useState, useEffect } from "react";
-import {
-  onAuthStateChanged,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signInAnonymously,
-  signOut as firebaseSignOut,
-} from "firebase/auth";
-import { auth } from "../config/constants";
+import { API_BASE_URL } from "../config/constants";
 
 const AuthContext = createContext();
 
@@ -18,76 +10,85 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(false);
   const [error, setError] = useState("");
 
+  // 1. Check if user is already logged in on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-
-      if (currentUser) {
-        try {
-          // 1. Get the secure token from Firebase
-          const idToken = await currentUser.getIdToken();
-
-          // 2. Send it to your Django backend
-          await fetch("http://127.0.0.1:8000/api/finance/auth-sync/", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${idToken}`,
-            },
-          });
-          console.log("User synced with Django database");
-        } catch (err) {
-          console.error("Failed to sync user with backend", err);
-        }
+    const checkAuthStatus = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setLoading(false);
+        return;
       }
 
-      setLoading(false);
-    });
-    return unsubscribe;
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/user/`, {
+          headers: {
+            "Authorization": `Token ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+        } else {
+          localStorage.removeItem("token");
+        }
+      } catch (err) {
+        console.error("Auth check failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuthStatus();
   }, []);
 
-  const loginWithGoogle = async () => {
+  // 2. Standard Django Login
+  const login = async (username, password) => {
     setError("");
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-      setIsGuest(false);
+      const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("token", data.token); // Store DRF Token
+        setUser(data.user);
+        return true;
+      } else {
+        setError(data.non_field_errors || "Login failed");
+        return false;
+      }
     } catch (err) {
-      setError("Google Sign-in failed. Please try again.");
-      console.error(err);
+      setError("Server unreachable");
+      return false;
     }
   };
 
-  const loginAsGuest = async () => {
-    setError("");
-    try {
-      await signInAnonymously(auth);
-      setIsGuest(true);
-    } catch (err) {
-      setError("Guest login failed.");
-      console.error(err);
-    }
-  };
-
+  // 3. Standard Django Logout
   const logout = async () => {
+    const token = localStorage.getItem("token");
     try {
-      await firebaseSignOut(auth);
+      await fetch(`${API_BASE_URL}/auth/logout/`, {
+        method: "POST",
+        headers: { "Authorization": `Token ${token}` },
+      });
+    } finally {
+      localStorage.removeItem("token");
       setUser(null);
-      setIsGuest(false);
-    } catch (err) {
-      console.error("Logout failed", err);
     }
   };
 
   const value = {
     user,
     loading,
-    isGuest,
     error,
-    loginWithGoogle,
-    loginAsGuest,
+    login,
     logout,
   };
 

@@ -1,16 +1,18 @@
-// correct code
 import axios from 'axios';
-import { auth } from '../config/constants';  // Importing Firebase auth instance
+import { API_BASE_URL } from '../config/constants';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/finance';
-
-const getAuthHeaders = async () => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-    const token = await user.getIdToken();
+/**
+ * HELPER: GET AUTH HEADERS
+ * Pulls the Django REST Framework token from localStorage.
+ */
+const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No authentication token found. Please log in.");
+    
     return {
         headers: { 
-            'Authorization': `Bearer ${token}`,
+            // Standard Django DRF Token format
+            'Authorization': `Token ${token}`,
             'Content-Type': 'application/json'
         }
     };
@@ -19,15 +21,37 @@ const getAuthHeaders = async () => {
 export const financeAPI = {
     // SAVE TRANSACTION
     saveTransaction: async (data) => {
-        const headers = await getAuthHeaders();
-        const response = await axios.post(`${API_BASE_URL}/transactions/`, data, headers);
-        return response.data;
+        try {
+            const config = getAuthHeaders();
+            const response = await axios.post(`${API_BASE_URL}/finance/transactions/`, data, config);
+            return response.data;
+        } catch (error) {
+            console.error("API Save Error:", error.response?.data || error.message);
+            throw error;
+        }
     },
 
     // FETCH TRANSACTIONS
     getTransactions: async () => {
-        const headers = await getAuthHeaders();
-        const response = await axios.get(`${API_BASE_URL}/transactions/`, headers);
-        return response.data;
+        try {
+            const config = getAuthHeaders();
+            const response = await axios.get(`${API_BASE_URL}/finance/transactions/`, config);
+            return response.data;
+        } catch (error) {
+            console.error("API Fetch Error:", error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    // DELETE TRANSACTION
+    deleteTransaction: async (id) => {
+        try {
+            const config = getAuthHeaders();
+            await axios.delete(`${API_BASE_URL}/finance/transactions/${id}/`, config);
+            return true;
+        } catch (error) {
+            console.error("API Delete Error:", error.response?.data || error.message);
+            throw error;
+        }
     }
 };
