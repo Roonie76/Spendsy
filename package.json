@@ -14,5 +14,8 @@
     "clsx": "^2.1.1",
     "firebase": "^12.9.0",
     "tailwind-merge": "^3.4.1"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
   }
 }
