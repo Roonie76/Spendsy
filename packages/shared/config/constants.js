@@ -28,8 +28,7 @@ export const APP_VERSION = getEnv("APP_VERSION") || "1.0.0";
 export const API_KEY = getEnv("GEMINI_API_KEY");
 
 // Defaulting to local Django server if .env is missing
-export const API_BASE_URL =
-  getEnv("API_BASE_URL") || "http://127.0.0.1:8000/api";
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 // --- DOMAIN CONSTANTS ---
 const {
