@@ -8,9 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # 2. CORE SECURITY SETTINGS
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-for-local-dev')
+SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost','smart-spend-fyp.onrender.com']
 
 # 3. APPLICATION DEFINITION
 INSTALLED_APPS = [
@@ -100,3 +100,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Extra API Keys
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+CORS_ALLOWED_ORIGINS = [
+    "https://smart-spend-fyp.vercel.app/",
+    "http://localhost:5173",
+]
