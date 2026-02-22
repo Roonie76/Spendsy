@@ -89,7 +89,8 @@ def add_transaction(request):
     try:
         data = request.data
         user_id = data.get('user_id')
-        
+        user = get_object_or_404(User, id=user_id) # This is where the 404 is coming from
+        print("DEBUG: Received data:", request.data)  # <--- Add this
         # 1. Validation: Check if User ID exists
         if not user_id:
             return Response({"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -315,7 +316,9 @@ def manage_tax_profile(request, user_id):
             serializer = TaxProfileSerializer(profile, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                print(serializer.errors) # This will tell you EXACTLY which field is wrong
+                return Response(serializer.errors, status=400)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # GET request logic
