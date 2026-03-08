@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -9,15 +10,23 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
-from ..core.redis import enqueue_task, record_event
+from ..core.redis import enqueue_task, get_identity_from_request, record_event
 from ..core.security import UserContext, get_current_user
 from ..models import ApiAuditLog, ITRData, TaxProfile, Transaction, UserProfile, WealthItem
-from ..schemas import ITRPayload, TaxProfilePayload, TransactionPayload, UserProfilePayload, WealthPayload
+from ..schemas import (
+    ITRPayload,
+    TaxProfilePayload,
+    TransactionCategory,
+    TransactionPayload,
+    UserProfilePayload,
+    WealthPayload,
+)
 from ..services.parser_client import parse_statement
 from ..utils.error_codes import ErrorCode
 from ..utils.response import error_response, success_response
 
 router = APIRouter(tags=["finance"])
+logger = logging.getLogger("finance.routes")
 
 
 def _audit(
@@ -35,7 +44,7 @@ def _audit(
     try:
         entry = ApiAuditLog(
             user_id=user.id if user else None,
-            request_id=request.headers.get("X-Request-ID") or str(uuid.uuid4()),
+            request_id=getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4()),
             action=action,
             resource_type=resource_type,
             resource_id=str(resource_id or ""),
@@ -43,7 +52,7 @@ def _audit(
             path=request.url.path,
             status_code=status_code,
             error_code=error_code,
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_identity_from_request(request),
             details=details or {},
         )
         db.add(entry)
@@ -54,7 +63,9 @@ def _audit(
 
 def _safe_category(raw: str | None) -> str:
     value = str(raw or "other").strip().lower()
-    return value or "other"
+    if value not in {e.value for e in TransactionCategory}:
+        return "other"
+    return value
 
 
 def _safe_type(raw: str | None) -> str:
@@ -80,13 +91,13 @@ def _build_financial_summary(db: Session, user_id: int) -> dict:
     ).scalar()
     count = db.query(func.count(Transaction.id)).filter(Transaction.user_id == user_id).scalar()
 
-    income_val = float(income or 0)
-    expense_val = float(expense or 0)
+    income_val = Decimal(str(income or 0))
+    expense_val = Decimal(str(expense or 0))
 
     return {
-        "income": round(income_val, 2),
-        "expense": round(expense_val, 2),
-        "balance": round(income_val - expense_val, 2),
+        "income": str(income_val.quantize(Decimal("0.01"))),
+        "expense": str(expense_val.quantize(Decimal("0.01"))),
+        "balance": str((income_val - expense_val).quantize(Decimal("0.01"))),
         "transaction_count": int(count or 0),
     }
 
@@ -137,15 +148,12 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
     return saved
 
 
-def _warn_on_mismatch(request: Request, user: UserContext, path_user_id: int) -> None:
+def _enforce_ownership(user: UserContext, path_user_id: int) -> None:
+    """Raise HTTP 403 immediately if URL user_id != token user_id."""
     if int(path_user_id) != user.id:
-        record_event(
-            "finance:mismatch",
-            {
-                "path_user_id": path_user_id,
-                "token_user_id": user.id,
-                "path": request.url.path,
-            },
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: you may only access your own resources",
         )
 
 
@@ -185,7 +193,8 @@ def profile_settings(
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _warn_on_mismatch(request, user, user_id)
+    # IDOR fix: strict 403 if URL doesn't match token
+    _enforce_ownership(user, user_id)
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
     if profile is None:
@@ -210,9 +219,9 @@ def profile_settings(
     payload_out = {
         "username": user.username,
         "email": user.email,
-        "monthlyIncome": float(profile.monthly_income or 0),
-        "monthlyBudget": float(profile.monthly_budget or 0),
-        "dailyBudget": float(profile.daily_budget or 0),
+        "monthlyIncome": str(profile.monthly_income or Decimal("0")),
+        "monthlyBudget": str(profile.monthly_budget or Decimal("0")),
+        "dailyBudget": str(profile.daily_budget or Decimal("0")),
         "is_business": bool(profile.is_business),
     }
     return success_response(request, payload_out)
@@ -227,17 +236,20 @@ def add_transaction(
 ):
     data = payload.model_dump(exclude_unset=True)
     if "amount" not in data or data["amount"] is None:
-        return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Amount is required and must be > 0", code=ErrorCode.INVALID_AMOUNT)
     if "type" not in data or data["type"] is None:
         return error_response(request, "Transaction type must be 'income' or 'expense'", code=ErrorCode.INVALID_TRANSACTION_TYPE)
 
     title = (data.get("title") or data.get("description") or "Untitled Transaction").strip() or "Untitled Transaction"
+    category = data.get("category")
+    category_val = category.value if hasattr(category, "value") else (str(category) if category else "other")
+
     tx = Transaction(
         user_id=user.id,
         title=title,
         amount=data["amount"],
         type=data["type"],
-        category=data.get("category") or "other",
+        category=category_val,
         date=data.get("date") or date.today(),
         is_recurring=data.get("is_recurring") or False,
     )
@@ -266,29 +278,49 @@ def add_transaction(
 @router.get("/transactions")
 def get_transaction_history(
     request: Request,
+    limit: int = 50,
+    cursor: str | None = None,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Cursor-based paginated transaction list. cursor is the last transaction id (encoded as str)."""
+    if limit < 1 or limit > 200:
+        limit = 50
+
     query = db.query(Transaction).filter(Transaction.user_id == user.id)
+
     search = request.query_params.get("search")
     if search:
-        query = query.filter(
-            (Transaction.title.ilike(f"%{search}%"))
-        )
+        query = query.filter(Transaction.title.ilike(f"%{search}%"))
+
+    # Cursor: decode cursor -> last seen ID, fetch only rows with ID < cursor (older)
+    if cursor:
+        try:
+            last_id = int(cursor)
+            query = query.filter(Transaction.id < last_id)
+        except (ValueError, TypeError):
+            pass
+
+    transactions = query.order_by(Transaction.id.desc()).limit(limit + 1).all()
+
+    has_more = len(transactions) > limit
+    page = transactions[:limit]
+
+    next_cursor = str(page[-1].id) if has_more and page else None
 
     data = [
         {
             "id": t.id,
             "title": t.title,
-            "amount": float(t.amount),
+            "amount": str(t.amount),
             "type": t.type,
             "category": t.category,
             "date": t.date.isoformat(),
             "is_recurring": t.is_recurring,
         }
-        for t in query.order_by(Transaction.date.desc(), Transaction.id.desc())
+        for t in page
     ]
-    return success_response(request, data)
+    return success_response(request, {"data": data, "next_cursor": next_cursor})
 
 
 @router.delete("/transactions/{transaction_id}")
@@ -325,7 +357,7 @@ def update_transaction(
     if "type" in data and data["type"] is None:
         return error_response(request, "Transaction type must be 'income' or 'expense'", code=ErrorCode.INVALID_TRANSACTION_TYPE)
     if "amount" in data and data["amount"] is None:
-        return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Amount must be > 0", code=ErrorCode.INVALID_AMOUNT)
 
     if "title" in data or "description" in data:
         title = (data.get("title") or data.get("description") or tx.title).strip() or tx.title
@@ -335,7 +367,8 @@ def update_transaction(
     if "type" in data:
         tx.type = data["type"]
     if "category" in data and data["category"]:
-        tx.category = data["category"]
+        cat = data["category"]
+        tx.category = cat.value if hasattr(cat, "value") else str(cat)
     if "date" in data and data["date"]:
         tx.date = data["date"]
     if "is_recurring" in data and data["is_recurring"] is not None:
@@ -360,7 +393,7 @@ def wealth_list_create(
             {
                 "id": item.id,
                 "title": item.title,
-                "amount": float(item.amount),
+                "amount": str(item.amount),
                 "type": item.type,
                 "category": item.category,
             }
@@ -373,7 +406,7 @@ def wealth_list_create(
 
     data = payload.model_dump(exclude_unset=True)
     if "amount" not in data or data["amount"] is None:
-        return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Amount must be > 0", code=ErrorCode.INVALID_AMOUNT)
     if "type" not in data or data["type"] is None:
         return error_response(request, "Wealth type must be 'asset' or 'liability'", code=ErrorCode.INVALID_WEALTH_TYPE)
 
@@ -394,7 +427,7 @@ def wealth_list_create(
         {
             "id": item.id,
             "title": item.title,
-            "amount": float(item.amount),
+            "amount": str(item.amount),
             "type": item.type,
             "category": item.category,
         },
@@ -437,7 +470,7 @@ def update_wealth_item(
     if "type" in data and data["type"] is None:
         return error_response(request, "Wealth type must be 'asset' or 'liability'", code=ErrorCode.INVALID_WEALTH_TYPE)
     if "amount" in data and data["amount"] is None:
-        return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Amount must be > 0", code=ErrorCode.INVALID_AMOUNT)
 
     if "title" in data or "name" in data:
         item.title = (data.get("title") or data.get("name") or item.title).strip() or item.title
@@ -455,7 +488,7 @@ def update_wealth_item(
         {
             "id": item.id,
             "title": item.title,
-            "amount": float(item.amount),
+            "amount": str(item.amount),
             "type": item.type,
             "category": item.category,
         },
@@ -472,7 +505,7 @@ def manage_tax_profile(
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _warn_on_mismatch(request, user, user_id)
+    _enforce_ownership(user, user_id)
 
     profile = db.query(TaxProfile).filter(TaxProfile.user_id == user.id).first()
     if profile is None:
@@ -501,13 +534,13 @@ def manage_tax_profile(
 
     payload_out = {
         "isBusiness": bool(profile.is_business),
-        "annualRent": float(profile.annual_rent),
-        "annualEPF": float(profile.annual_epf),
-        "npsContribution": float(profile.nps_contribution),
-        "healthInsuranceSelf": float(profile.health_insurance_self),
-        "healthInsuranceParents": float(profile.health_insurance_parents),
-        "homeLoanInterest": float(profile.home_loan_interest),
-        "educationLoanInterest": float(profile.education_loan_interest),
+        "annualRent": str(profile.annual_rent),
+        "annualEPF": str(profile.annual_epf),
+        "npsContribution": str(profile.nps_contribution),
+        "healthInsuranceSelf": str(profile.health_insurance_self),
+        "healthInsuranceParents": str(profile.health_insurance_parents),
+        "homeLoanInterest": str(profile.home_loan_interest),
+        "educationLoanInterest": str(profile.education_loan_interest),
     }
     return success_response(request, payload_out, message="Tax profile" if request.method == "GET" else "Tax profile updated")
 
@@ -521,7 +554,7 @@ def itr_data_handler(
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _warn_on_mismatch(request, user, user_id)
+    _enforce_ownership(user, user_id)
 
     record = db.query(ITRData).filter(ITRData.user_id == user.id).first()
     if record is None:
@@ -564,11 +597,12 @@ def parse_statement_proxy(
         return error_response(request, "Missing PDF file upload", code=ErrorCode.MISSING_FILE)
 
     content = file.file.read()
-    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
 
     try:
         parsed = parse_statement(content, file.filename)
-    except Exception:
+    except Exception as exc:
+        logger.error("parser_failed request_id=%s error=%s", request_id, str(exc))
         _audit(
             db,
             request,
@@ -644,7 +678,11 @@ def parse_statement_proxy(
 
     try:
         enqueue_task("app.tasks.post_parse_notification", {"user_id": user.id, "count": len(transactions)})
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error(
+            "enqueue_task failed for post_parse_notification user_id=%s request_id=%s error=%s",
+            user.id, request_id, str(exc),
+        )
+        # Non-fatal: notification is best-effort; continue returning parsed data.
 
     return success_response(request, parsed_payload, message="Statement parsed", http_status=status.HTTP_200_OK)

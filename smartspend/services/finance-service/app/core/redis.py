@@ -1,38 +1,38 @@
 from __future__ import annotations
 
+import logging
 import time
+import uuid
 
-import redis
+import redis as redis_lib
 from rq import Queue
 
 from .config import settings
 
+logger = logging.getLogger("finance.redis")
 
-_redis_client: redis.Redis | None = None
+_redis_client: redis_lib.Redis | None = None
 
 
-def get_redis() -> redis.Redis:
+def get_redis() -> redis_lib.Redis:
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        _redis_client = redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
     return _redis_client
 
 
-def enqueue_task(func_path: str, *args, **kwargs) -> None:
+def get_identity_from_request(request) -> str:  # type: ignore[no-untyped-def]
+    """Proxy-safe client identity using X-Forwarded-For."""
+    forwarded = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def enqueue_task(func_path: str, payload: dict) -> None:
+    """Enqueue an RQ task. Raises exception with details on failure (caller should handle)."""
     queue = Queue("finance", connection=get_redis())
-    queue.enqueue(func_path, *args, **kwargs)
-
-
-def is_rate_limited(scope: str, identity: str, limit: int, window_seconds: int) -> bool:
-    key = f"rl:{scope}:{identity}"
-    client = get_redis()
-    pipeline = client.pipeline()
-    pipeline.incr(key, 1)
-    pipeline.ttl(key)
-    count, ttl = pipeline.execute()
-    if ttl == -1:
-        client.expire(key, window_seconds)
-    return int(count) > limit
+    queue.enqueue(func_path, payload)
 
 
 def record_event(stream: str, payload: dict) -> None:

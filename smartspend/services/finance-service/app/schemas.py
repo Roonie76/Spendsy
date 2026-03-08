@@ -1,9 +1,21 @@
 from __future__ import annotations
 
-from datetime import date as dt_date
+from datetime import date as dt_date, date
+from decimal import Decimal
+from enum import Enum
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
+
+
+class TransactionCategory(str, Enum):
+    food = "food"
+    rent = "rent"
+    travel = "travel"
+    shopping = "shopping"
+    utilities = "utilities"
+    investment = "investment"
+    other = "other"
 
 
 class HealthResponse(BaseModel):
@@ -13,16 +25,16 @@ class HealthResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     ok: bool = False
-    code: str
+    error: str
     message: str
     meta: dict
     details: dict | None = None
 
 
 class UserProfilePayload(BaseModel):
-    monthly_income: float | None = Field(default=None, alias="monthlyIncome")
-    monthly_budget: float | None = Field(default=None, alias="monthlyBudget")
-    daily_budget: float | None = Field(default=None, alias="dailyBudget")
+    monthly_income: Decimal | None = Field(default=None, alias="monthlyIncome", ge=0)
+    monthly_budget: Decimal | None = Field(default=None, alias="monthlyBudget", ge=0)
+    daily_budget: Decimal | None = Field(default=None, alias="dailyBudget", ge=0)
     is_business: bool | None = Field(default=None, alias="is_business")
     email: str | None = None
 
@@ -31,13 +43,20 @@ class UserProfilePayload(BaseModel):
 
 
 class TransactionPayload(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    amount: float | None = None
+    title: str | None = Field(default=None, max_length=255)
+    description: str | None = Field(default=None, max_length=255)
+    amount: Decimal | None = None
     type: str | None = None
-    category: str | None = None
+    category: TransactionCategory | None = None
     date: dt_date | None = None
     is_recurring: bool | None = None
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v <= 0:
+            raise ValueError("Amount must be greater than 0")
+        return v
 
     @field_validator("type")
     @classmethod
@@ -49,30 +68,42 @@ class TransactionPayload(BaseModel):
             raise ValueError("Transaction type must be 'income' or 'expense'")
         return normalized
 
-    @field_validator("category")
+    @field_validator("date")
     @classmethod
-    def normalize_category(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        return value.strip().lower() or "other"
+    def validate_date(cls, v: dt_date | None) -> dt_date | None:
+        if v is not None and v > date.today():
+            raise ValueError("Transaction date cannot be in the future")
+        return v
 
 
 class TransactionOut(BaseModel):
     id: int
     title: str
-    amount: float
+    amount: Decimal
     type: str
     category: str
     date: dt_date
     is_recurring: bool
 
 
+class PaginatedTransactions(BaseModel):
+    data: list[TransactionOut]
+    next_cursor: str | None
+
+
 class WealthPayload(BaseModel):
     title: str | None = None
     name: str | None = None
-    amount: float | None = None
+    amount: Decimal | None = None
     type: str | None = None
     category: str | None = None
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v <= 0:
+            raise ValueError("Amount must be greater than 0")
+        return v
 
     @field_validator("type")
     @classmethod
@@ -88,20 +119,20 @@ class WealthPayload(BaseModel):
 class WealthOut(BaseModel):
     id: int
     title: str
-    amount: float
+    amount: Decimal
     type: str
     category: str
 
 
 class TaxProfilePayload(BaseModel):
     isBusiness: Optional[bool] = None
-    annualRent: Optional[float] = None
-    annualEPF: Optional[float] = None
-    npsContribution: Optional[float] = None
-    healthInsuranceSelf: Optional[float] = None
-    healthInsuranceParents: Optional[float] = None
-    homeLoanInterest: Optional[float] = None
-    educationLoanInterest: Optional[float] = None
+    annualRent: Optional[Decimal] = None
+    annualEPF: Optional[Decimal] = None
+    npsContribution: Optional[Decimal] = None
+    healthInsuranceSelf: Optional[Decimal] = None
+    healthInsuranceParents: Optional[Decimal] = None
+    homeLoanInterest: Optional[Decimal] = None
+    educationLoanInterest: Optional[Decimal] = None
 
 
 class ITRPayload(BaseModel):
@@ -125,12 +156,12 @@ class ParsedTransaction(BaseModel):
     id: str
     date: str
     description: str
-    amount: float
+    amount: Decimal
     type: str
     category: str
     confidence: int
     bank: str
-    balance: float | None
+    balance: Decimal | None
     is_valid: bool
 
 
@@ -145,7 +176,7 @@ class ParserMeta(BaseModel):
 class ParseStatementResponse(BaseModel):
     status: str
     request_id: str
-    reconciliation_score: float
+    reconciliation_score: Decimal
     transactions: list[ParsedTransaction]
     meta: ParserMeta
     saved_count: int

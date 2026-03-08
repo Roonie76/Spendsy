@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:15
     container_name: smartspend_postgres
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-smartspend}
       POSTGRES_USER: ${POSTGRES_USER:-smartuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,17 +16,33 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: smartspend_redis
-    restart: unless-stopped
+    restart: always
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
 
   auth-service:
     build: ../../smartspend/services/auth-service
     container_name: smartspend_auth
+    restart: always
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -39,11 +55,12 @@ services:
       AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-120}
       AUTH_RATE_LIMIT_LOGIN: ${AUTH_RATE_LIMIT_LOGIN:-200}
       AUTH_RATE_LIMIT_REGISTER: ${AUTH_RATE_LIMIT_REGISTER:-50}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8001:8000"
     healthcheck:
@@ -51,10 +68,16 @@ services:
       interval: 20s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
 
   finance-service:
     build: ../../smartspend/services/finance-service
     container_name: smartspend_finance
+    restart: always
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -66,11 +89,12 @@ services:
       PARSER_SERVICE_URL: http://parser-service:8000
       REDIS_URL: redis://redis:6379/0
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       parser-service:
         condition: service_healthy
     ports:
@@ -80,15 +104,21 @@ services:
       interval: 20s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
 
   parser-service:
     build: ../../smartspend/services/parser-service
     container_name: smartspend_parser
+    restart: always
     environment:
       REDIS_URL: redis://redis:6379/0
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8003:8000"
     healthcheck:
@@ -96,19 +126,26 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
 
   ai-service:
     build: ../../smartspend/services/ai-service
     container_name: smartspend_ai
+    restart: always
     environment:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       JWT_ALGORITHM: HS256
       FINANCE_SERVICE_URL: http://finance-service:8000
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8004:8000"
     healthcheck:
@@ -116,10 +153,16 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
 
   nginx:
     image: nginx:alpine
     container_name: smartspend_gateway
+    restart: always
     depends_on:
       auth-service:
         condition: service_healthy
@@ -133,6 +176,11 @@ services:
       - "8080:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
 
 volumes:
   postgres_data:

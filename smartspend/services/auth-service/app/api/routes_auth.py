@@ -2,13 +2,19 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from ..core import security
 from ..core.config import settings
 from ..core.database import get_db
-from ..core.redis import is_rate_limited, record_audit_event
+from ..core.redis import (
+    blacklist_token,
+    get_identity_from_request,
+    is_rate_limited,
+    is_token_blacklisted,
+    record_audit_event,
+)
 from ..models import User
 from ..schemas import AuthResponse, RefreshRequest, TokenPair, UserCreate, UserLogin, UserOut
 
@@ -18,10 +24,31 @@ RATE_LIMIT_WINDOW = settings.auth_rate_limit_window_seconds
 RATE_LIMIT_LOGIN = settings.auth_rate_limit_login
 RATE_LIMIT_REGISTER = settings.auth_rate_limit_register
 
+_ACCESS_MAX_AGE = settings.access_token_expire_minutes * 60
+_REFRESH_MAX_AGE = settings.refresh_token_expire_days * 86400
+
+
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    """Set HttpOnly, Secure, SameSite=Strict cookies for both tokens."""
+    is_secure = settings.environment != "development"
+    cookie_kwargs: dict = dict(
+        httponly=True,
+        secure=is_secure,
+        samesite="strict",
+        path="/",
+    )
+    response.set_cookie("access_token", access_token, max_age=_ACCESS_MAX_AGE, **cookie_kwargs)
+    response.set_cookie("refresh_token", refresh_token, max_age=_REFRESH_MAX_AGE, **cookie_kwargs)
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: UserCreate, request: Request, db: Session = Depends(get_db)):
-    identity = request.client.host if request.client else "unknown"
+def register(payload: UserCreate, request: Request, response: Response, db: Session = Depends(get_db)):
+    identity = get_identity_from_request(request)
     if is_rate_limited("register", identity, RATE_LIMIT_REGISTER, RATE_LIMIT_WINDOW):
         raise HTTPException(status_code=429, detail="Too many registration attempts")
 
@@ -45,9 +72,10 @@ def register(payload: UserCreate, request: Request, db: Session = Depends(get_db
     db.commit()
     db.refresh(user)
 
-    access_token = security.create_access_token(str(user.id), user.username, user.email)
-    refresh_token = security.create_refresh_token(str(user.id))[0]
+    access_token, _ = security.create_access_token(str(user.id), user.username, user.email)
+    refresh_token, _, _ = security.create_refresh_token(str(user.id))
 
+    _set_auth_cookies(response, access_token, refresh_token)
     record_audit_event({"action": "register", "user_id": user.id, "ip": identity})
 
     return AuthResponse(
@@ -57,8 +85,8 @@ def register(payload: UserCreate, request: Request, db: Session = Depends(get_db
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
-    identity = request.client.host if request.client else "unknown"
+def login(payload: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)):
+    identity = get_identity_from_request(request)
     if is_rate_limited("login", identity, RATE_LIMIT_LOGIN, RATE_LIMIT_WINDOW):
         raise HTTPException(status_code=429, detail="Too many login attempts")
 
@@ -73,9 +101,10 @@ def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
         record_audit_event({"action": "login_failed", "user_id": user.id if user else None, "ip": identity})
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    access_token = security.create_access_token(str(user.id), user.username, user.email)
-    refresh_token = security.create_refresh_token(str(user.id))[0]
+    access_token, _ = security.create_access_token(str(user.id), user.username, user.email)
+    refresh_token, _, _ = security.create_refresh_token(str(user.id))
 
+    _set_auth_cookies(response, access_token, refresh_token)
     record_audit_event({"action": "login_success", "user_id": user.id, "ip": identity})
 
     return AuthResponse(
@@ -85,9 +114,22 @@ def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenPair)
-def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
+def refresh(request: Request, response: Response, db: Session = Depends(get_db)):
+    # Try cookie first, then JSON body
+    from fastapi import Cookie as CookieParam
+    raw_token: str | None = request.cookies.get("refresh_token")
+    if not raw_token:
+        try:
+            import asyncio
+            body = asyncio.get_event_loop().run_until_complete(request.json())
+            raw_token = body.get("refresh_token")
+        except Exception:
+            pass
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
+
     try:
-        claims = security.decode_token(payload.refresh_token)
+        claims = security.decode_token(raw_token)
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid refresh token") from exc
 
@@ -99,6 +141,9 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     if not jti or not user_id:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
+    if is_token_blacklisted(jti):
+        raise HTTPException(status_code=401, detail="Refresh token has been revoked")
+
     if datetime.fromtimestamp(claims.get("exp", 0), tz=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
@@ -106,14 +151,24 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    access_token = security.create_access_token(str(user.id), user.username, user.email)
-    refresh_token = security.create_refresh_token(str(user.id))[0]
+    access_token, _ = security.create_access_token(str(user.id), user.username, user.email)
+    new_refresh_token, _, _ = security.create_refresh_token(str(user.id))
 
-    return TokenPair(access_token=access_token, refresh_token=refresh_token)
+    # Blacklist old refresh JTI
+    remaining_ttl = int(claims.get("exp", 0)) - int(datetime.now(timezone.utc).timestamp())
+    if remaining_ttl > 0:
+        blacklist_token(jti, remaining_ttl)
+
+    _set_auth_cookies(response, access_token, new_refresh_token)
+    return TokenPair(access_token=access_token, refresh_token=new_refresh_token)
 
 
 @router.get("/me", response_model=UserOut)
-def me(token: str = Depends(security.oauth2_scheme), db: Session = Depends(get_db)):
+def me(request: Request, db: Session = Depends(get_db)):
+    token = request.cookies.get("access_token") or request.headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     try:
         claims = security.decode_token(token)
     except Exception as exc:
@@ -121,6 +176,10 @@ def me(token: str = Depends(security.oauth2_scheme), db: Session = Depends(get_d
 
     if claims.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token")
+
+    jti = claims.get("jti")
+    if jti and is_token_blacklisted(jti):
+        raise HTTPException(status_code=401, detail="Token has been revoked")
 
     user_id = claims.get("sub")
     if not user_id:
@@ -134,5 +193,32 @@ def me(token: str = Depends(security.oauth2_scheme), db: Session = Depends(get_d
 
 
 @router.post("/logout")
-def logout(_: RefreshRequest | None = None, __: str = Depends(security.oauth2_scheme)):
-    return {"ok": True}
+def logout(request: Request, response: Response):
+    # Blacklist access token JTI
+    access_token = request.cookies.get("access_token") or request.headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
+    if access_token:
+        try:
+            claims = security.decode_token(access_token)
+            jti = claims.get("jti")
+            exp = int(claims.get("exp", 0))
+            remaining = exp - int(datetime.now(timezone.utc).timestamp())
+            if jti and remaining > 0:
+                blacklist_token(jti, remaining)
+        except Exception:
+            pass
+
+    # Blacklist refresh token JTI
+    refresh_token_cookie = request.cookies.get("refresh_token")
+    if refresh_token_cookie:
+        try:
+            claims = security.decode_token(refresh_token_cookie)
+            jti = claims.get("jti")
+            exp = int(claims.get("exp", 0))
+            remaining = exp - int(datetime.now(timezone.utc).timestamp())
+            if jti and remaining > 0:
+                blacklist_token(jti, remaining)
+        except Exception:
+            pass
+
+    _clear_auth_cookies(response)
+    return {"ok": True, "message": "Logged out successfully"}

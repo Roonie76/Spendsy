@@ -1,13 +1,26 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .api.routes_finance import router as finance_router
 from .api.routes_internal import router as internal_router
 from .core.database import Base, engine
+from .core.middleware import RequestLoggingMiddleware
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 app = FastAPI(title="SmartSpend Finance Service")
+
+# Observability: request ID generation and structured access logging
+app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,6 +33,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Return structured JSON for Pydantic validation failures."""
+    errors = []
+    for e in exc.errors():
+        errors.append({"field": ".".join(str(x) for x in e["loc"]), "message": e["msg"]})
+    return JSONResponse(
+        status_code=422,
+        content={
+            "ok": False,
+            "error": "VALIDATION_ERROR",
+            "message": "Invalid request payload",
+            "details": errors,
+        },
+    )
+
 
 app.include_router(finance_router)
 app.include_router(internal_router)

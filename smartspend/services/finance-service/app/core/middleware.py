@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+
+logger = logging.getLogger("finance.access")
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware that:
+    1. Ensures every request has an X-Request-ID (generates one if absent).
+    2. Logs structured access info: request_id, method, path, status_code, latency_ms, user_id.
+    """
+
+    async def dispatch(self, request: Request, call_next) -> Response:  # type: ignore[override]
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        start = time.monotonic()
+
+        # Inject into request state for downstream handlers
+        request.state.request_id = request_id
+
+        response = await call_next(request)
+
+        latency_ms = round((time.monotonic() - start) * 1000, 2)
+        response.headers["X-Request-ID"] = request_id
+
+        # Best-effort extract user_id from token (no exception on failure)
+        user_id: str | None = None
+        try:
+            from jose import jwt
+            from .config import settings as cfg
+            token = request.cookies.get("access_token") or \
+                request.headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
+            if token:
+                claims = jwt.decode(token, cfg.jwt_secret, algorithms=[cfg.jwt_algorithm])
+                user_id = claims.get("sub")
+        except Exception:
+            pass
+
+        logger.info(
+            "request_id=%s method=%s path=%s status=%s latency_ms=%s user_id=%s",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            latency_ms,
+            user_id or "anonymous",
+        )
+        return response
