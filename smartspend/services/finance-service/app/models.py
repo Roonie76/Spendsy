@@ -11,7 +11,7 @@ from .core.database import Base
 class UserProfile(Base):
     __tablename__ = "finance_userprofile"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     user_id = Column(BigInteger, unique=True, nullable=False, index=True)
 
     monthly_income = Column("monthlyIncome", Numeric(15, 2), default=0)
@@ -24,7 +24,7 @@ class UserProfile(Base):
 class Transaction(Base):
     __tablename__ = "finance_transaction"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     title = Column(String(255), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
@@ -37,7 +37,7 @@ class Transaction(Base):
 class WealthItem(Base):
     __tablename__ = "finance_wealthitem"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     title = Column(String(100), nullable=False)
     amount = Column(Numeric(15, 2), nullable=False)
@@ -49,7 +49,7 @@ class WealthItem(Base):
 class TaxProfile(Base):
     __tablename__ = "finance_taxprofile"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     user_id = Column(BigInteger, unique=True, nullable=False, index=True)
 
     is_business = Column(Boolean, default=False)
@@ -66,7 +66,7 @@ class TaxProfile(Base):
 class ITRData(Base):
     __tablename__ = "finance_itrdata"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     user_id = Column(BigInteger, unique=True, nullable=False, index=True)
 
     income_data = Column(JSONB, default=dict)
@@ -79,7 +79,7 @@ class ITRData(Base):
 class ApiAuditLog(Base):
     __tablename__ = "finance_apiauditlog"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     user_id = Column(BigInteger, nullable=True)
     request_id = Column(String(64), index=True)
     action = Column(String(64))
