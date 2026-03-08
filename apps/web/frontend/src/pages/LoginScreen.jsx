@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Wallet } from "lucide-react";
+import { Wallet, Eye, EyeOff } from "lucide-react";
 import { APP_VERSION } from "../../../../../packages/shared/config/constants";
 
 const LoginScreen = ({ onAuthSuccess, showToast }) => {
-  const API_BASE_URL =`${import.meta.env.VITE_API_URL}/api/finance` || "http://127.0.0.1:8000/api/finance";
+  const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
+  const AUTH_BASE_URL = (import.meta.env.VITE_AUTH_URL || `${GATEWAY_URL}/auth`).replace(/\/$/, "");
 
   // Local state for the form
   const [isSignup, setIsSignup] = useState(false);
@@ -12,36 +13,62 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
     password: "",
     email: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    const endpoint = isSignup ? "/register/" : "/login/";
+    const endpoint = isSignup ? "register/" : "login/";
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      setErrorMessage("");
+      const response = await fetch(`${AUTH_BASE_URL}/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(authData),
+        body: JSON.stringify({
+          username: authData.username,
+          password: authData.password,
+          email: authData.email || undefined,
+        }),
       });
       const data = await response.json();
 
       if (response.ok) {
-        if (isSignup) {
-          showToast("Account created! Please login.", "success");
-          setIsSignup(false);
-        } else {
-          // Pass the user data back up to App.jsx
-          onAuthSuccess({
-            id: data.user_id,
-            username: data.username,
-            email: data.email, // This allows App.jsx and ProfilePage to see it
-          });
-          showToast(`Logged in as ${data.username}`, "success");
+        // Support both microservices auth ({ user, tokens }) and Django auth ({ data: { user_id, token, ... } })
+        const payload = data?.data ?? data;
+        const user = payload?.user ?? payload ?? {};
+        const tokens = payload?.tokens ?? {};
+        const accessToken =
+          tokens?.access_token ||
+          payload?.token ||
+          payload?.access_token ||
+          "";
+
+        if (accessToken) {
+          localStorage.setItem("access_token", accessToken);
+          localStorage.setItem("token", accessToken);
         }
+        if (tokens?.refresh_token) {
+          localStorage.setItem("refresh_token", tokens.refresh_token);
+        }
+
+        onAuthSuccess({
+          id: user.id || payload.user_id,
+          username: user.username || payload.username || authData.username,
+          email: user.email || payload.email || authData.email,
+          token: accessToken,
+        });
+        showToast(
+          isSignup ? "Account created! You're signed in." : `Logged in as ${user.username || authData.username}`,
+          "success",
+        );
       } else {
-        showToast(data.error || "Auth failed", "error");
+        const detail = data.detail || data.error || "Incorrect username or password.";
+        setErrorMessage(detail);
+        showToast(detail, "error");
       }
     } catch (err) {
+      setErrorMessage("Backend unreachable. Please try again.");
       showToast("Backend unreachable", "error");
     }
   };
@@ -63,10 +90,17 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
             {isSignup ? "Create Account" : "Login"}
           </h2>
 
+          {errorMessage && (
+            <div className="mb-3 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              {errorMessage}
+            </div>
+          )}
+
           <form onSubmit={handleAuth} className="flex flex-col gap-3">
             <input
               placeholder="Username"
               className="bg-black/20 border border-white/10 p-3 rounded-xl focus:border-blue-500 outline-none text-sm"
+              required
               onChange={(e) =>
                 setAuthData({ ...authData, username: e.target.value })
               }
@@ -75,19 +109,36 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
               <input
                 placeholder="Email"
                 className="bg-black/20 border border-white/10 p-3 rounded-xl focus:border-blue-500 outline-none text-sm"
+                type="email"
+                required
                 onChange={(e) =>
                   setAuthData({ ...authData, email: e.target.value })
                 }
               />
             )}
-            <input
-              type="password"
-              placeholder="Password"
-              className="bg-black/20 border border-white/10 p-3 rounded-xl focus:border-blue-500 outline-none text-sm"
-              onChange={(e) =>
-                setAuthData({ ...authData, password: e.target.value })
-              }
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                className="w-full bg-black/20 border border-white/10 p-3 pr-10 rounded-xl focus:border-blue-500 outline-none text-sm"
+                required
+                onChange={(e) =>
+                  setAuthData({ ...authData, password: e.target.value })
+                }
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute inset-y-0 right-2 flex items-center text-slate-400 hover:text-white"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
             <button className="bg-blue-600 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all mt-2 shadow-lg shadow-blue-900/20">
               {isSignup ? "Sign Up" : "Sign In"}
             </button>

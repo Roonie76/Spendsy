@@ -1,0 +1,27 @@
+.git
+.gitignore
+
+# Secrets and env
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python artifacts
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.coverage*
+**/venv/
+
+# Node artifacts
+**/node_modules/
+**/dist/
+
+# Local data/logs
+**/*.log
+apps/web/backend/db.sqlite3
+apps/web/backend/staticfiles/
+
+# Not needed in frontend image build context
+apps/web/backend/

@@ -1,0 +1,138 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: smartspend_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smartspend}
+      POSTGRES_USER: ${POSTGRES_USER:-smartuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smartuser} -d ${POSTGRES_DB:-smartspend}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: smartspend_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  auth-service:
+    build: ../../smartspend/services/auth-service
+    container_name: smartspend_auth
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-smartspend}
+      DB_USER: ${POSTGRES_USER:-smartuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      JWT_ALGORITHM: HS256
+      REDIS_URL: redis://redis:6379/0
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-120}
+      AUTH_RATE_LIMIT_LOGIN: ${AUTH_RATE_LIMIT_LOGIN:-200}
+      AUTH_RATE_LIMIT_REGISTER: ${AUTH_RATE_LIMIT_REGISTER:-50}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  finance-service:
+    build: ../../smartspend/services/finance-service
+    container_name: smartspend_finance
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-smartspend}
+      DB_USER: ${POSTGRES_USER:-smartuser}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      JWT_ALGORITHM: HS256
+      PARSER_SERVICE_URL: http://parser-service:8000
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      parser-service:
+        condition: service_healthy
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  parser-service:
+    build: ../../smartspend/services/parser-service
+    container_name: smartspend_parser
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_started
+    ports:
+      - "8003:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  ai-service:
+    build: ../../smartspend/services/ai-service
+    container_name: smartspend_ai
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      JWT_ALGORITHM: HS256
+      FINANCE_SERVICE_URL: http://finance-service:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
+    depends_on:
+      redis:
+        condition: service_started
+    ports:
+      - "8004:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    container_name: smartspend_gateway
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      finance-service:
+        condition: service_healthy
+      parser-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  postgres_data:

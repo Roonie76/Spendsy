@@ -1,22 +1,17 @@
 //Database needed
 // Section 6 Wealth Page
 import React, { useState } from "react";
-import {
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-} from "firebase/firestore";
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
 // import { db } from "../../../../../packages/shared/config/constants";
-import { formatIndianCompact } from "../../../../../packages/shared/utils/helpers";
+import { formatIndianCompact, buildAuthHeader } from "../../../../../packages/shared/utils/helpers";
 import UnitSelector from "../components/domain/UnitSelector";
 import WealthItem from "../components/domain/WealthItem";
 
 const WealthPage = ({
   wealthItems,
   user,
+  authToken,
+  apiBaseUrl,
   appId,
   showToast,
   triggerConfirm,
@@ -48,19 +43,19 @@ const WealthPage = ({
   // --- 3. Handlers ---
   const executeAddWealth = async (data) => {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/finance/get-wealth/${user.id}/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: data.title, // Correctly mapped
-            amount: parseFloat(data.amount) * parseFloat(data.unit),
-            type: data.type,
-            category: "General",
-          }),
+      const response = await fetch(`${apiBaseUrl}/wealth`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
         },
-      );
+        body: JSON.stringify({
+          title: data.title, // Correctly mapped
+          amount: parseFloat(data.amount) * parseFloat(data.unit),
+          type: data.type,
+          category: "General",
+        }),
+      });
 
       if (response.ok) {
         setWealthName("");
@@ -95,12 +90,12 @@ const WealthPage = ({
   const executeDeleteWealth = async (id) => {
     try {
       // Correct URL format matching your Django urls.py
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/finance/delete-wealth/${id}/`,
-        {
-          method: "DELETE",
+      const response = await fetch(`${apiBaseUrl}/wealth/${id}`, {
+        method: "DELETE",
+        headers: {
+          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
         },
-      );
+      });
 
       if (response.ok) {
         showToast("Item removed", "success");
@@ -119,17 +114,17 @@ const WealthPage = ({
   // ADD THIS NEW HANDLER HERE
   const executeUpdateWealth = async (id, updatedData) => {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/finance/update-wealth/${id}/`,
-        {
-          method: "PUT", // or "PATCH"
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: updatedData.title,
-            amount: updatedData.amount,
-          }),
+      const response = await fetch(`${apiBaseUrl}/wealth/${id}`, {
+        method: "PUT", // or "PATCH"
+        headers: {
+          "Content-Type": "application/json",
+          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
         },
-      );
+        body: JSON.stringify({
+          title: updatedData.title,
+          amount: updatedData.amount,
+        }),
+      });
 
       if (response.ok) {
         showToast("Item updated", "success");

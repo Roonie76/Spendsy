@@ -1,5 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { API_BASE_URL } from "../config/constants";
+const getGatewayUrl = () => {
+  if (typeof import.meta !== "undefined" && import.meta.env) {
+    return import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
+  }
+  if (typeof process !== "undefined" && process.env) {
+    return process.env.EXPO_PUBLIC_GATEWAY_URL || process.env.GATEWAY_URL || "http://localhost:8080";
+  }
+  return "http://localhost:8080";
+};
+
+const AUTH_BASE_URL = `${getGatewayUrl()}/auth`;
 
 const AuthContext = createContext();
 
@@ -15,16 +25,16 @@ export function AuthProvider({ children }) {
   // 1. Check if user is already logged in on mount
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");
       if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/auth/user/`, {
+        const response = await fetch(`${AUTH_BASE_URL}/me`, {
           headers: {
-            "Authorization": `Token ${token}`,
+            "Authorization": token.startsWith("Bearer ") ? token : `Bearer ${token}`,
           },
         });
 
@@ -32,7 +42,8 @@ export function AuthProvider({ children }) {
           const userData = await response.json();
           setUser(userData);
         } else {
-          localStorage.removeItem("token");
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
         }
       } catch (err) {
         console.error("Auth check failed", err);
@@ -44,11 +55,11 @@ export function AuthProvider({ children }) {
     checkAuthStatus();
   }, []);
 
-  // 2. Standard Django Login
+  // 2. Login
   const login = async (username, password) => {
     setError("");
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+      const response = await fetch(`${AUTH_BASE_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -57,11 +68,18 @@ export function AuthProvider({ children }) {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem("token", data.token); // Store DRF Token
-        setUser(data.user);
+        const userData = data.user || {};
+        const tokens = data.tokens || {};
+        if (tokens.access_token) {
+          localStorage.setItem("access_token", tokens.access_token);
+        }
+        if (tokens.refresh_token) {
+          localStorage.setItem("refresh_token", tokens.refresh_token);
+        }
+        setUser(userData);
         return true;
       } else {
-        setError(data.non_field_errors || "Login failed");
+        setError(data.detail || data.message || data.non_field_errors || "Login failed");
         return false;
       }
     } catch (err) {
@@ -72,14 +90,17 @@ export function AuthProvider({ children }) {
 
   // 3. Standard Django Logout
   const logout = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("access_token");
     try {
-      await fetch(`${API_BASE_URL}/auth/logout/`, {
-        method: "POST",
-        headers: { "Authorization": `Token ${token}` },
-      });
+      if (token) {
+        await fetch(`${AUTH_BASE_URL}/logout`, {
+          method: "POST",
+          headers: { "Authorization": token.startsWith("Bearer ") ? token : `Bearer ${token}` },
+        });
+      }
     } finally {
-      localStorage.removeItem("token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       setUser(null);
     }
   };

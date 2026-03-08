@@ -86,3 +86,16 @@ export const categorizeTransaction = (desc) => {
 
     return 'other';
 };
+
+// --- AUTH HEADER BUILDER ---
+// Supports DRF Token auth and JWT Bearer auth.
+export const buildAuthHeader = (token) => {
+  if (!token) return null;
+  const trimmed = String(token).trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('bearer ') || lower.startsWith('token ')) return trimmed;
+
+  const isJwt = trimmed.split('.').length === 3;
+  return `${isJwt ? 'Bearer' : 'Token'} ${trimmed}`;
+};

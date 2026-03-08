@@ -1,361 +1,816 @@
+from __future__ import annotations
 
-# --------------------------------
-from django.contrib.auth.models import User
+import logging
+import os
+import uuid
+from datetime import date
+from decimal import Decimal, InvalidOperation
+
+
 from django.contrib.auth import authenticate
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
+from django.contrib.auth.models import User
+from django.db import connection
+from django.db.models import DecimalField, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from rest_framework import status
-from django.db.models import Q
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from .models import Transaction, WealthItem, UserProfile, TaxProfile, ITRData
-from .serializers import TaxProfileSerializer
-from django.views.decorators.csrf import csrf_exempt # Add this import
-from django.http import JsonResponse
-import json
-from django.shortcuts import get_object_or_404
+from .api_contract import error_response, request_id_from_request, success_response
+from .error_codes import ErrorCode
+from .integrated_parser import IntegratedParser
+from .models import ApiAuditLog, ITRData, TaxProfile, Transaction, UserProfile, WealthItem
+from .security import client_ip, is_rate_limited
+from .serializers import (
+    ITRDataSerializer,
+    TaxProfileSerializer,
+    TransactionWriteSerializer,
+    UserProfileUpdateSerializer,
+    WealthItemWriteSerializer,
+)
 
-# --- AUTH ENDPOINTS ---
+logger = logging.getLogger(__name__)
 
-@api_view(['POST'])
+AUTH_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "300"))
+AUTH_RATE_LIMIT_LOGIN = int(os.getenv("AUTH_RATE_LIMIT_LOGIN", "10"))
+AUTH_RATE_LIMIT_REGISTER = int(os.getenv("AUTH_RATE_LIMIT_REGISTER", "5"))
+
+_integrated_parser = IntegratedParser()
+
+
+def _audit(
+    request,
+    *,
+    action: str,
+    resource_type: str,
+    status_code: int,
+    resource_id: str = "",
+    error_code: str = "",
+    details: dict | None = None,
+    user: User | None = None,
+) -> None:
+    try:
+        ApiAuditLog.objects.create(
+            user=user if user is not None else (request.user if getattr(request, "user", None) and request.user.is_authenticated else None),
+            request_id=request_id_from_request(request),
+            action=action,
+            resource_type=resource_type,
+            resource_id=str(resource_id or ""),
+            method=request.method,
+            path=request.path,
+            status_code=status_code,
+            error_code=error_code,
+            ip_address=client_ip(request),
+            details=details or {},
+        )
+    except Exception:
+        logger.exception("Failed to write audit log action=%s path=%s", action, request.path)
+
+
+
+
+def _safe_category(raw: str | None) -> str:
+    value = str(raw or "other").strip().lower()
+    return value or "other"
+
+
+def _safe_type(raw: str | None) -> str:
+    value = str(raw or "expense").strip().lower()
+    return value if value in {"income", "expense"} else "expense"
+
+
+def _safe_date(raw: str | None):
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(str(raw))
+    except Exception:
+        return None
+
+
+def _build_financial_summary(user: User) -> dict:
+    qs = Transaction.objects.filter(user=user)
+    decimal_out = DecimalField(max_digits=14, decimal_places=2)
+    agg = qs.aggregate(
+        income=Coalesce(
+            Sum("amount", filter=Q(type="income"), output_field=decimal_out),
+            Value(0, output_field=decimal_out),
+        ),
+        expense=Coalesce(
+            Sum("amount", filter=Q(type="expense"), output_field=decimal_out),
+            Value(0, output_field=decimal_out),
+        ),
+    )
+
+    income = float(agg.get("income") or 0)
+    expense = float(agg.get("expense") or 0)
+
+    return {
+        "income": round(income, 2),
+        "expense": round(expense, 2),
+        "balance": round(income - expense, 2),
+        "transaction_count": qs.count(),
+    }
+
+
+def _persist_parsed_transactions(user: User, parsed_transactions: list[dict]) -> int:
+    saved = 0
+    for item in parsed_transactions:
+        raw_amount = item.get("amount")
+        try:
+            amount = Decimal(str(raw_amount))
+        except (InvalidOperation, TypeError):
+            continue
+
+        if amount <= 0:
+            continue
+
+        title = (item.get("description") or "Parsed Transaction").strip()[:255] or "Parsed Transaction"
+        tx_type = _safe_type(item.get("type"))
+        tx_category = _safe_category(item.get("category"))
+        parsed_date = _safe_date(item.get("date"))
+
+        duplicate_qs = Transaction.objects.filter(
+            user=user,
+            title__iexact=title,
+            amount=amount,
+            type=tx_type,
+            category=tx_category,
+            is_recurring=False,
+        )
+        if parsed_date is not None:
+            duplicate_qs = duplicate_qs.filter(date=parsed_date)
+        if duplicate_qs.exists():
+            continue
+
+        tx = Transaction(
+            user=user,
+            title=title,
+            amount=amount,
+            type=tx_type,
+            category=tx_category,
+            is_recurring=False,
+        )
+        if parsed_date is not None:
+            tx.date = parsed_date
+        tx.save()
+        saved += 1
+    return saved
+
+def _forbidden_for_mismatched_path_user(request, user_id: int):
+    # Backward-compatible route shape. Authorization scope is always request.user.
+    if int(user_id) != request.user.id:
+        _audit(
+            request,
+            action="path_user_ignored",
+            resource_type="user",
+            resource_id=str(user_id),
+            status_code=status.HTTP_200_OK,
+            details={"scoped_user_id": request.user.id},
+        )
+    return None
+
+
+@api_view(["POST"])
 @permission_classes([AllowAny])
 def register_user(request):
-    username = request.data.get('username')
-    password = request.data.get('password')
-    email = request.data.get('email')
+    ip = client_ip(request)
+    if is_rate_limited("register", ip, AUTH_RATE_LIMIT_REGISTER, AUTH_RATE_LIMIT_WINDOW_SECONDS):
+        _audit(
+            request,
+            action="register_rate_limited",
+            resource_type="auth",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            error_code=ErrorCode.RATE_LIMITED,
+        )
+        return error_response(
+            request,
+            "Too many registration attempts. Please try again later.",
+            code=ErrorCode.RATE_LIMITED,
+            http_status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    username = (request.data.get("username") or "").strip()
+    password = request.data.get("password")
+    email = (request.data.get("email") or "").strip()
+
+    if not username or not password:
+        return error_response(request, "Username and password are required", code=ErrorCode.BAD_REQUEST)
 
     if User.objects.filter(username=username).exists():
-        return Response({"error": "Username already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        return error_response(request, "Username already exists", code=ErrorCode.USERNAME_CONFLICT)
 
-    user = User.objects.create_user(username=username, password=password, email=email)
-    # Ensure a profile is created upon registration if signals aren't used
-    UserProfile.objects.get_or_create(user=user)
-    return Response({"message": "User created successfully!", "id": user.id}, status=status.HTTP_201_CREATED)
+    try:
+        user = User.objects.create_user(username=username, password=password, email=email)
+        UserProfile.objects.get_or_create(user=user)
+        token, _ = Token.objects.get_or_create(user=user)
+    except Exception:
+        logger.exception("Registration failed for username=%s", username)
+        _audit(
+            request,
+            action="register_failed",
+            resource_type="auth",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.REGISTRATION_FAILED,
+            details={"username": username},
+        )
+        return error_response(
+            request,
+            "Registration failed. Please try a different username/password.",
+            code=ErrorCode.REGISTRATION_FAILED,
+        )
 
-@api_view(['POST'])
+    _audit(
+        request,
+        action="register_success",
+        resource_type="auth",
+        resource_id=str(user.id),
+        status_code=status.HTTP_201_CREATED,
+        user=user,
+    )
+    return success_response(
+        request,
+        {"id": user.id, "username": user.username, "token": token.key},
+        message="User created successfully",
+        http_status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["POST"])
 @permission_classes([AllowAny])
 def login_user(request):
-    username = request.data.get('username')
-    password = request.data.get('password')
-    user = authenticate(username=username, password=password)
-
-    if user is not None:
-        return Response({
-            "message": "Login successful", 
-            "user_id": user.id, 
-            "username": user.username,
-            "email": user.email 
-        }, status=status.HTTP_200_OK)
-    return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
-
-# --- PROFILE & SETTINGS ---
-
-@api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
-def profile_settings(request, user_id):
-    try:
-        user = User.objects.get(id=user_id)
-        profile, created = UserProfile.objects.get_or_create(user=user)
-
-        if request.method == 'POST':
-            profile.monthlyIncome = request.data.get('monthlyIncome', profile.monthlyIncome)
-            profile.monthlyBudget = request.data.get('monthlyBudget', profile.monthlyBudget)
-            profile.dailyBudget = request.data.get('dailyBudget', profile.dailyBudget)
-            profile.is_business = request.data.get('is_business', profile.is_business)
-            profile.save()
-            
-            # If email is sent in settings, update the User model too
-            if 'email' in request.data:
-                user.email = request.data.get('email')
-                user.save()
-
-        return Response({
-            "username": user.username,
-            "email": user.email, # FIXED: Added email to profile response
-            "monthlyIncome": float(profile.monthlyIncome),
-            "monthlyBudget": float(profile.monthlyBudget),
-            "dailyBudget": float(profile.dailyBudget),
-            "is_business": profile.is_business
-        })
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
-
-# --- TRANSACTION ENDPOINTS ---
-
-@csrf_exempt
-@api_view(['POST'])
-@permission_classes([AllowAny]) 
-def add_transaction(request):
-    try:
-        data = request.data
-        user_id = data.get('user_id')
-        user = get_object_or_404(User, id=user_id) # This is where the 404 is coming from
-        print("DEBUG: Received data:", request.data)  # <--- Add this
-        # 1. Validation: Check if User ID exists
-        if not user_id:
-            return Response({"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        # 2. Data Cleaning: Ensure amount is a valid float
-        # This prevents crashes if OCR sends symbols or commas
-        raw_amount = data.get('amount', 0)
-        try:
-            # Strip commas and convert to float
-            clean_amount = float(str(raw_amount).replace(',', ''))
-        except (ValueError, TypeError):
-            return Response({"error": "Invalid amount format"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # 3. Creation
-        Transaction.objects.create(
-            user=user,
-            title=data.get('title') or data.get('description') or 'Untitled Transaction',
-            amount=clean_amount,
-            type=data.get('type', 'expense').lower(), # Ensure lowercase for DB consistency
-            category=data.get('category', 'other').lower(),
-            is_recurring=data.get('is_recurring', False) 
+    ip = client_ip(request)
+    if is_rate_limited("login", ip, AUTH_RATE_LIMIT_LOGIN, AUTH_RATE_LIMIT_WINDOW_SECONDS):
+        _audit(
+            request,
+            action="login_rate_limited",
+            resource_type="auth",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            error_code=ErrorCode.RATE_LIMITED,
         )
-        
-        return Response({
-            "status": "success",
-            "message": "Transaction saved successfully"
-        }, status=status.HTTP_201_CREATED)
+        return error_response(
+            request,
+            "Too many login attempts. Please try again later.",
+            code=ErrorCode.RATE_LIMITED,
+            http_status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
 
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Error in add_transaction: {str(e)}")
-        return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-@api_view(['GET'])
-@permission_classes([AllowAny])
+    identifier = (request.data.get("username") or "").strip()
+    password = request.data.get("password")
+
+    if not identifier or not password:
+        return error_response(
+            request,
+            "Username/email and password are required",
+            code=ErrorCode.BAD_REQUEST,
+        )
+
+    user = authenticate(username=identifier, password=password)
+    if user is None:
+        try:
+            candidate = User.objects.get(email__iexact=identifier)
+            user = authenticate(username=candidate.username, password=password)
+        except User.DoesNotExist:
+            user = None
+
+    if user is None:
+        _audit(
+            request,
+            action="login_failed",
+            resource_type="auth",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code=ErrorCode.AUTH_FAILED,
+            details={"identifier": identifier},
+        )
+        return error_response(
+            request,
+            "Invalid username or password",
+            code=ErrorCode.AUTH_FAILED,
+            http_status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    token = Token.objects.get_or_create(user=user)[0]
+    _audit(
+        request,
+        action="login_success",
+        resource_type="auth",
+        resource_id=str(user.id),
+        status_code=status.HTTP_200_OK,
+        user=user,
+    )
+    return success_response(
+        request,
+        {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "token": token.key,
+        },
+        message="Login successful",
+    )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def profile_settings(request, user_id):
+    mismatch = _forbidden_for_mismatched_path_user(request, user_id)
+    if mismatch:
+        return mismatch
+
+    user = request.user
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    if request.method == "POST":
+        serializer = UserProfileUpdateSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return error_response(
+                request,
+                "Invalid profile payload",
+                code=ErrorCode.INVALID_PROFILE_DATA,
+                details=serializer.errors,
+            )
+
+        validated = serializer.validated_data
+        for field in ("monthlyIncome", "monthlyBudget", "dailyBudget", "is_business"):
+            if field in validated:
+                setattr(profile, field, validated[field])
+        if "email" in validated:
+            user.email = (validated["email"] or "").strip()
+            user.save(update_fields=["email"])
+        profile.save()
+        _audit(
+            request,
+            action="profile_updated",
+            resource_type="profile",
+            resource_id=str(user.id),
+            status_code=status.HTTP_200_OK,
+        )
+
+    payload = {
+        "username": user.username,
+        "email": user.email,
+        "monthlyIncome": float(profile.monthlyIncome),
+        "monthlyBudget": float(profile.monthlyBudget),
+        "dailyBudget": float(profile.dailyBudget),
+        "is_business": profile.is_business,
+    }
+    return success_response(request, payload)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_transaction(request):
+    provided_user_id = request.data.get("user_id")
+    if provided_user_id is not None and str(provided_user_id) != str(request.user.id):
+        _audit(
+            request,
+            action="payload_user_ignored",
+            resource_type="transaction",
+            status_code=status.HTTP_201_CREATED,
+            details={"payload_user_id": str(provided_user_id), "scoped_user_id": request.user.id},
+        )
+
+    write_serializer = TransactionWriteSerializer(data=request.data, partial=True)
+    if not write_serializer.is_valid():
+        details = write_serializer.errors
+        if "type" in details:
+            return error_response(request, "Transaction type must be 'income' or 'expense'", code=ErrorCode.INVALID_TRANSACTION_TYPE)
+        if "amount" in details:
+            return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Invalid transaction payload", code=ErrorCode.VALIDATION_ERROR, details=details)
+
+    validated = write_serializer.validated_data
+    if "amount" not in validated:
+        return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+    if "type" not in validated:
+        return error_response(
+            request,
+            "Transaction type must be 'income' or 'expense'",
+            code=ErrorCode.INVALID_TRANSACTION_TYPE,
+        )
+
+    create_kwargs = {
+        "user": request.user,
+        "title": validated.get("title", "Untitled Transaction"),
+        "amount": validated["amount"],
+        "type": validated["type"],
+        "category": validated.get("category", "other"),
+        "is_recurring": validated.get("is_recurring", False),
+    }
+    if "date" in validated:
+        create_kwargs["date"] = validated["date"]
+
+    transaction = Transaction.objects.create(**create_kwargs)
+    _audit(
+        request,
+        action="transaction_created",
+        resource_type="transaction",
+        resource_id=str(transaction.id),
+        status_code=status.HTTP_201_CREATED,
+        details={"amount": str(transaction.amount), "type": transaction.type},
+    )
+
+    return success_response(
+        request,
+        {"id": transaction.id},
+        message="Transaction saved successfully",
+        http_status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_transaction_history(request, user_id):
-    queryset = Transaction.objects.filter(user_id=user_id)
+    mismatch = _forbidden_for_mismatched_path_user(request, user_id)
+    if mismatch:
+        return mismatch
 
-    # Search, Date, Amount filters...
-    search = request.query_params.get('search')
+    queryset = Transaction.objects.filter(user=request.user)
+    search = request.query_params.get("search")
     if search:
         queryset = queryset.filter(Q(title__icontains=search) | Q(amount__icontains=search))
 
-    # Formatting for React
-    data = [{
-        "id": t.id,
-        "title": t.title,
-        "amount": float(t.amount),
-        "type": t.type,
-        "category": t.category,
-        "date": t.date.isoformat(),
-        "is_recurring": t.is_recurring
-    } for t in queryset.order_by('-date')]
+    data = [
+        {
+            "id": t.id,
+            "title": t.title,
+            "amount": float(t.amount),
+            "type": t.type,
+            "category": t.category,
+            "date": t.date.isoformat(),
+            "is_recurring": t.is_recurring,
+        }
+        for t in queryset.order_by("-date", "-id")
+    ]
+    return success_response(request, data)
 
-    return Response(data)
 
-@api_view(['DELETE'])
-@permission_classes([AllowAny])
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
 def delete_transaction(request, pk):
     try:
-        Transaction.objects.get(pk=pk).delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        transaction = Transaction.objects.get(pk=pk, user=request.user)
     except Transaction.DoesNotExist:
-        return Response({"error": "Not found"}, status=404)
+        return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=status.HTTP_404_NOT_FOUND)
+
+    transaction.delete()
+    _audit(
+        request,
+        action="transaction_deleted",
+        resource_type="transaction",
+        resource_id=str(pk),
+        status_code=status.HTTP_200_OK,
+    )
+    return success_response(request, {"id": pk, "deleted": True}, message="Transaction deleted")
 
 
-@api_view(['PUT', 'PATCH'])
-@permission_classes([AllowAny]) # Keep this consistent with your history view for now
+@api_view(["PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
 def update_transaction(request, pk):
     try:
-        transaction = Transaction.objects.get(pk=pk)
-        
-        # 1. Map 'description' from the React Modal to 'title' in Django
-        if 'description' in request.data:
-            transaction.title = request.data.get('description')
-        elif 'title' in request.data:
-            transaction.title = request.data.get('title')
-
-        # 2. Update Numerical and Choice fields
-        if 'amount' in request.data:
-            transaction.amount = request.data.get('amount')
-            
-        if 'type' in request.data:
-            # Ensure 'Income'/'Expense' becomes 'income'/'expense'
-            transaction.type = request.data.get('type').lower()
-            
-        if 'category' in request.data:
-            transaction.category = request.data.get('category').lower()
-            
-        if 'date' in request.data:
-            transaction.date = request.data.get('date')
-
-        # 3. Save and Return updated data
-        transaction.save()
-        
-        return Response({
-            "message": "Updated successfully",
-            "id": transaction.id,
-            "title": transaction.title
-        }, status=200)
-
+        transaction = Transaction.objects.get(pk=pk, user=request.user)
     except Transaction.DoesNotExist:
-        return Response({"error": "Transaction not found"}, status=404)
-    except Exception as e:
-        return Response({"error": str(e)}, status=400)
-    
-# --- WEALTH ENDPOINTS ---
+        return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=status.HTTP_404_NOT_FOUND)
 
-@csrf_exempt
-@api_view(['GET', 'POST'])
-@permission_classes([AllowAny]) # Ensures the frontend can access without JWT tokens for now
+    serializer = TransactionWriteSerializer(transaction, data=request.data, partial=True)
+    if not serializer.is_valid():
+        details = serializer.errors
+        if "type" in details:
+            return error_response(request, "Transaction type must be 'income' or 'expense'", code=ErrorCode.INVALID_TRANSACTION_TYPE)
+        if "amount" in details:
+            return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Invalid transaction payload", code=ErrorCode.VALIDATION_ERROR, details=details)
+
+    serializer.save()
+    _audit(
+        request,
+        action="transaction_updated",
+        resource_type="transaction",
+        resource_id=str(pk),
+        status_code=status.HTTP_200_OK,
+    )
+    return success_response(request, {"id": transaction.id, "title": transaction.title}, message="Updated successfully")
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def wealth_list_create(request, user_id):
-    # --- 1. GET: Fetch all assets and liabilities ---
-    if request.method == 'GET':
-        try:
-            items = WealthItem.objects.filter(user_id=user_id).order_by('-created_at')
-            data = [{
+    mismatch = _forbidden_for_mismatched_path_user(request, user_id)
+    if mismatch:
+        return mismatch
+
+    if request.method == "GET":
+        items = WealthItem.objects.filter(user=request.user).order_by("-created_at")
+        payload = [
+            {
                 "id": item.id,
                 "title": item.title,
-                "amount": float(item.amount), # Ensure it's a number for Recharts
+                "amount": float(item.amount),
                 "type": item.type,
-                "category": item.category
-            } for item in items]
-            return Response(data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                "category": item.category,
+            }
+            for item in items
+        ]
+        return success_response(request, payload)
 
-    # --- 2. POST: Add a new item ---
-    elif request.method == 'POST':
-        data = request.data
-        try:
-            # Validate user exists first to prevent ForeignKey errors
-            if not User.objects.filter(id=user_id).exists():
-                return Response({"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+    serializer = WealthItemWriteSerializer(data=request.data, partial=True)
+    if not serializer.is_valid():
+        details = serializer.errors
+        if "type" in details:
+            return error_response(request, "Wealth type must be 'asset' or 'liability'", code=ErrorCode.INVALID_WEALTH_TYPE)
+        if "amount" in details:
+            return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Invalid wealth payload", code=ErrorCode.VALIDATION_ERROR, details=details)
 
-            # Create the item with explicit type casting
-            item = WealthItem.objects.create(
-                user_id=user_id,
-                title=data.get('title', 'Untitled'),
-                amount=float(data.get('amount', 0)), # Cast to float to handle strings from JSON
-                type=data.get('type', 'asset').lower(), # Ensure lowercase (asset/liability)
-                category=data.get('category', 'General')
-            )
-            
-            return Response({
-                "message": "Item added successfully", 
-                "id": item.id,
-                "item": {
-                    "title": item.title,
-                    "amount": float(item.amount)
-                }
-            }, status=status.HTTP_201_CREATED)
+    validated = serializer.validated_data
+    if "amount" not in validated:
+        return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
 
-        except (TypeError, ValueError):
-            return Response({"error": "Invalid amount format"}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-@csrf_exempt # Add this decorator
-@api_view(['DELETE'])
+    item = WealthItem.objects.create(
+        user=request.user,
+        title=validated.get("title", "Untitled"),
+        amount=validated["amount"],
+        type=validated.get("type", "asset"),
+        category=validated.get("category", "General"),
+    )
+    _audit(
+        request,
+        action="wealth_created",
+        resource_type="wealth",
+        resource_id=str(item.id),
+        status_code=status.HTTP_201_CREATED,
+    )
+    return success_response(
+        request,
+        {
+            "id": item.id,
+            "title": item.title,
+            "amount": float(item.amount),
+            "type": item.type,
+            "category": item.category,
+        },
+        message="Item added successfully",
+        http_status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
 def delete_wealth_item(request, item_id):
     try:
-        item = WealthItem.objects.get(id=item_id)
-        item.delete()
-        return Response({"status": "deleted"}, status=status.HTTP_200_OK)
+        item = WealthItem.objects.get(id=item_id, user=request.user)
     except WealthItem.DoesNotExist:
-        return Response({"error": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
+        return error_response(request, "Item not found", code=ErrorCode.NOT_FOUND, http_status=status.HTTP_404_NOT_FOUND)
 
-@csrf_exempt
-@api_view(['PUT', 'PATCH'])
-@permission_classes([AllowAny])
+    item.delete()
+    _audit(
+        request,
+        action="wealth_deleted",
+        resource_type="wealth",
+        resource_id=str(item_id),
+        status_code=status.HTTP_200_OK,
+    )
+    return success_response(request, {"id": item_id, "deleted": True}, message="Item deleted")
+
+
+@api_view(["PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
 def update_wealth_item(request, item_id):
-    """
-    Handles the tick button save action.
-    Expects JSON: { "title": "car", "amount": 1500000 }
-    """
     try:
-        item = WealthItem.objects.get(id=item_id)
-        data = request.data
-
-        # Support both 'title' and 'name' keys to be safe
-        item.title = data.get('title', data.get('name', item.title))
-        
-        # Ensure amount is treated as a number
-        if 'amount' in data:
-            item.amount = float(data.get('amount'))
-            
-        item.save()
-        
-        return Response({
-            "status": "success",
-            "message": "Item updated",
-            "item": {
-                "id": item.id,
-                "title": item.title,
-                "amount": float(item.amount)
-            }
-        }, status=status.HTTP_200_OK)
+        item = WealthItem.objects.get(id=item_id, user=request.user)
     except WealthItem.DoesNotExist:
-        return Response({"error": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
-@csrf_exempt
-@api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+        return error_response(request, "Item not found", code=ErrorCode.NOT_FOUND, http_status=status.HTTP_404_NOT_FOUND)
+
+    serializer = WealthItemWriteSerializer(item, data=request.data, partial=True)
+    if not serializer.is_valid():
+        details = serializer.errors
+        if "type" in details:
+            return error_response(request, "Wealth type must be 'asset' or 'liability'", code=ErrorCode.INVALID_WEALTH_TYPE)
+        if "amount" in details:
+            return error_response(request, "Invalid amount format", code=ErrorCode.INVALID_AMOUNT)
+        return error_response(request, "Invalid wealth payload", code=ErrorCode.VALIDATION_ERROR, details=details)
+
+    serializer.save()
+    _audit(
+        request,
+        action="wealth_updated",
+        resource_type="wealth",
+        resource_id=str(item_id),
+        status_code=status.HTTP_200_OK,
+    )
+    return success_response(
+        request,
+        {
+            "id": item.id,
+            "title": item.title,
+            "amount": float(item.amount),
+            "type": item.type,
+            "category": item.category,
+        },
+        message="Item updated",
+    )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def manage_tax_profile(request, user_id):
-    try:
-        # Check if the user exists first
-        user = User.objects.get(id=user_id)
-        
-        # This is the key: if profile doesn't exist, it creates it 
-        # instead of returning a 404.
-        profile, created = TaxProfile.objects.get_or_create(user=user)
+    mismatch = _forbidden_for_mismatched_path_user(request, user_id)
+    if mismatch:
+        return mismatch
 
-        if request.method == 'POST':
-            # partial=True allows updating just a few fields if needed
-            serializer = TaxProfileSerializer(profile, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-            else:
-                print(serializer.errors) # This will tell you EXACTLY which field is wrong
-                return Response(serializer.errors, status=400)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    profile, _ = TaxProfile.objects.get_or_create(user=request.user)
 
-        # GET request logic
-        serializer = TaxProfileSerializer(profile)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    if request.method == "POST":
+        serializer = TaxProfileSerializer(profile, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return error_response(request, "Invalid tax profile payload", code=ErrorCode.INVALID_TAX_PROFILE, details=serializer.errors)
 
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-@csrf_exempt
-@api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+        serializer.save()
+        _audit(
+            request,
+            action="tax_profile_updated",
+            resource_type="tax_profile",
+            resource_id=str(request.user.id),
+            status_code=status.HTTP_200_OK,
+        )
+        return success_response(request, serializer.data, message="Tax profile updated")
+
+    serializer = TaxProfileSerializer(profile)
+    return success_response(request, serializer.data)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def itr_data_handler(request, user_id):
-    obj, created = ITRData.objects.get_or_create(user_id=user_id)
+    mismatch = _forbidden_for_mismatched_path_user(request, user_id)
+    if mismatch:
+        return mismatch
 
-    if request.method == 'POST':
-        # Update JSON fields directly from React state
-        for field in ['income_data', 'deductions_data', 'filing_details']:
-            if field in request.data:
-                setattr(obj, field, request.data.get(field))
-        
-        obj.tax_regime = request.data.get('tax_regime', obj.tax_regime)
-        obj.save()
-        return Response({"status": "success"})
+    obj, _ = ITRData.objects.get_or_create(user=request.user)
 
-    return Response({
-        "income_data": obj.income_data,
-        "deductions_data": obj.deductions_data,
-        "filing_details": obj.filing_details,
-        "tax_regime": obj.tax_regime
-    })
-# Health Check Endpoint
+    if request.method == "POST":
+        serializer = ITRDataSerializer(obj, data=request.data, partial=True)
+        if not serializer.is_valid():
+            details = serializer.errors
+            if "tax_regime" in details:
+                return error_response(request, "tax_regime must be 'new' or 'old'", code=ErrorCode.INVALID_TAX_REGIME)
+            return error_response(request, "Invalid ITR payload", code=ErrorCode.INVALID_ITR_PAYLOAD, details=details)
+        serializer.save()
+        _audit(
+            request,
+            action="itr_updated",
+            resource_type="itr",
+            resource_id=str(request.user.id),
+            status_code=status.HTTP_200_OK,
+        )
+        return success_response(request, {"saved": True}, message="ITR data updated")
 
-@api_view(['GET'])
+    return success_response(
+        request,
+        {
+            "income_data": obj.income_data,
+            "deductions_data": obj.deductions_data,
+            "filing_details": obj.filing_details,
+            "tax_regime": obj.tax_regime,
+        },
+    )
+
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@throttle_classes([])
+def financial_summary(request):
+    summary = _build_financial_summary(request.user)
+    return success_response(request, summary, message="Financial summary")
+
+
+@api_view(["GET"])
 @permission_classes([AllowAny])
 def health_check(request):
-    return Response({"message": "Finance app is working :)"})
+    return success_response(request, {"service": "finance", "status": "ok"}, message="Finance service healthy")
 
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def readiness_check(request):
+    parser_reachable = True
+    db_ok = False
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            _ = cursor.fetchone()
+        db_ok = True
+    except Exception:
+        logger.exception("DB readiness check failed")
+
+    overall_ok = db_ok
+    http_status = status.HTTP_200_OK if overall_ok else status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return success_response(
+        request,
+        {
+            "service": "finance",
+            "db_ok": db_ok,
+            "parser_reachable": parser_reachable,
+        },
+        message="Ready" if overall_ok else "Not ready",
+        http_status=http_status,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def parse_statement_proxy(request):
+    upload = request.FILES.get("file")
+    if upload is None:
+        return error_response(request, "Missing PDF file upload", code=ErrorCode.MISSING_FILE)
+
+    content = upload.read()
+    request_id = request_id_from_request(request)
+    preview_mode = str(request.data.get("preview_mode", "false")).strip().lower() in {"1", "true", "yes"}
+
+    try:
+        logger.info(
+            "parser_stage=request_received request_id=%s filename=%s content_type=%s bytes=%d preview_mode=%s",
+            request_id,
+            upload.name,
+            upload.content_type,
+            len(content),
+            preview_mode,
+        )
+        parsed = _integrated_parser.parse(content)
+    except Exception:
+        logger.exception("parser_stage=failed request_id=%s", request_id)
+        _audit(
+            request,
+            action="parser_failed",
+            resource_type="statement_parser",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            error_code=ErrorCode.PARSER_UNAVAILABLE,
+        )
+        return error_response(
+            request,
+            "Statement parser failed. Please try again shortly.",
+            code=ErrorCode.PARSER_UNAVAILABLE,
+            http_status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    transactions: list[dict] = []
+    for tx in parsed.transactions:
+        tx_uuid = uuid.uuid5(
+            uuid.NAMESPACE_DNS,
+            f"{tx.date.isoformat()}|{tx.description.lower()}|{tx.amount:.2f}|{tx.type}",
+        )
+        transactions.append(
+            {
+                "id": tx_uuid.hex,
+                "date": tx.date.isoformat(),
+                "description": tx.description,
+                "amount": float(tx.amount),
+                "type": tx.type,
+                "category": "other",
+                "confidence": 95 if parsed.meta.get("method") == "digital" else 80,
+                "bank": "Detected",
+                "balance": tx.balance,
+                "is_valid": tx.is_valid,
+            }
+        )
+
+    parsed_payload = {
+        "status": parsed.status,
+        "request_id": request_id,
+        "reconciliation_score": float(parsed.reconciliation_score),
+        "transactions": transactions,
+        "meta": {
+            "count": len(transactions),
+            "method": parsed.meta.get("method", "digital"),
+            "checksum_verified": bool(parsed.meta.get("checksum_verified", True)),
+            "warnings": [],
+            "errors": [],
+        },
+    }
+
+    persisted_count = 0 if preview_mode else _persist_parsed_transactions(request.user, transactions)
+    summary = _build_financial_summary(request.user)
+
+    parsed_payload["saved_count"] = persisted_count
+    parsed_payload["financial_summary"] = summary
+
+    _audit(
+        request,
+        action="statement_parsed",
+        resource_type="statement_parser",
+        status_code=status.HTTP_200_OK,
+        details={
+            "parsed_transactions": len(transactions),
+            "persisted_transactions": persisted_count,
+            "source": parsed_payload["meta"]["method"],
+            "reconciliation_score": parsed_payload["reconciliation_score"],
+            "preview_mode": preview_mode,
+        },
+    )
+    return success_response(request, parsed_payload, message="Statement parsed", http_status=status.HTTP_200_OK)

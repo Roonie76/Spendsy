@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from ..core.security import UserContext, get_current_user
+from ..schemas import AIRequest, AIResponse, HealthResponse
+from ..services.gemini_client import GeminiError, build_prompt, generate_text
+
+router = APIRouter(tags=["ai"])
+
+
+@router.get("/health", response_model=HealthResponse)
+def health():
+    return HealthResponse(status="ok", service="ai-service")
+
+
+def _run_gemini(payload: AIRequest) -> AIResponse:
+    prompt = build_prompt(payload.prompt, payload.context)
+    try:
+        raw = generate_text(prompt, response_format=payload.response_format)
+    except GeminiError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    output: str | dict | list = raw
+    if payload.response_format == "json":
+        try:
+            output = json.loads(raw)
+        except json.JSONDecodeError:
+            output = []
+    return AIResponse(status="ok", output=output, raw=raw)
+
+
+@router.post("/insights", response_model=AIResponse)
+def insights(payload: AIRequest, _: UserContext = Depends(get_current_user)):
+    return _run_gemini(payload)
+
+
+@router.post("/health-score", response_model=AIResponse)
+def health_score(payload: AIRequest, _: UserContext = Depends(get_current_user)):
+    return _run_gemini(payload)
+
+
+@router.post("/forecast", response_model=AIResponse)
+def forecast(payload: AIRequest, _: UserContext = Depends(get_current_user)):
+    return _run_gemini(payload)

@@ -18,13 +18,16 @@ export function DataProvider({ children }) {
   });
   const [loading, setLoading] = useState(false);
 
-  // --- HELPER: GET AUTH HEADERS (Django Token Version) ---
+  // --- HELPER: GET AUTH HEADERS (JWT Bearer) ---
   const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem("token"); // Get Django Token
+    const token =
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("auth_token") ||
+      localStorage.getItem("token");
     if (!token) return null;
     return {
       headers: { 
-        'Authorization': `Token ${token}`, // Use Django 'Token' or 'Bearer'
+        'Authorization': token.startsWith("Bearer ") ? token : `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     };
@@ -39,20 +42,29 @@ export function DataProvider({ children }) {
       if (!config) return;
 
       // Fetch Transactions
-      const transRes = await axios.get(`${API_BASE_URL}/finance/transactions/`, config);
-      setTransactions(transRes.data);
+      const transRes = await axios.get(`${API_BASE_URL}/transactions`, config);
+      const transactionsPayload = transRes.data?.data || transRes.data || [];
+      setTransactions(transactionsPayload);
+
+      const wealthRes = await axios.get(`${API_BASE_URL}/wealth`, config);
+      const wealthPayload = wealthRes.data?.data || wealthRes.data || [];
+      setWealthItems(Array.isArray(wealthPayload) ? wealthPayload : []);
 
       // Fetch Profile/Settings
-      const profileRes = await axios.get(`${API_BASE_URL}/finance/profile/`, config);
-      if (profileRes.data) {
+      const profileRes = await axios.get(`${API_BASE_URL}/profile/${user.id}`, config);
+      const profilePayload = profileRes.data?.data || profileRes.data;
+      if (profilePayload) {
         setSettings({
-          monthlyIncome: profileRes.data.monthly_income || '',
-          monthlyBudget: profileRes.data.monthly_budget || '',
-          dailyBudget: profileRes.data.daily_budget || '',
-          isBusiness: profileRes.data.is_business || false
+          monthlyIncome: profilePayload.monthlyIncome || '',
+          monthlyBudget: profilePayload.monthlyBudget || '',
+          dailyBudget: profilePayload.dailyBudget || '',
+          isBusiness: profilePayload.is_business || false
         });
-        if (profileRes.data.tax_profile) setTaxProfile(profileRes.data.tax_profile);
       }
+
+      const taxRes = await axios.get(`${API_BASE_URL}/tax-profile/${user.id}`, config);
+      const taxPayload = taxRes.data?.data || taxRes.data;
+      if (taxPayload) setTaxProfile(taxPayload);
     } catch (e) {
       console.error("Django Fetch Error:", e);
     } finally {
@@ -72,7 +84,7 @@ export function DataProvider({ children }) {
 
     setTransactions(prev => prev.filter(t => t.id !== id));
     try {
-      await axios.delete(`${API_BASE_URL}/finance/transactions/${id}/`, config);
+      await axios.delete(`${API_BASE_URL}/transactions/${id}`, config);
     } catch (e) {
       console.error("Delete failed", e);
       refreshData(); 
@@ -85,7 +97,7 @@ export function DataProvider({ children }) {
 
     try {
       const { id, ...data } = updatedTx;
-      await axios.patch(`${API_BASE_URL}/finance/transactions/${id}/`, data, config);
+      await axios.patch(`${API_BASE_URL}/transactions/${id}`, data, config);
       refreshData();
     } catch (e) {
       console.error("Update failed", e);
@@ -93,6 +105,7 @@ export function DataProvider({ children }) {
   };
 
   const updateSettings = async (newSettings) => {
+    if (!user) return;
     const config = getAuthHeaders();
     if (!config) return;
 
@@ -104,14 +117,14 @@ export function DataProvider({ children }) {
         is_business: newSettings.isBusiness || false,
       };
 
-      const res = await axios.patch(`${API_BASE_URL}/finance/profile/`, djangoPayload, config);
-      
-      if (res.data) {
+      const res = await axios.post(`${API_BASE_URL}/profile/${user.id}`, djangoPayload, config);
+      const payload = res.data?.data || res.data;
+      if (payload) {
         setSettings({
-          monthlyIncome: res.data.monthly_income,
-          monthlyBudget: res.data.monthly_budget,
-          dailyBudget: res.data.daily_budget,
-          isBusiness: res.data.is_business
+          monthlyIncome: payload.monthlyIncome,
+          monthlyBudget: payload.monthlyBudget,
+          dailyBudget: payload.dailyBudget,
+          isBusiness: payload.is_business
         });
       }
     } catch (e) {
@@ -121,11 +134,12 @@ export function DataProvider({ children }) {
   };
 
   const updateTaxProfile = async (newProfile) => {
+    if (!user) return;
     const config = getAuthHeaders();
     if (!config) return;
 
     try {
-      await axios.patch(`${API_BASE_URL}/finance/profile/`, { tax_profile: newProfile }, config);
+      await axios.post(`${API_BASE_URL}/tax-profile/${user.id}`, newProfile, config);
       setTaxProfile(newProfile);
     } catch (e) {
       console.error("Tax profile update failed", e);

@@ -2,15 +2,22 @@ import * as LucideIcons from "lucide-react";
 
 /**
  * --- HELPER TO DETECT ENVIRONMENT ---
- * Optimized for Vite & Django API integration.
+ * Optimized for Vite & gateway-based microservices.
  * Fetches variables from .env (VITE_ prefix required).
  */
+const viteEnv =
+  typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
+
 const getEnv = (key) => {
   // Vite static replacement (must be written out)
   const viteEnvs = {
-    APP_VERSION: import.meta.env.VITE_APP_VERSION,
-    GEMINI_API_KEY: import.meta.env.VITE_GEMINI_API_KEY,
-    API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+    APP_VERSION: viteEnv.VITE_APP_VERSION,
+    API_BASE_URL: viteEnv.VITE_API_BASE_URL,
+    GATEWAY_URL: viteEnv.VITE_GATEWAY_URL,
+    FINANCE_URL: viteEnv.VITE_FINANCE_URL,
+    AUTH_URL: viteEnv.VITE_AUTH_URL,
+    AI_URL: viteEnv.VITE_AI_URL,
+    LEGACY_API_URL: viteEnv.VITE_API_URL,
   };
 
   if (viteEnvs[key]) return viteEnvs[key];
@@ -25,10 +32,20 @@ const getEnv = (key) => {
 
 // --- METADATA & API CONFIG ---
 export const APP_VERSION = getEnv("APP_VERSION") || "1.0.0";
-export const API_KEY = getEnv("GEMINI_API_KEY");
+const legacyApiUrl = viteEnv.VITE_API_URL || getEnv("API_BASE_URL");
+export const GATEWAY_URL =
+  getEnv("GATEWAY_URL") || viteEnv.VITE_GATEWAY_URL || "http://localhost:8080";
 
-// Defaulting to local Django server if .env is missing
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+export const API_BASE_URL =
+  getEnv("FINANCE_URL") ||
+  viteEnv.VITE_FINANCE_URL ||
+  (legacyApiUrl && legacyApiUrl.includes("/finance") ? legacyApiUrl : `${GATEWAY_URL}/finance`);
+
+export const AUTH_BASE_URL =
+  getEnv("AUTH_URL") || viteEnv.VITE_AUTH_URL || `${GATEWAY_URL}/auth`;
+
+export const AI_BASE_URL =
+  getEnv("AI_URL") || viteEnv.VITE_AI_URL || `${GATEWAY_URL}/ai`;
 
 // --- DOMAIN CONSTANTS ---
 const {

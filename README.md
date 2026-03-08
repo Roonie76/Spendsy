@@ -88,9 +88,15 @@ A comprehensive Personal Finance PWA tailored for the Indian market, featuring A
 - 3. Click it, write a short title, and click Create Pull Request to notify the Owner and Do not click on any merge button.
 
 
-## Codes to run
+## Local Dev (Microservices)
 
-For backend:
+```bash
+docker compose -f infra/docker/docker-compose.dev.yml up --build
+npm run web
+```
+
+## Legacy Django (Deprecated)
+
 ```bash
 python manage.py makemigrations
 python manage.py migrate
@@ -102,7 +108,6 @@ python manage.py runserver
 - Watchdog feature in Stats page
 
 - host on render
-
 
 
 

@@ -1,6 +1,6 @@
 //Database needed
 // Section 3 Add New Page
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion"; // Added Framer Motion
 import {
   Loader2,
@@ -15,14 +15,14 @@ import {
   CATEGORIES,
   TABS,
 } from "../../../../../packages/shared/config/constants";
-import { LocalRepository } from "../../../../../packages/shared/services/localRepository";
-import { ParserService } from "../../../../../packages/shared/services/parserService";
-import { loadScript } from "../../../../../packages/shared/utils/helpers";
+import { buildAuthHeader } from "../../../../../packages/shared/utils/helpers";
 import UnitSelector from "../components/domain/UnitSelector";
 import TransactionItem from "../components/domain/TransactionItem";
 
 const AddPage = ({
   user,
+  authToken,
+  apiBaseUrl,
   appId,
   setActiveTab,
   showToast,
@@ -34,7 +34,7 @@ const AddPage = ({
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
   const [cat, setCat] = useState("food");
-  const [type, setType] = useState("expense");
+  const [type, setType] = useState("");
   const [transUnit, setTransUnit] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,30 +44,29 @@ const AddPage = ({
   const [draftTransactions, setDraftTransactions] = useState([]);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [isScanned, setIsScanned] = useState(false);
+  const [alreadyPersisted, setAlreadyPersisted] = useState(false);
   const fileRef = useRef(null);
 
-  useEffect(() => {
-    if (mode === "upload") {
-      loadDrafts();
-    }
-  }, [mode]);
+  const parsedSummary = useMemo(() => {
+    return draftTransactions.reduce(
+      (acc, tx) => {
+        const amount = Number(tx.amount || 0);
+        const normalizedType = String(tx.type || tx.tx_type || "expense").toLowerCase();
+        if (normalizedType === "income") acc.income += amount;
+        else acc.expense += amount;
+        acc.balance = acc.income - acc.expense;
+        return acc;
+      },
+      { income: 0, expense: 0, balance: 0 },
+    );
+  }, [draftTransactions]);
 
-  const loadDrafts = async () => {
-    try {
-      const drafts = await LocalRepository.getAllDrafts();
-      if (drafts.length > 0) {
-        setDraftTransactions(drafts);
-        showToast(`Loaded ${drafts.length} offline items`, "info");
-      }
-    } catch (e) {
-      console.error("Local DB Error", e);
-    }
-  };
+  useEffect(() => {
+    // No-op for now; previously loaded offline drafts from IndexedDB.
+  }, [mode]);
 
   const handleSave = async (e) => {
     e.preventDefault();
-    console.log("Current User Object:", user); // <--- Add this
-    console.log("Extracted ID:", user?.user_id || user?.id);
 
     // 1. Validation: Ensure user is logged in
     if (!user || (!user.user_id && !user.id)) {
@@ -78,34 +77,37 @@ const AddPage = ({
     setIsSubmitting(true);
 
     const finalAmount = parseFloat(amount) * transUnit;
+    const normalizedType = String(type || "").trim().toLowerCase();
+    if (!["income", "expense"].includes(normalizedType)) {
+      setIsSubmitting(false);
+      showToast("Select transaction type: Income or Expense", "error");
+      return;
+    }
 
-    // 2. Updated formData to match your Django view logic
+    // 2. Updated formData to match the finance service payload
     const formData = {
-      user_id: user.user_id || user.id, // Sends the ID Django needs to find the user
       title: desc, // Matches 'title' in models.py
       amount: finalAmount,
-      type: type, // 'income' or 'expense'
+      type: normalizedType, // 'income' or 'expense'
       category: cat, // Matches the slug/id of the category
       is_recurring: isRecurring, // Note: Ensure this is added to models.py
     };
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/finance/add-transaction/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // If you use Token Auth later: "Authorization": `Token ${user.token}`
-          },
-          body: JSON.stringify(formData),
+      const response = await fetch(`${apiBaseUrl}/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
         },
-      );
+        body: JSON.stringify(formData),
+      });
 
       const data = await response.json();
 
       if (response.ok) {
         showToast(isRecurring ? "Recurring bill added!" : "Added!", "success");
+        if (refreshData) refreshData();
         // Clear form
         setAmount("");
         setDesc("");
@@ -113,7 +115,7 @@ const AddPage = ({
         setIsRecurring(false);
       } else {
         // Show the specific error message from Django if available
-        throw new Error(data.error || "Failed to save");
+        throw new Error(data.message || data.detail || data.error || "Failed to save");
       }
     } catch (e) {
       console.error("Submission Error:", e);
@@ -127,69 +129,66 @@ const AddPage = ({
     const f = e.target.files[0];
     if (!f) return;
 
-    if (f.name.toLowerCase().endsWith(".pdf") && !window.pdfjsLib) {
-      await loadScript(
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
-      );
-      if (window.pdfjsLib)
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-    }
-
     setParsing(true);
     setIsScanned(false);
+    setAlreadyPersisted(false);
 
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        let lines = [];
-        let fullText = "";
+    try {
+      const formData = new FormData();
+      formData.append("file", f);
 
-        if (f.name.toLowerCase().endsWith(".pdf")) {
-          const pdf = await window.pdfjsLib.getDocument({
-            data: ev.target.result,
-          }).promise;
-          lines = await ParserService.extractLinesFromPdf(pdf);
-          fullText = lines.join("\n");
-        } else {
-          fullText = await f.text();
-          lines = fullText.split("\n");
-        }
+      // Use backend proxy to avoid browser CORS/connection issues with parser microservice.
+      const response = await fetch(`${apiBaseUrl}/parse-statement`, {
+        method: "POST",
+        headers: {
+          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
+        },
+        body: formData,
+      });
 
-        const detection = ParserService.detectMode(fullText);
-        let results = [];
+      const data = await response.json();
+      const parserPayload = data?.data || data;
 
-        if (detection === "OCR") {
-          setIsScanned(true);
-          showToast("Scanning Image PDF...", "info");
-          const ocrLines = await ParserService.performOCR(f, (p) =>
-            setOcrProgress(p),
-          );
-          results = ParserService.processLines(ocrLines, "OCR");
-        } else {
-          results = ParserService.processLines(lines, "TEXT");
-        }
-
-        if (results.length > 0) {
-          await LocalRepository.saveDrafts(results);
-          setDraftTransactions(results);
-          showToast(`${results.length} items saved locally!`, "success");
-        } else {
-          showToast("No transactions found", "error");
-        }
-      } catch (err) {
-        console.error(err);
-        showToast("Error reading file", "error");
-      } finally {
-        setParsing(false);
+      if (!response.ok) {
+        showToast(
+          data.message ||
+            data.detail ||
+            `Parser error (${response.status})`,
+          "error",
+        );
+      } else if (Array.isArray(parserPayload.transactions) && parserPayload.transactions.length) {
+        setDraftTransactions(parserPayload.transactions);
+        setAlreadyPersisted(true);
+        if (refreshData) refreshData();
+        const savedCount =
+          Number(parserPayload.saved_count || 0) || parserPayload.transactions.length;
+        const summary = parserPayload.financial_summary || {};
+        showToast(
+          `${savedCount} transactions saved. Balance: ₹${Number(
+            summary.balance || 0,
+          ).toFixed(2)}`,
+          "success",
+        );
+      } else {
+        showToast("No transactions found in statement", "error");
       }
-    };
-
-    if (f.name.toLowerCase().endsWith(".pdf")) reader.readAsArrayBuffer(f);
-    else reader.readAsText(f);
+    } catch (err) {
+      console.error("Parser upload error:", err);
+      showToast(
+        `Error uploading file to parser: ${err?.message || "Unknown error"}`,
+        "error",
+      );
+    } finally {
+      setParsing(false);
+    }
   };
 
   const handleSyncToCloud = () => {
+    if (alreadyPersisted) {
+      showToast("These parsed transactions are already saved.", "info");
+      return;
+    }
+
     // 1. Session Check
     if (!user || (!user.user_id && !user.id)) {
       showToast("User session not found. Please re-login.", "error");
@@ -201,8 +200,6 @@ const AddPage = ({
       async () => {
         setIsSubmitting(true);
         try {
-          const userId = user.user_id || user.id;
-
           // Map the promises for individual POST requests
           const promises = draftTransactions.map((t) => {
             // Data Normalization for Django Backend
@@ -212,11 +209,13 @@ const AddPage = ({
                 ? "income"
                 : "expense";
 
-            return fetch(`http://127.0.0.1:8000/api/finance/add-transaction/`, {
+            return fetch(`${apiBaseUrl}/transactions`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
+                },
               body: JSON.stringify({
-                user_id: userId,
                 title: t.description || t.title || "Scanned Transaction",
                 amount: parseFloat(t.amount),
                 type: normalizedType,
@@ -232,7 +231,6 @@ const AddPage = ({
           const failed = results.filter((r) => !r.ok);
 
           if (failed.length === 0) {
-            await LocalRepository.clearDrafts();
             setDraftTransactions([]);
             showToast("All items synced to Cloud!", "success");
 
@@ -257,8 +255,8 @@ const AddPage = ({
 
   const clearLocalData = async () => {
     triggerConfirm("Discard all local drafts?", async () => {
-      await LocalRepository.clearDrafts();
       setDraftTransactions([]);
+      setAlreadyPersisted(false);
       showToast("Drafts cleared", "info");
     });
   };
@@ -539,6 +537,27 @@ const AddPage = ({
                   </button>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <p className="text-[10px] uppercase tracking-wider text-emerald-300/80">Income</p>
+                    <p className="text-xl font-black text-emerald-300">
+                      ₹{parsedSummary.income.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
+                    <p className="text-[10px] uppercase tracking-wider text-rose-300/80">Expense</p>
+                    <p className="text-xl font-black text-rose-300">
+                      ₹{parsedSummary.expense.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4">
+                    <p className="text-[10px] uppercase tracking-wider text-blue-300/80">Balance</p>
+                    <p className="text-xl font-black text-blue-200">
+                      ₹{parsedSummary.balance.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
                 {draftTransactions.some((t) => t.confidence < 70) && (
                   <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
@@ -571,7 +590,7 @@ const AddPage = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSyncToCloud}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || alreadyPersisted}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 py-4 rounded-2xl font-black text-white shadow-xl shadow-indigo-900/40 flex items-center justify-center gap-3"
                 >
                   {isSubmitting ? (
@@ -579,7 +598,11 @@ const AddPage = ({
                   ) : (
                     <Save className="w-5 h-5" />
                   )}
-                  {isSubmitting ? "Syncing to Cloud..." : "Push All to Cloud"}
+                  {isSubmitting
+                    ? "Syncing to Cloud..."
+                    : alreadyPersisted
+                      ? "Already Saved"
+                      : "Push All to Cloud"}
                 </motion.button>
               </motion.div>
             )}

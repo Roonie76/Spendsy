@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+const rootNodeModules = path.resolve(__dirname, '../../../node_modules');
+
 export default defineConfig({
   plugins: [
     react({
@@ -12,20 +14,27 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      'react': path.resolve(__dirname, 'node_modules/react'),
-      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
-      'react/jsx-runtime': path.resolve(__dirname, 'node_modules/react/jsx-runtime'),
-      '@shared': path.resolve(__dirname, '../../packages/shared'),
+      'react': path.resolve(rootNodeModules, 'react'),
+      'react-dom': path.resolve(rootNodeModules, 'react-dom'),
+      'react/jsx-runtime': path.resolve(rootNodeModules, 'react/jsx-runtime'),
+      '@shared': path.resolve(__dirname, '../../../packages/shared'),
     },
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     fs: {
-      allow: ['..', '../../packages'],
+      allow: ['..', '../../../packages'],
     },
   },
   build: {
     commonjsOptions: {
       include: [/packages\/shared/, /node_modules/],
+    },
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    esbuildOptions: {
+      nodePaths: [rootNodeModules],
     },
   },
 });

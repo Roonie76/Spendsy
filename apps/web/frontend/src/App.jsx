@@ -15,7 +15,7 @@ import {
   PinOff,
   Layout as LayoutIcon,
 } from "lucide-react";
-import { formatIndianCompact } from "../../../../packages/shared/utils/helpers";
+import { formatIndianCompact, buildAuthHeader } from "../../../../packages/shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
 import { Toast, ConfirmationDialog } from "./components/ui/Shared";
 
@@ -29,9 +29,14 @@ import ProfilePage from "./pages/ProfilePage";
 import AuditPage from "./pages/AuditPage";
 import StatsPage from "./pages/StatsPage";
 import ITRPage from "./pages/ITRPage";
+import AICopilot from "./components/ai/AICopilot";
 
 export default function App() {
-  const API_BASE_URL =`${import.meta.env.VITE_API_URL}/api/finance` || "http://127.0.0.1:8000/api/finance";
+  const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
+  const API_BASE_URL = import.meta.env.VITE_FINANCE_URL
+    ? `${import.meta.env.VITE_FINANCE_URL}`
+    : `${GATEWAY_URL}/finance`;
+  const AI_BASE_URL = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/ai`;
   const initialDefaultProfile = useMemo(
     () => ({
       annualRent: 0,
@@ -46,7 +51,15 @@ export default function App() {
     [],
   );
 
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem("auth_user");
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return null;
+    }
+  });
   const [activeTab, setActiveTab] = useState(TABS.HOME);
   const [toast, setToast] = useState({ show: false, msg: "", type: "info" });
   const [theme, setTheme] = useState(
@@ -54,6 +67,7 @@ export default function App() {
   );
   const [showWizard, setShowWizard] = useState(false);
   const [transactions, setTransactions] = useState([]);
+  const [serverSummary, setServerSummary] = useState(null);
   const [wealthItems, setWealthItems] = useState([]);
   const [settings, setSettings] = useState({
     monthlyBudget: 0,
@@ -74,8 +88,24 @@ export default function App() {
     message: "",
     action: null,
   });
+  const authToken =
+    currentUser?.token ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("auth_token") ||
+    localStorage.getItem("token");
+  const apiFetch = useCallback(
+    (url, options = {}) => {
+      const headers = { ...(options.headers || {}) };
+      const authHeader = buildAuthHeader(authToken);
+      if (authHeader) {
+        headers.Authorization = authHeader;
+      }
+      return fetch(url, { ...options, headers });
+    },
+    [authToken],
+  );
 
-  const totals = useMemo(() => {
+  const localTotals = useMemo(() => {
     if (!Array.isArray(transactions)) return { income: 0, expenses: 0 };
     return transactions.reduce(
       (acc, curr) => {
@@ -88,7 +118,24 @@ export default function App() {
     );
   }, [transactions]);
 
-  const balance = totals.income - totals.expenses;
+  const totals = useMemo(
+    () => ({
+      income:
+        serverSummary?.income !== undefined
+          ? Number(serverSummary.income)
+          : localTotals.income,
+      expenses:
+        serverSummary?.expense !== undefined
+          ? Number(serverSummary.expense)
+          : localTotals.expenses,
+    }),
+    [serverSummary, localTotals],
+  );
+
+  const balance =
+    serverSummary?.balance !== undefined
+      ? Number(serverSummary.balance)
+      : totals.income - totals.expenses;
   const netWorth = useMemo(
     () =>
       wealthItems.reduce(
@@ -120,6 +167,11 @@ export default function App() {
     setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
   }, []);
 
+  useEffect(() => {
+    if (currentUser) localStorage.setItem("auth_user", JSON.stringify(currentUser));
+    else localStorage.removeItem("auth_user");
+  }, [currentUser]);
+
   // Fixed: The triggerConfirm function was defined but the confirmModal state (isOpen, message, action) was never utilized.
   // Switching to the state-based approach for a better UI experience.
   const triggerConfirm = (message, onConfirm) => {
@@ -139,13 +191,12 @@ export default function App() {
   async function fetchHistory() {
     if (!currentUser?.id) return;
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/history/${currentUser.id}/`,
-      );
+      const response = await apiFetch(`${API_BASE_URL}/transactions`);
       const data = await response.json();
+      const payload = data?.data || data;
 
-      if (Array.isArray(data)) {
-        const cleanedData = data.map((item) => {
+      if (Array.isArray(payload)) {
+        const cleanedData = payload.map((item) => {
           const normalizedType = String(item.type || "expense").toLowerCase();
 
           return {
@@ -179,25 +230,32 @@ export default function App() {
   async function fetchSettings() {
     if (!currentUser?.id) return;
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/profile/${currentUser.id}/`,
-      );
+      const response = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
       const data = await response.json();
-      if (response.ok) setSettings(data);
+      if (response.ok) setSettings(data?.data || data);
     } catch (err) {
       console.error("Failed to load settings:", err);
     }
   }
 
+  const fetchSummary = useCallback(async () => {
+    if (!currentUser?.id) return;
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/summary`);
+      const data = await response.json();
+      if (response.ok) setServerSummary(data?.data || null);
+    } catch (err) {
+      console.error("Failed to load summary:", err);
+    }
+  }, [currentUser?.id, apiFetch]);
+
   const fetchWealth = useCallback(async () => {
     if (!currentUser?.id) return;
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/get-wealth/${currentUser.id}/`,
-      );
+      const response = await apiFetch(`${API_BASE_URL}/wealth`);
       if (response.ok) {
         const data = await response.json();
-        setWealthItems(data);
+        setWealthItems(data?.data || data);
       }
     } catch (err) {
       showToast("Could not sync portfolio", "error");
@@ -208,20 +266,19 @@ export default function App() {
     if (!currentUser?.id) return;
     try {
       // Ensure this matches your Django urls.py exactly
-      const response = await fetch(
-        `${API_BASE_URL}/tax-profile/${currentUser.id}/`,
-      );
+      const response = await apiFetch(`${API_BASE_URL}/tax-profile/${currentUser.id}`);
 
       if (response.ok) {
         const data = await response.json();
         // If Django returns a single object, but your state expects initialDefaultProfile keys:
-        setTaxProfile(data);
-        localStorage.setItem("tax_profile", JSON.stringify(data));
+        const payload = data?.data || data;
+        setTaxProfile(payload);
+        localStorage.setItem("tax_profile", JSON.stringify(payload));
       }
     } catch (e) {
       console.error("Network error during tax profile sync", e);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, apiFetch]);
 
   const updateTaxProfile = async (localProfile) => {
     if (!currentUser?.id) {
@@ -230,19 +287,17 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/tax-profile/${currentUser.id}/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(localProfile),
-        },
-      );
+      const response = await apiFetch(`${API_BASE_URL}/tax-profile/${currentUser.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(localProfile),
+      });
 
       if (response.ok) {
         const savedData = await response.json();
-        setTaxProfile(savedData);
-        localStorage.setItem("tax_profile", JSON.stringify(savedData));
+        const payload = savedData?.data || savedData;
+        setTaxProfile(payload);
+        localStorage.setItem("tax_profile", JSON.stringify(payload));
         showToast("Profile synced!", "success");
       }
     } catch (error) {
@@ -254,10 +309,11 @@ export default function App() {
     if (currentUser?.id) {
       fetchHistory();
       fetchSettings();
+      fetchSummary();
       fetchWealth();
       fetchTaxProfile(); // Add this!
     }
-  }, [currentUser?.id, fetchWealth, fetchTaxProfile]); // Add fetchTaxProfile to dependencies
+  }, [currentUser?.id, fetchWealth, fetchTaxProfile, fetchSummary]); // Add fetchTaxProfile to dependencies
 
   // Inside your App() function, add this useEffect or update your existing one
   useEffect(() => {
@@ -265,15 +321,14 @@ export default function App() {
       // If we have an ID but no email, fetch the full profile from Django
       const fetchFullProfile = async () => {
         try {
-          const response = await fetch(
-            `${API_BASE_URL}/profile/${currentUser.id}/`,
-          );
+          const response = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
           const data = await response.json();
+          const payload = data?.data || data;
           if (response.ok) {
             // Merge the existing user data with the new email/details from Django
             setCurrentUser((prev) => ({
               ...prev,
-              email: data.email || data.user_email, // Match your Django field name
+              email: payload.email || payload.user_email, // Match your Django field name
             }));
           }
         } catch (err) {
@@ -287,35 +342,33 @@ export default function App() {
   const deleteTransaction = async (id) => {
     try {
       // Use the constant!
-      const response = await fetch(
-        `${API_BASE_URL}/delete-transaction/${id}/`,
-        {
-          method: "DELETE",
-        },
-      );
+      const response = await apiFetch(`${API_BASE_URL}/transactions/${id}`, {
+        method: "DELETE",
+      });
       if (response.ok) {
         setTransactions((prev) => prev.filter((t) => t.id !== id));
+        fetchSummary();
+      } else {
+        showToast("Delete failed on server", "error");
       }
     } catch (error) {
       console.error("Delete failed:", error);
+      showToast("Delete failed", "error");
     }
   };
   const updateTransaction = async (updatedTx) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/update-transaction/${updatedTx.id}/`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: updatedTx.description,
-            amount: updatedTx.amount,
-            type: updatedTx.type.toLowerCase(),
-            category: updatedTx.category.toLowerCase(),
-            date: updatedTx.date,
-          }),
-        },
-      );
+      const response = await apiFetch(`${API_BASE_URL}/transactions/${updatedTx.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: updatedTx.description,
+          amount: updatedTx.amount,
+          type: updatedTx.type.toLowerCase(),
+          category: updatedTx.category.toLowerCase(),
+          date: updatedTx.date,
+        }),
+      });
 
       if (response.ok) {
         showToast("Transaction updated!", "success");
@@ -327,10 +380,31 @@ export default function App() {
       showToast("Connection error", "error");
     }
   };
-  const bulkDeleteTransactions = (items) => {
-    const idsToDelete = items.map((item) => item.id);
-    setTransactions((prev) => prev.filter((t) => !idsToDelete.includes(t.id)));
-    showToast("Bulk delete successful", "success");
+  const bulkDeleteTransactions = async (items) => {
+    if (!Array.isArray(items) || items.length === 0) return;
+
+    const idsToDelete = items.map((item) => item.id).filter(Boolean);
+    const deleteCalls = idsToDelete.map((id) =>
+      apiFetch(`${API_BASE_URL}/transactions/${id}`, { method: "DELETE" }),
+    );
+    const results = await Promise.allSettled(deleteCalls);
+
+    const successCount = results.filter(
+      (r) => r.status === "fulfilled" && r.value?.ok,
+    ).length;
+    const failedCount = idsToDelete.length - successCount;
+
+    await fetchHistory();
+    await fetchSummary();
+
+    if (failedCount === 0) {
+      showToast(`Deleted ${successCount} transactions`, "success");
+    } else {
+      showToast(
+        `Deleted ${successCount} transactions, ${failedCount} failed`,
+        "warning",
+      );
+    }
   };
 
   const requestDeleteTransaction = (id) =>
@@ -341,14 +415,11 @@ export default function App() {
     );
   const updateWealthItem = async (updatedItem) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/update-wealth/${updatedItem.id}/`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedItem),
-        },
-      );
+      const response = await apiFetch(`${API_BASE_URL}/wealth/${updatedItem.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedItem),
+      });
 
       if (response.ok) {
         showToast("Portfolio updated!", "success");
@@ -362,14 +433,11 @@ export default function App() {
   };
   const saveSettings = async (dataToSave) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/profile/${currentUser.id}/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dataToSave),
-        },
-      );
+      const response = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSave),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -377,7 +445,8 @@ export default function App() {
       }
 
       const data = await response.json();
-      setSettings(data.settings);
+      const payload = data?.data || data;
+      setSettings(payload);
       showToast("Settings saved!", "success");
       return true;
     } catch (err) {
@@ -389,7 +458,7 @@ export default function App() {
 
   const executeDeleteWealth = async (itemId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/delete-wealth/${itemId}/`, {
+      const response = await apiFetch(`${API_BASE_URL}/wealth/${itemId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });
@@ -458,6 +527,10 @@ export default function App() {
           setTransactions([]);
           setWealthItems([]);
           localStorage.removeItem("tax_profile"); // Clean up sensitive tax data
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          localStorage.removeItem("auth_user");
         }}
       />
       <WelcomeWizard isOpen={showWizard} onComplete={handleWizardComplete} />
@@ -595,12 +668,15 @@ export default function App() {
               {activeTab === TABS.ADD && (
                 <AddPage
                   user={currentUser}
+                  authToken={authToken}
+                  apiBaseUrl={API_BASE_URL}
                   appId={settings?.appId}
                   setActiveTab={setActiveTab}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
-                  onSuccess={() => {
+                  refreshData={() => {
                     fetchHistory(); // Refresh data
+                    fetchSummary(); // Refresh fast financial totals
                     setActiveTab(TABS.HISTORY); // Redirect to show the user the data
                   }}
                 />
@@ -610,7 +686,13 @@ export default function App() {
                   user={currentUser}
                   settings={settings}
                   onUpdateSettings={saveSettings}
-                  onSignOut={() => setCurrentUser(null)}
+                  onSignOut={() => {
+                    setCurrentUser(null);
+                    localStorage.removeItem("auth_token");
+                    localStorage.removeItem("access_token");
+                    localStorage.removeItem("refresh_token");
+                    localStorage.removeItem("auth_user");
+                  }}
                   triggerConfirm={triggerConfirm}
                 />
               )}
@@ -618,6 +700,8 @@ export default function App() {
                 <WealthPage
                   wealthItems={wealthItems}
                   user={currentUser}
+                  authToken={authToken}
+                  apiBaseUrl={API_BASE_URL}
                   appId={settings?.appId}
                   onSuccess={fetchWealth}
                   showToast={showToast}
@@ -644,6 +728,7 @@ export default function App() {
               {activeTab === TABS.ITR && (
                 <ITRPage
                   user={currentUser}
+                  authToken={authToken}
                   apiBaseUrl={API_BASE_URL} // Pass the base URL here
                   transactions={transactions}
                   setActiveTab={setActiveTab}
@@ -658,6 +743,7 @@ export default function App() {
           {APP_VERSION} • &copy; {new Date().getFullYear()} Spendsy
         </footer>
       </div>
+      <AICopilot authToken={authToken} aiBaseUrl={AI_BASE_URL} />
     </div>
   );
 }
