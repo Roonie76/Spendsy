@@ -18,7 +18,7 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    const endpoint = isSignup ? "register/" : "login/";
+    const endpoint = isSignup ? "register" : "login";
 
     try {
       setErrorMessage("");

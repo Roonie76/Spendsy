@@ -6,15 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.routes_ai import router as ai_router
 from .api.routes_chat import router as chat_router
 
+origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+]
+
 app = FastAPI(title="SmartSpend AI Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:8080",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -17,6 +17,11 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
+origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+]
+
 app = FastAPI(title="SmartSpend Finance Service")
 
 # Observability: request ID generation and structured access logging
@@ -24,11 +29,7 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:8080",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
