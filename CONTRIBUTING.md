@@ -44,9 +44,13 @@ npm run dev
 docker compose -f infra/docker/docker-compose.dev.yml up --build
 ```
 
-## 📜 Code Style Guidelines
-- **Python**: Use type hints, Pydantic for schemas, and docstrings for public functions.
-- **Javascript/React**: Use functional components, hooks, and descriptive variable names.
+## 📜 Code Style & Reliability Guidelines
+- **Python**: Use type hints, Pydantic for schemas, and docstrings for public functions. 
+- **Reliability**: 
+    - All inter-service calls MUST use `tenacity` retries and explicit timeouts.
+    - All database commits MUST be wrapped in `try/except` with `db.rollback()`.
+    - Avoid direct DB connections; always use the PgBouncer-pooled session.
+- **Javascript/React**: Use functional components, hooks, and descriptive variable names. Always use the `apiFetch` wrapper for network requests.
 - **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## ⚖️ License
