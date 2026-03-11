@@ -3,7 +3,8 @@ import { buildAuthHeader } from "../../../../../../packages/shared/utils/helpers
 import FloatingAIButton from "./FloatingAIButton";
 import AIChatPanel from "./AIChatPanel";
 
-export default function AICopilot({ authToken, aiBaseUrl }) {
+export default function AICopilot({ authToken, aiBaseUrl, userId }) {
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -28,36 +29,44 @@ export default function AICopilot({ authToken, aiBaseUrl }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(endpoint, {
+      // Use local spendsy-ai port 8005 for Ask Tora
+      const toraEndpoint = "http://localhost:8005/ask-tora";
+      
+      const response = await fetch(toraEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: authHeader,
+          // Note: Ask Tora is local and currently uses user_id for context
         },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ 
+          question: trimmed,
+          user_id: userId || 1
+        }),
+
       });
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.detail || "AI service error");
+        throw new Error(data?.detail || "Tora service error");
       }
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply || "I couldn't generate a response." },
+        { role: "assistant", content: data.answer || "I couldn't generate a response." },
       ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "I couldn't reach the AI service. Please try again in a moment.",
+          content: "I couldn't reach Tora (Local AI). Please ensure Ollama and the AI service are running.",
         },
       ]);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <>

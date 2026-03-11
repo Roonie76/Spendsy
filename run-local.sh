@@ -20,6 +20,13 @@ trap cleanup SIGINT SIGTERM EXIT
 
 # 1. Start Infrastructure (Docker)
 echo "📦 Starting Database and Redis via Docker..."
+
+# Load root .env variables for startup if it exists
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    echo "  Loading environment variables from .env..."
+    export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
+fi
+
 cd "$PROJECT_ROOT/infra/docker"
 docker compose -f docker-compose.dev.yml up -d postgres redis
 cd "$PROJECT_ROOT"
@@ -35,30 +42,12 @@ for i in "${!SERVICES[@]}"; do
     echo "⚡ Launching $SERVICE on port $PORT..."
     
     (
-        cd "$PROJECT_ROOT/smartspend/services/$SERVICE"
+        cd "$PROJECT_ROOT/spendsy/services/$SERVICE"
         
-        # Virtual Environment Management
-        if [ ! -d "venv" ]; then
-            echo "  Creating virtual environment for $SERVICE..."
-            python3 -m venv venv
-        fi
+        # Use unified root virtual environment
+        source "$PROJECT_ROOT/.venv/bin/activate"
         
-        source venv/bin/activate
-        pip install -q -r requirements.txt
-        
-        # Local Development Environment Variables
-        export DB_HOST=localhost
-        export DB_PORT=5434
-        export REDIS_URL=redis://localhost:6379/0
-        export DB_NAME=smartspend
-        export DB_USER=smartuser
-        export DB_PASSWORD=smartpass
-        export JWT_SECRET=dev-secret
-        export INTERNAL_API_KEY=internal-dev-key
-        
-        # Internal Service Connectivity Overrides
-        export PARSER_SERVICE_URL=http://localhost:8003
-        export FINANCE_SERVICE_URL=http://localhost:8002
+        # Environment variables are already exported from the root .env
         
         # Run Service
         exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level warning

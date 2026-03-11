@@ -27,7 +27,7 @@ We love new ideas! If you have a feature request:
 ### Backend (Python)
 Each service has its own `requirements.txt`.
 ```bash
-cd smartspend/services/finance-service
+cd spendsy/services/finance-service
 pip install -r requirements.txt
 pytest
 ```

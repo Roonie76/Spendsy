@@ -193,37 +193,47 @@ export default function App() {
     try {
       const response = await apiFetch(`${API_BASE_URL}/transactions`);
       const data = await response.json();
-      const payload = data?.data || data;
-
-      if (Array.isArray(payload)) {
-        const cleanedData = payload.map((item) => {
-          const normalizedType = String(item.type || "expense").toLowerCase();
-
-          return {
-            ...item,
-            // Use item.id from Django or fallback to item.pk
-            id: item.id || item.pk,
-            title: item.title || item.description || "Unnamed",
-            amount: parseFloat(item.amount || 0),
-            type: normalizedType,
-            date: item.date || new Date().toISOString(),
-          };
-        });
-
-        // SORTING LOGIC: Descending order of entry (ID)
-        // If IDs are equal or missing, it falls back to Date
-        cleanedData.sort((a, b) => {
-          if (b.id !== a.id) {
-            return b.id - a.id;
-          }
-          return new Date(b.date) - new Date(a.date);
-        });
-
-        console.log("Sorted Data (Newest Entry First):", cleanedData);
-        setTransactions([...cleanedData]);
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to fetch transactions");
       }
+
+      const payload = data?.data || data;
+      const items = Array.isArray(payload) ? payload : payload?.data;
+
+      if (!Array.isArray(items)) {
+        throw new Error("Unexpected transaction response shape");
+      }
+
+      const cleanedData = items.map((item) => {
+        const normalizedType = String(item.type || "expense").toLowerCase();
+
+        return {
+          ...item,
+          // Use item.id from Django or fallback to item.pk
+          id: item.id || item.pk,
+          title: item.raw_description || item.description || item.title || "Unnamed",
+          raw_description: item.raw_description || item.description || item.title || null,
+          amount: parseFloat(item.amount || 0),
+          type: normalizedType,
+          date: item.date || new Date().toISOString(),
+        };
+      });
+
+      // SORTING LOGIC: Descending order of entry (ID)
+      // If IDs are equal or missing, it falls back to Date
+      cleanedData.sort((a, b) => {
+        if (b.id !== a.id) {
+          return b.id - a.id;
+        }
+        return new Date(b.date) - new Date(a.date);
+      });
+
+      console.log("Sorted Data (Newest Entry First):", cleanedData);
+      setTransactions([...cleanedData]);
+      return cleanedData;
     } catch (err) {
       console.error("Fetch Error:", err);
+      throw err;
     }
   }
 
@@ -674,10 +684,11 @@ export default function App() {
                   setActiveTab={setActiveTab}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
-                  refreshData={() => {
-                    fetchHistory(); // Refresh data
-                    fetchSummary(); // Refresh fast financial totals
-                    setActiveTab(TABS.HISTORY); // Redirect to show the user the data
+                  refreshData={async () => {
+                    await Promise.all([
+                      fetchHistory(), // Refresh data
+                      fetchSummary(), // Refresh fast financial totals
+                    ]);
                   }}
                 />
               )}
@@ -743,7 +754,12 @@ export default function App() {
           {APP_VERSION} • &copy; {new Date().getFullYear()} Spendsy
         </footer>
       </div>
-      <AICopilot authToken={authToken} aiBaseUrl={AI_BASE_URL} />
+      <AICopilot 
+        authToken={authToken} 
+        aiBaseUrl={AI_BASE_URL} 
+        userId={currentUser?.id}
+      />
+
     </div>
   );
 }

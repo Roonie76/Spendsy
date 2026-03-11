@@ -48,3 +48,5 @@ test_*.py
 *_test.py
 .pytest_cache/
 tests/
+.venv
+**pycache**/

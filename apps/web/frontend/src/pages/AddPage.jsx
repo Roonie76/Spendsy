@@ -159,16 +159,10 @@ const AddPage = ({
       } else if (Array.isArray(parserPayload.transactions) && parserPayload.transactions.length) {
         setDraftTransactions(parserPayload.transactions);
         setAlreadyPersisted(true);
-        if (refreshData) refreshData();
-        const savedCount =
-          Number(parserPayload.saved_count || 0) || parserPayload.transactions.length;
-        const summary = parserPayload.financial_summary || {};
-        showToast(
-          `${savedCount} transactions saved. Balance: ₹${Number(
-            summary.balance || 0,
-          ).toFixed(2)}`,
-          "success",
-        );
+        if (refreshData) {
+          await refreshData();
+        }
+        showToast("Statement uploaded successfully.", "success");
       } else {
         showToast("No transactions found in statement", "error");
       }
@@ -502,7 +496,7 @@ const AddPage = ({
                     Scan Statement
                   </h3>
                   <p className="text-xs text-slate-500 mt-2">
-                    SBI, HDFC, ICICI, Axis • PDF or CSV
+                    SBI, HDFC, ICICI, Axis • PDF, CSV, or XLSX
                   </p>
                 </div>
               )}
@@ -511,7 +505,7 @@ const AddPage = ({
                 ref={fileRef}
                 onChange={handleFile}
                 className="hidden"
-                accept=".pdf,.csv"
+                accept=".pdf,.csv,.xlsx"
                 disabled={parsing}
               />
             </motion.div>

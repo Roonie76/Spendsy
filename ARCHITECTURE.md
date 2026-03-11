@@ -30,25 +30,25 @@ The entry point for all API traffic. It handles:
 - Path-based routing (`/auth`, `/finance`, etc.).
 - Standardizing header injection.
 
-### 2. Auth Service (`smartspend/services/auth-service`)
+### 2. Auth Service (`spendsy/services/auth-service`)
 Responsible for identity management.
 - **Tech**: FastAPI, SQLAlchemy, Redis.
 - **Features**: JWT issue/refresh, Password hashing (Argon2), IDOR prevention.
 - **Security**: Uses HttpOnly cookies to prevent XSS-based token theft.
 
-### 3. Finance Service (`smartspend/services/finance-service`)
+### 3. Finance Service (`spendsy/services/finance-service`)
 The core domain service.
 - **Tech**: FastAPI, PostgreSQL.
 - **Entities**: Transactions, Wealth Records, User Profiles.
 - **Accuracy**: Uses `Decimal` type for all financial calculations to avoid floating-point errors.
 - **Performance**: Implements cursor-based pagination for transaction histories.
 
-### 4. Parser Service (`smartspend/services/parser-service`)
+### 4. Parser Service (`spendsy/services/parser-service`)
 Specialized worker service for document processing.
 - **Tech**: FastAPI, PDF libraries.
 - **Role**: Extracts transaction data from bank statement PDFs.
 
-### 5. AI Service (`smartspend/services/ai-service`)
+### 5. AI Service (`spendsy/services/ai-service`)
 Intelligence layer.
 - **Tech**: FastAPI, LLM integration.
 - **Role**: Provides natural language querying of financial data ("How much did I spend on coffee last month?").

@@ -70,7 +70,7 @@ The services will be available at:
 ```text
 .
 ├── apps/web/frontend/      # React/Vite Frontend
-├── smartspend/services/    # Microservices (Python/FastAPI)
+├── spendsy/services/    # Microservices (Python/FastAPI)
 │   ├── ai-service/         # NLP & LLM integration
 │   ├── auth-service/       # Identity & Access Management
 │   ├── finance-service/    # Core business logic

@@ -1,10 +1,10 @@
 services:
   postgres:
     image: postgres:15
-    container_name: smartspend_postgres
+    container_name: spendsy_postgres
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-smartspend}
+      POSTGRES_DB: ${POSTGRES_DB:-spendsy}
       POSTGRES_USER: ${POSTGRES_USER:-smartuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
     ports:
@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smartuser} -d ${POSTGRES_DB:-smartspend}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smartuser} -d ${POSTGRES_DB:-spendsy}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: smartspend_redis
+    container_name: spendsy_redis
     restart: always
     ports:
       - "6379:6379"
@@ -40,13 +40,13 @@ services:
           memory: 128M
 
   auth-service:
-    build: ../../smartspend/services/auth-service
-    container_name: smartspend_auth
+    build: ../../spendsy/services/auth-service
+    container_name: spendsy_auth
     restart: always
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-smartspend}
+      DB_NAME: ${POSTGRES_DB:-spendsy}
       DB_USER: ${POSTGRES_USER:-smartuser}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
@@ -75,13 +75,13 @@ services:
           memory: 256M
 
   finance-service:
-    build: ../../smartspend/services/finance-service
-    container_name: smartspend_finance
+    build: ../../spendsy/services/finance-service
+    container_name: spendsy_finance
     restart: always
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-smartspend}
+      DB_NAME: ${POSTGRES_DB:-spendsy}
       DB_USER: ${POSTGRES_USER:-smartuser}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
@@ -111,8 +111,8 @@ services:
           memory: 512M
 
   parser-service:
-    build: ../../smartspend/services/parser-service
-    container_name: smartspend_parser
+    build: ../../spendsy/services/parser-service
+    container_name: spendsy_parser
     restart: always
     environment:
       REDIS_URL: redis://redis:6379/0
@@ -133,8 +133,8 @@ services:
           memory: 512M
 
   ai-service:
-    build: ../../smartspend/services/ai-service
-    container_name: smartspend_ai
+    build: ../../spendsy/services/ai-service
+    container_name: spendsy_ai
     restart: always
     environment:
       REDIS_URL: redis://redis:6379/0
@@ -161,7 +161,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: smartspend_gateway
+    container_name: spendsy_gateway
     restart: always
     depends_on:
       auth-service:
