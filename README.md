@@ -1,88 +1,117 @@
-# Spendsy: Modern Fintech Microservices Platform
+# 💸 Spendsy: Modern Fintech Microservices Platform
 
-![Spendsy Banner](https://img.shields.io/badge/Status-Active-brightgreen)
-![Tech Stack](https://img.shields.io/badge/Stack-FastAPI%20%7C%20React%20%7C%20PostgreSQL%20%7C%20Redis-blue)
-![License](https://img.shields.io/badge/License-MIT-orange)
+![Spendsy Banner](https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge&logo=github)
+![Tech Stack](https://img.shields.io/badge/Stack-FastAPI%20%7C%20React%20%7C%20PostgreSQL%20%7C%20Redis-blue?style=for-the-badge&logo=fastapi)
+![License](https://img.shields.io/badge/License-MIT-orange?style=for-the-badge)
 
-Spendsy is a high-performance, open-source fintech platform designed for personal wealth management and transaction analysis. It leverages a microservices architecture to provide a secure, scalable, and responsive user experience.
+Spendsy is a high-performance, open-source fintech platform designed for personal wealth management and transaction analysis. It leverages a modern microservices architecture and AI-driven insights to help users master their financial health.
+
+---
 
 ## ✨ Key Features
 
-- **Microservices Architecture**: Decoupled services for Auth, Finance, PDF Parsing, and AI.
-- **Secure Authentication**: HttpOnly cookie-based JWT authentication with rate-limiting and persistence via Redis.
-- **Financial Intelligence**: Detailed transaction tracking, wealth management, and category-based analysis.
-- **AI Copilot**: Integrated AI to provide insights and answer queries about your financial data.
-- **Automated Statement Parsing**: Upload bank statements (PDFs) to automatically import transactions.
-- **Production-Grade Reliability**: Observability, structured logging, and robust error handling.
+- **🛡️ Microservices Architecture**: Decoupled, high-performance services for Auth, Finance, Document Parsing, and AI.
+- **🔒 Secure by Design**: HttpOnly cookie-based JWT authentication, robust rate-limiting, and IDOR prevention.
+- **📊 Financial Intelligence**: Deep transaction tracking, wealth management, and category-based spend analysis.
+- **🤖 AI-First Integration**:
+    - **Finance Copilot**: Real-time insights and chat-based financial queries.
+    - **Spendsy AI Agent**: An autonomous agent capable of complex financial reasoning and tool-calling.
+    - **MCP Support**: Native [Model Context Protocol](https://modelcontextprotocol.io/) server to allow any AI (Claude, Gemini, etc.) to securely interact with your financial data.
+- **📑 Automated Statement Parsing**: High-fidelity extraction of data from PDF bank statements.
+- **🚀 Developer Experience**: Unified `requirements.txt`, Docker-first development, and a single `run-local.sh` for easy setup.
+
+---
 
 ## 🏗️ Architecture
 
-The platform is divided into several specialized services:
+The Spendsy ecosystem is built on a resilient service-mesh architecture:
 
-- **`auth-service`**: Handles user registration, login (JWT), and session management.
-- **`finance-service`**: Core business logic for transactions, wealth tracking, and financial summaries.
-- **`parser-service`**: PDF parsing engine that extracts structured data from bank statements.
-- **`ai-service`**: LLM-integrated service providing financial advice and data analysis.
-- **`frontend` (React)**: Modern, responsive dashboard built with Vite, Tailwind CSS, and Lucide icons.
-- **`gateway` (Nginx)**: Centralized entry point for routing API requests.
+### 🧩 Core Services
+- **`auth-service`**: (Port 8001) Identity & Access Management using FastAPI and Redis.
+- **`finance-service`**: (Port 8002) Core financial ledger, wealth tracking, and transaction management.
+- **`parser-service`**: (Port 8003) Document extraction engine for bank statements.
+- **`ai-service`**: (Port 8004) NLP & LLM orchestration for chat-based insights.
 
-For more details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+### 🔬 Advanced Components
+- **`spendsy-mcp`**: A specialized server implementing the Model Context Protocol, enabling AI-to-Service communication.
+- **`spendsy-ai`**: A standalone AI reasoning engine/agent powered by modern LLMs.
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend** | React 18, Vite, Tailwind CSS, Lucide, Axios |
+| **Backend** | Python 3.11+, FastAPI, Pydantic, SQLAlchemy 2.0 |
+| **Databases** | PostgreSQL (Persistence), Redis (Caching/Rate-limiting) |
+| **Infrastructure** | Docker & Docker Compose, Nginx (Gateway), Alembic |
+| **Testing** | Pytest, Vitest |
+| **AI/LLM** | Google Gemini (GenAI), MCP Protocol |
+
+---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
+### 📋 Prerequisites
 - [Docker](https://www.docker.com/) and Docker Compose
-- Node.js (for local frontend development)
-- Python 3.11+ (for local service development)
+- Node.js (v18+) & Python (v3.11+)
 
-### Quick Start with Docker
-
-The easiest way to get the entire stack running is via Docker Compose:
+### ⚡ Quick Start
+The simplest way to spin up the entire ecosystem is using the included orchestration script:
 
 ```bash
 # Clone the repository
 git clone https://github.com/Roonie76/Spendsy.git
 cd Spendsy
 
-# Start all services
+# Start all services (Infrastructure + Microservices + Frontend)
+./run-local.sh
+```
+
+Alternatively, use Docker Compose directly:
+```bash
 docker compose -f infra/docker/docker-compose.dev.yml up --build
 ```
 
-The services will be available at:
-- **Frontend**: `http://localhost:5173`
-- **Gateway (API)**: `http://localhost:8080`
-- **Auth Docs**: `http://localhost:8001/docs`
-- **Finance Docs**: `http://localhost:8002/docs`
+### 📍 Local Endpoints
+- **Frontend Dashboard**: `http://localhost:5173`
+- **Main API Gateway**: `http://localhost:8080`
+- **Interactive API Docs (Auth)**: `http://localhost:8001/docs`
+- **Interactive API Docs (Finance)**: `http://localhost:8002/docs`
 
-## 🛠️ Technology Stack
+---
 
-| Layer | Technologies |
-| :--- | :--- |
-| **Frontend** | React, Vite, Tailwind CSS, Lucide, Axios |
-| **Backend** | Python, FastAPI, Pydantic, SQLAlchemy |
-| **Databases** | PostgreSQL (Primary), Redis (Caching/Rate-limiting) |
-| **Infrastructure** | Docker, Nginx, Alembic (Migrations) |
-| **Testing** | Pytest, Vitest |
-
-## 📂 Project Structure
+## 📂 Project Organization
 
 ```text
 .
-├── apps/web/frontend/      # React/Vite Frontend
-├── spendsy/services/    # Microservices (Python/FastAPI)
-│   ├── ai-service/         # NLP & LLM integration
-│   ├── auth-service/       # Identity & Access Management
-│   ├── finance-service/    # Core business logic
-│   └── parser-service/     # Document extraction
-├── infra/docker/           # Orchestration & Gateway config
-└── packages/shared/        # Shared code/utilities
+├── apps/web/frontend/      # Modern React/Vite dashboard
+├── spendsy/services/        # Python Microservices
+│   ├── ai-service/          # LLM Orchestration
+│   ├── auth-service/        # Identity Management
+│   ├── finance-service/     # Core Business Logic
+│   └── parser-service/      # Document Extraction
+├── spendsy-mcp/             # Model Context Protocol Server
+├── spendsy-ai/              # Standalone AI Agent
+├── infra/docker/            # Orchestration & Gateway configurations
+└── requirements.txt         # Unified project dependencies
 ```
+
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for our code of conduct and the process for submitting pull requests.
+We love contributions! Whether it's adding a new service, fixing a bug, or improving the documentation.
+1. Check out our [CONTRIBUTING.md](./CONTRIBUTING.md).
+2. Look for "Good First Issues".
+3. Join our developer discussions!
+
+---
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+*Built with ❤️ for financial freedom.*
