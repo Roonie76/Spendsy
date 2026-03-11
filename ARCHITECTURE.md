@@ -4,7 +4,7 @@ This document describes the high-level architecture of the Spendsy platform, its
 
 ## 📱 Overview
 
-Spendsy is built as a set of distributed microservices that communicate primarily via HTTP APIs, with Redis used for cross-cutting concerns like rate-limiting and session invalidation.
+Spendsy is built as a set of distributed microservices that communicate primarily via HTTP APIs, with Redis used for cross-cutting concerns like rate-limiting and session invalidation. A dedicated connection pooler (PgBouncer) is used to manage database connections efficiently.
 
 ```mermaid
 graph TD
@@ -15,9 +15,12 @@ graph TD
     Nginx -->|/ai| AI[AI Service]
     
     Auth -->|Stores Sessions| Redis[(Redis)]
-    Finance -->|Persists Data| DB[(PostgreSQL)]
     Finance -->|Requests Parse| Parser
     AI -->|Fetches Context| Finance
+    
+    Auth -->|Requests| PgBouncer[PgBouncer Pooler]
+    Finance -->|Requests| PgBouncer
+    PgBouncer -->|Transaction Pooling| DB[(PostgreSQL)]
     
     Frontend[React App] -->|Interacts| Nginx
 ```
@@ -34,11 +37,11 @@ The entry point for all API traffic. It handles:
 Responsible for identity management.
 - **Tech**: FastAPI, SQLAlchemy, Redis.
 - **Features**: JWT issue/refresh, Password hashing (Argon2), IDOR prevention.
-- **Security**: Uses HttpOnly cookies to prevent XSS-based token theft.
+- **Security**: Uses HttpOnly cookies to prevent XSS-based token theft. Honors global token revocation via Redis.
 
 ### 3. Finance Service (`spendsy/services/finance-service`)
 The core domain service.
-- **Tech**: FastAPI, PostgreSQL.
+- **Tech**: FastAPI, PostgreSQL (via PgBouncer).
 - **Entities**: Transactions, Wealth Records, User Profiles.
 - **Accuracy**: Uses `Decimal` type for all financial calculations to avoid floating-point errors.
 - **Performance**: Implements cursor-based pagination for transaction histories.
@@ -50,21 +53,27 @@ Specialized worker service for document processing.
 
 ### 5. AI Service (`spendsy/services/ai-service`)
 Intelligence layer.
-- **Tech**: FastAPI, LLM integration.
-- **Role**: Provides natural language querying of financial data ("How much did I spend on coffee last month?").
+- **Tech**: FastAPI, Gemini integration.
+- **Role**: Provides natural language querying of financial data.
 
 ### 6. Frontend (`apps/web/frontend`)
 Single Page Application (SPA).
 - **Tech**: React, Vite, Tailwind CSS.
-- **Pattern**: Uses React Query for state management and data fetching.
+- **Pattern**: Uses a centralized `apiFetch` wrapper for all network requests.
 - **UI**: Premium dark-mode aesthetic with interactive charts.
 
 ## 🔒 Security Model
 
-- **Authentication**: Stateless JWT but with a Redis-backed "allow-list/block-list" for instant logout/revocation.
+- **Authentication**: Stateless JWT with a Redis-backed blacklist check on every request for instant revocation.
 - **Validation**: Strict Pydantic schemas for all API inputs and outputs.
-- **Database**: Parameterized queries via SQLAlchemy to prevent SQL injection.
-- **Environment**: Sensitive data is managed via `.env` files (not committed to repo).
+- **Database**: Parameterized queries via SQLAlchemy to prevent SQL injection. Connections are proxied through PgBouncer in transaction mode.
+- **Environment**: Sensitive data is managed via `.env` files.
+
+## 🛡️ System Reliability
+
+- **Connection Pooling**: PgBouncer enforces transaction-level pooling, preventing microservices from exhausting database connections.
+- **Resilient Communication**: All inter-service HTTP calls implement exponential backoff retries (via `tenacity`) and explicit timeouts.
+- **Transactional Safety**: Every database commit is protected by a global error handler and manual rollback logic to prevent data corruption.
 
 ## 📊 Data Flow
 

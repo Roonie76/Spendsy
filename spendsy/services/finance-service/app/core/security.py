@@ -9,6 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 
 from .config import settings
+from .redis import is_token_blacklisted
 
 logger = logging.getLogger("finance.security")
 
@@ -44,6 +45,11 @@ def get_current_user(
 
     if payload.get("type") != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+
+    jti = payload.get("jti")
+    if jti and is_token_blacklisted(jti):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
+
 
     user_id = payload.get("sub")
     username = payload.get("username") or ""

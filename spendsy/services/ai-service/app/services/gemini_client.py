@@ -40,10 +40,24 @@ def generate_text(prompt: str, *, response_format: str = "text") -> str:
         "generationConfig": generation_config,
     }
 
-    try:
+    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(2),
+        retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError)),
+    )
+    def _do_generate():
         with httpx.Client(timeout=30.0) as client:
             response = client.post(url, json=payload)
-        response.raise_for_status()
+        if response.status_code >= 500:
+            response.raise_for_status()
+        if response.status_code >= 400:
+            # Let 4xx pass without retry except maybe some transient GCP errors if any
+            response.raise_for_status()
+        return response
+
+    try:
+        response = _do_generate()
     except Exception as exc:
         raise GeminiError("Gemini API request failed") from exc
 

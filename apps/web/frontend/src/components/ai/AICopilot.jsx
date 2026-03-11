@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { buildAuthHeader } from "../../../../../../packages/shared/utils/helpers";
+import { apiFetch } from "../../api"; // Centralized wrapper
 import FloatingAIButton from "./FloatingAIButton";
 import AIChatPanel from "./AIChatPanel";
 
@@ -32,24 +33,15 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
       // Use local spendsy-ai port 8005 for Ask Tora
       const toraEndpoint = "http://localhost:8005/ask-tora";
       
-      const response = await fetch(toraEndpoint, {
+      const response = await apiFetch(toraEndpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Note: Ask Tora is local and currently uses user_id for context
-        },
         body: JSON.stringify({ 
           question: trimmed,
           user_id: userId || 1
         }),
-
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.detail || "Tora service error");
-      }
-
+      const data = response; // apiFetch returns JSON directly
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: data.answer || "I couldn't generate a response." },

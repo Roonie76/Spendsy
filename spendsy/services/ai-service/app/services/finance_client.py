@@ -30,11 +30,25 @@ def fetch_finance_context(user_id: int) -> dict:
     # 2. Fetch from Finance service
     url = f"{settings.finance_service_url.rstrip('/')}/internal/finance-context/{user_id}"
     headers = {"X-Internal-API-Key": settings.internal_api_key}
-    try:
+
+    # Internal helper to leverage tenacity for the HTTP request specifically
+    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(2),
+        retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError)),
+    )
+    def _do_fetch():
         with httpx.Client(timeout=10.0) as http:
             response = http.get(url, headers=headers)
-        response.raise_for_status()
-        data: dict = response.json().get("data") or response.json()
+        if response.status_code >= 500:
+            response.raise_for_status()
+        if response.status_code >= 400:
+            response.raise_for_status()
+        return response.json().get("data") or response.json()
+
+    try:
+        data = _do_fetch()
     except Exception as exc:
         logger.error("fetch_finance_context failed for user_id=%s error=%s", user_id, str(exc))
         raise

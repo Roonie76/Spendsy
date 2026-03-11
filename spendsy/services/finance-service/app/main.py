@@ -3,6 +3,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 import logging
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,8 @@ from fastapi.responses import JSONResponse
 from .api.routes_finance import router as finance_router
 from .api.routes_internal import router as internal_router
 from .core.middleware import RequestLoggingMiddleware
+from sqlalchemy.exc import SQLAlchemyError
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +61,20 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         },
     )
 
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+    """Catch all unhandled database exceptions and return a standardized 500 response."""
+    logger.exception("Database error occurred: %s", str(exc))
+    return JSONResponse(
+        status_code=500,
+        content={
+            "ok": False,
+            "error": "database_error",
+            "message": "A database operation failed",
+            "meta": {}
+        },
+    )
 
 app.include_router(finance_router)
 app.include_router(internal_router)

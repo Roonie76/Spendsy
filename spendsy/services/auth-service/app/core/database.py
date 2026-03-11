@@ -6,7 +6,13 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from .config import settings
 
 
-engine = create_engine(settings.sqlalchemy_url, pool_pre_ping=True)
+engine = create_engine(
+    settings.sqlalchemy_url,
+    pool_size=10,          # Base connections kept open per-service
+    max_overflow=20,       # Burst connections beyond pool_size
+    pool_pre_ping=True,    # Detect stale connections from PgBouncer restarts
+)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

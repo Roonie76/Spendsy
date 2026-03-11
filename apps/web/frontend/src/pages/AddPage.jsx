@@ -18,6 +18,7 @@ import {
 import { buildAuthHeader } from "../../../../../packages/shared/utils/helpers";
 import UnitSelector from "../components/domain/UnitSelector";
 import TransactionItem from "../components/domain/TransactionItem";
+import { apiFetch, API_BASE } from "../api";
 
 const AddPage = ({
   user,
@@ -94,29 +95,18 @@ const AddPage = ({
     };
 
     try {
-      const response = await fetch(`${apiBaseUrl}/transactions`, {
+      const data = await apiFetch(`${apiBaseUrl}/transactions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-        },
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        showToast(isRecurring ? "Recurring bill added!" : "Added!", "success");
-        if (refreshData) refreshData();
-        // Clear form
-        setAmount("");
-        setDesc("");
-        setTransUnit(1);
-        setIsRecurring(false);
-      } else {
-        // Show the specific error message from Django if available
-        throw new Error(data.message || data.detail || data.error || "Failed to save");
-      }
+      showToast(isRecurring ? "Recurring bill added!" : "Added!", "success");
+      if (refreshData) refreshData();
+      // Clear form
+      setAmount("");
+      setDesc("");
+      setTransUnit(1);
+      setIsRecurring(false);
     } catch (e) {
       console.error("Submission Error:", e);
       showToast(`Server Error: ${e.message}`, "error");
@@ -137,26 +127,20 @@ const AddPage = ({
       const formData = new FormData();
       formData.append("file", f);
 
-      // Use backend proxy to avoid browser CORS/connection issues with parser microservice.
-      const response = await fetch(`${apiBaseUrl}/parse-statement`, {
+      // We let apiFetch handle auth via cookie, but since this is FormData,
+      // the browser needs to set the Content-Type with the boundary string.
+      // We must explicitly ensure we don't set Content-Type: application/json here.
+      // apiFetch should handle FormData automatically if not overridden.
+      const data = await apiFetch(`${apiBaseUrl}/parse-statement`, {
         method: "POST",
-        headers: {
-          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-        },
         body: formData,
+        // Optional: specify headers: {} to override any default if necessary, 
+        // but apiFetch typically relies on the caller not setting Content-Type for FormData
       });
 
-      const data = await response.json();
       const parserPayload = data?.data || data;
 
-      if (!response.ok) {
-        showToast(
-          data.message ||
-            data.detail ||
-            `Parser error (${response.status})`,
-          "error",
-        );
-      } else if (Array.isArray(parserPayload.transactions) && parserPayload.transactions.length) {
+      if (Array.isArray(parserPayload.transactions) && parserPayload.transactions.length) {
         setDraftTransactions(parserPayload.transactions);
         setAlreadyPersisted(true);
         if (refreshData) {
@@ -203,12 +187,8 @@ const AddPage = ({
                 ? "income"
                 : "expense";
 
-            return fetch(`${apiBaseUrl}/transactions`, {
+            return apiFetch(`${apiBaseUrl}/transactions`, {
               method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-                },
               body: JSON.stringify({
                 title: t.description || t.title || "Scanned Transaction",
                 amount: parseFloat(t.amount),
@@ -216,7 +196,10 @@ const AddPage = ({
                 category: t.category?.toLowerCase() || "other",
                 is_recurring: false,
               }),
-            });
+            })
+            // apiFetch throws on error, so we catch it and return an object indicating failure
+            .then(res => ({ ok: true }))
+            .catch(err => ({ ok: false }));
           });
 
           const results = await Promise.all(promises);

@@ -1,11 +1,9 @@
 import React, { useState } from "react";
 import { Wallet, Eye, EyeOff } from "lucide-react";
 import { APP_VERSION } from "../../../../../packages/shared/config/constants";
+import { apiFetch, AUTH_BASE } from "../api";
 
 const LoginScreen = ({ onAuthSuccess, showToast }) => {
-  const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
-  const AUTH_BASE_URL = (import.meta.env.VITE_AUTH_URL || `${GATEWAY_URL}/auth`).replace(/\/$/, "");
-
   // Local state for the form
   const [isSignup, setIsSignup] = useState(false);
   const [authData, setAuthData] = useState({
@@ -22,54 +20,53 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
 
     try {
       setErrorMessage("");
-      const response = await fetch(`${AUTH_BASE_URL}/${endpoint}`, {
+      // apiFetch automatically throws on non-2xx so we can rely on try/catch
+      const data = await apiFetch(`${AUTH_BASE}/${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: authData.username,
           password: authData.password,
           email: authData.email || undefined,
         }),
       });
-      const data = await response.json();
 
-      if (response.ok) {
-        // Support both microservices auth ({ user, tokens }) and Django auth ({ data: { user_id, token, ... } })
-        const payload = data?.data ?? data;
-        const user = payload?.user ?? payload ?? {};
-        const tokens = payload?.tokens ?? {};
-        const accessToken =
-          tokens?.access_token ||
-          payload?.token ||
-          payload?.access_token ||
-          "";
+      // Support both microservices auth ({ user, tokens }) and Django auth ({ data: { user_id, token, ... } })
+      const payload = data?.data ?? data;
+      const user = payload?.user ?? payload ?? {};
+      const tokens = payload?.tokens ?? {};
+      const accessToken =
+        tokens?.access_token ||
+        payload?.token ||
+        payload?.access_token ||
+        "";
 
-        if (accessToken) {
-          localStorage.setItem("access_token", accessToken);
-          localStorage.setItem("token", accessToken);
-        }
-        if (tokens?.refresh_token) {
-          localStorage.setItem("refresh_token", tokens.refresh_token);
-        }
+      if (accessToken) {
+        localStorage.setItem("access_token", accessToken);
+        localStorage.setItem("token", accessToken);
+      }
+      if (tokens?.refresh_token) {
+        localStorage.setItem("refresh_token", tokens.refresh_token);
+      }
 
-        onAuthSuccess({
-          id: user.id || payload.user_id,
-          username: user.username || payload.username || authData.username,
-          email: user.email || payload.email || authData.email,
-          token: accessToken,
-        });
-        showToast(
-          isSignup ? "Account created! You're signed in." : `Logged in as ${user.username || authData.username}`,
-          "success",
-        );
-      } else {
-        const detail = data.detail || data.error || "Incorrect username or password.";
+      onAuthSuccess({
+        id: user.id || payload.user_id,
+        username: user.username || payload.username || authData.username,
+        email: user.email || payload.email || authData.email,
+        token: accessToken,
+      });
+      showToast(
+        isSignup ? "Account created! You're signed in." : `Logged in as ${user.username || authData.username}`,
+        "success",
+      );
+    } catch (err) {
+      if (err.body) {
+        const detail = err.body.detail || err.body.error || "Incorrect username or password.";
         setErrorMessage(detail);
         showToast(detail, "error");
+      } else {
+        setErrorMessage("Backend unreachable. Please try again.");
+        showToast("Backend unreachable", "error");
       }
-    } catch (err) {
-      setErrorMessage("Backend unreachable. Please try again.");
-      showToast("Backend unreachable", "error");
     }
   };
 

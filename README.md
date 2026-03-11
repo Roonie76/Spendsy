@@ -42,11 +42,11 @@ The Spendsy ecosystem is built on a resilient service-mesh architecture:
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | React 18, Vite, Tailwind CSS, Lucide, Axios |
+| **Frontend** | React 18, Vite, Tailwind CSS, Lucide |
 | **Backend** | Python 3.11+, FastAPI, Pydantic, SQLAlchemy 2.0 |
-| **Databases** | PostgreSQL (Persistence), Redis (Caching/Rate-limiting) |
+| **Databases** | PostgreSQL, Redis, PgBouncer (Pooling) |
 | **Infrastructure** | Docker & Docker Compose, Nginx (Gateway), Alembic |
-| **Testing** | Pytest, Vitest |
+| **Reliability** | Tenacity (Retries), Standardized Error Handlers |
 | **AI/LLM** | Google Gemini (GenAI), MCP Protocol |
 
 ---

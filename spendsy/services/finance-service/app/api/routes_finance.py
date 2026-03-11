@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sqlalchemy.exc import SQLAlchemyError
+
 import hashlib
 import logging
 import re
@@ -92,7 +94,11 @@ def _audit(
             details=details or {},
         )
         db.add(entry)
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
     except Exception:
         db.rollback()
 
@@ -319,7 +325,11 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
         saved += 1
 
     try:
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
     except IntegrityError:
         db.rollback()
         logger.warning("statement_persist conflict user_id=%s", user_id)
@@ -381,7 +391,11 @@ def profile_settings(
     if profile is None:
         profile = UserProfile(user_id=user.id)
         db.add(profile)
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
         db.refresh(profile)
 
     if request.method == "POST" and payload is not None:
@@ -394,7 +408,11 @@ def profile_settings(
             profile.daily_budget = updates["daily_budget"]
         if "is_business" in updates:
             profile.is_business = updates["is_business"]
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
         _audit(db, request, action="profile_updated", resource_type="profile", status_code=200, user=user)
 
     payload_out = {
@@ -408,7 +426,7 @@ def profile_settings(
     return success_response(request, payload_out)
 
 
-@router.post("/transactions")
+@router.post("/transactions", responses={400: {"model": dict}, 422: {"model": dict}, 201: {"model": dict}})
 def add_transaction(
     request: Request,
     payload: TransactionPayload,
@@ -446,7 +464,11 @@ def add_transaction(
         is_recurring=data.get("is_recurring") or False,
     )
     db.add(tx)
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     db.refresh(tx)
     _audit(
         db,
@@ -467,7 +489,7 @@ def add_transaction(
     )
 
 
-@router.get("/transactions")
+@router.get("/transactions", responses={500: {"model": dict}, 200: {"model": dict}})
 def get_transaction_history(
     request: Request,
     limit: int = 50,
@@ -547,7 +569,7 @@ def get_transaction_history(
         )
 
 
-@router.delete("/transactions/{transaction_id}")
+@router.delete("/transactions/{transaction_id}", responses={404: {"model": dict}, 200: {"model": dict}})
 def delete_transaction(
     request: Request,
     transaction_id: int,
@@ -559,13 +581,17 @@ def delete_transaction(
         return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
     db.delete(tx)
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     _audit(db, request, action="transaction_deleted", resource_type="transaction", resource_id=str(transaction_id), status_code=200, user=user)
     return success_response(request, {"id": transaction_id, "deleted": True}, message="Transaction deleted")
 
 
-@router.patch("/transactions/{transaction_id}")
-@router.put("/transactions/{transaction_id}")
+@router.patch("/transactions/{transaction_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
+@router.put("/transactions/{transaction_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
 def update_transaction(
     request: Request,
     transaction_id: int,
@@ -611,13 +637,17 @@ def update_transaction(
         tx.raw_description or tx.title,
     )
 
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     _audit(db, request, action="transaction_updated", resource_type="transaction", resource_id=str(transaction_id), status_code=200, user=user)
     return success_response(request, {"id": tx.id, "title": _display_title(tx)}, message="Updated successfully")
 
 
-@router.get("/wealth")
-@router.post("/wealth")
+@router.get("/wealth", responses={200: {"model": dict}})
+@router.post("/wealth", responses={400: {"model": dict}, 201: {"model": dict}})
 def wealth_list_create(
     request: Request,
     payload: WealthPayload | None = None,
@@ -656,7 +686,11 @@ def wealth_list_create(
         category=(data.get("category") or "General").strip() or "General",
     )
     db.add(item)
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     db.refresh(item)
     _audit(db, request, action="wealth_created", resource_type="wealth", resource_id=str(item.id), status_code=201, user=user)
     return success_response(
@@ -673,7 +707,7 @@ def wealth_list_create(
     )
 
 
-@router.delete("/wealth/{item_id}")
+@router.delete("/wealth/{item_id}", responses={404: {"model": dict}, 200: {"model": dict}})
 def delete_wealth_item(
     request: Request,
     item_id: int,
@@ -685,13 +719,17 @@ def delete_wealth_item(
         return error_response(request, "Item not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
     db.delete(item)
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     _audit(db, request, action="wealth_deleted", resource_type="wealth", resource_id=str(item_id), status_code=200, user=user)
     return success_response(request, {"id": item_id, "deleted": True}, message="Item deleted")
 
 
-@router.patch("/wealth/{item_id}")
-@router.put("/wealth/{item_id}")
+@router.patch("/wealth/{item_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
+@router.put("/wealth/{item_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
 def update_wealth_item(
     request: Request,
     item_id: int,
@@ -718,7 +756,11 @@ def update_wealth_item(
     if "category" in data and data["category"]:
         item.category = data["category"]
 
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     _audit(db, request, action="wealth_updated", resource_type="wealth", resource_id=str(item_id), status_code=200, user=user)
     return success_response(
         request,
@@ -733,8 +775,8 @@ def update_wealth_item(
     )
 
 
-@router.get("/tax-profile/{user_id}")
-@router.post("/tax-profile/{user_id}")
+@router.get("/tax-profile/{user_id}", responses={403: {"model": dict}, 200: {"model": dict}})
+@router.post("/tax-profile/{user_id}", responses={403: {"model": dict}, 200: {"model": dict}})
 def manage_tax_profile(
     request: Request,
     user_id: int,
@@ -748,7 +790,11 @@ def manage_tax_profile(
     if profile is None:
         profile = TaxProfile(user_id=user.id)
         db.add(profile)
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
         db.refresh(profile)
 
     if request.method == "POST" and payload is not None:
@@ -766,7 +812,11 @@ def manage_tax_profile(
         for key, attr in mapping.items():
             if key in data:
                 setattr(profile, attr, data[key])
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
         _audit(db, request, action="tax_profile_updated", resource_type="tax_profile", resource_id=str(user.id), status_code=200, user=user)
 
     payload_out = {
@@ -782,8 +832,8 @@ def manage_tax_profile(
     return success_response(request, payload_out, message="Tax profile" if request.method == "GET" else "Tax profile updated")
 
 
-@router.get("/itr-data/{user_id}")
-@router.post("/itr-data/{user_id}")
+@router.get("/itr-data/{user_id}", responses={403: {"model": dict}, 200: {"model": dict}})
+@router.post("/itr-data/{user_id}", responses={403: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
 def itr_data_handler(
     request: Request,
     user_id: int,
@@ -797,7 +847,11 @@ def itr_data_handler(
     if record is None:
         record = ITRData(user_id=user.id)
         db.add(record)
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
         db.refresh(record)
 
     if request.method == "POST" and payload is not None:
@@ -807,7 +861,11 @@ def itr_data_handler(
         for key in ("income_data", "deductions_data", "filing_details", "tax_regime"):
             if key in data:
                 setattr(record, key, data[key])
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
         _audit(db, request, action="itr_updated", resource_type="itr", resource_id=str(user.id), status_code=200, user=user)
         return success_response(request, {"saved": True}, message="ITR data updated")
 
@@ -822,7 +880,7 @@ def itr_data_handler(
     )
 
 
-@router.post("/parse-statement")
+@router.post("/parse-statement", responses={400: {"model": dict}, 503: {"model": dict}, 200: {"model": dict}})
 def parse_statement_proxy(
     request: Request,
     file: UploadFile = File(...),

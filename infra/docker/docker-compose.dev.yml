@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-smartuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
     ports:
-      - "5434:5432"
+      - "5434:5432" # Host port 5434 maps to container postgres port 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,11 +27,46 @@ services:
     container_name: spendsy_redis
     restart: always
     ports:
-      - "6379:6379"
+      - "6379:6379" # Standard redis port
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+
+  # ── Connection Pooler ──────────────────────────────────────────────────────
+  # PgBouncer sits between app services and PostgreSQL to enforce transaction-
+  # mode pooling, preventing microservices from exhausting max_connections.
+  pgbouncer:
+    image: bitnami/pgbouncer:1
+    container_name: spendsy_pgbouncer
+    restart: always
+    environment:
+      PGBOUNCER_DATABASE: ${POSTGRES_DB:-spendsy}
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-smartuser}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
+      PGBOUNCER_PORT: 6432
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: 200
+      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+      PGBOUNCER_MIN_POOL_SIZE: 5
+      PGBOUNCER_RESERVE_POOL_SIZE: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "6432:6432" # Standard pgbouncer port
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER:-smartuser}"]
+      interval: 10s
+      timeout: 5s
       retries: 5
     deploy:
       resources:
@@ -44,8 +79,9 @@ services:
     container_name: spendsy_auth
     restart: always
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
+      # Route through PgBouncer (port 6432) instead of Postgres directly
+      DB_HOST: pgbouncer
+      DB_PORT: 6432
       DB_NAME: ${POSTGRES_DB:-spendsy}
       DB_USER: ${POSTGRES_USER:-smartuser}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
@@ -57,12 +93,12 @@ services:
       AUTH_RATE_LIMIT_REGISTER: ${AUTH_RATE_LIMIT_REGISTER:-50}
       ENVIRONMENT: ${ENVIRONMENT:-production}
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
     ports:
-      - "8001:8000"
+      - "8001:8000" # Host port 8001 -> Auth Service
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
       interval: 20s
@@ -79,8 +115,9 @@ services:
     container_name: spendsy_finance
     restart: always
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
+      # Route through PgBouncer (port 6432) instead of Postgres directly
+      DB_HOST: pgbouncer
+      DB_PORT: 6432
       DB_NAME: ${POSTGRES_DB:-spendsy}
       DB_USER: ${POSTGRES_USER:-smartuser}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
@@ -91,14 +128,14 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
       ENVIRONMENT: ${ENVIRONMENT:-production}
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
       parser-service:
         condition: service_healthy
     ports:
-      - "8002:8000"
+      - "8002:8000" # Host port 8002 -> Finance Service
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
       interval: 20s
@@ -120,7 +157,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "8003:8000"
+      - "8003:8000" # Host port 8003 -> Parser Service
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
       interval: 30s
@@ -147,7 +184,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "8004:8000"
+      - "8004:8000" # Host port 8004 -> AI Service
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
       interval: 30s
@@ -173,7 +210,7 @@ services:
       ai-service:
         condition: service_healthy
     ports:
-      - "8080:80"
+      - "8080:80"   # Host port 8080 -> NGINX API Gateway
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     deploy:

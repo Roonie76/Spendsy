@@ -40,3 +40,9 @@ def record_event(stream: str, payload: dict) -> None:
     event = {"ts": int(time.time()), **payload}
     client.lpush(stream, str(event))
     client.ltrim(stream, 0, 999)
+
+
+def is_token_blacklisted(jti: str) -> bool:
+    """Return True if the given JTI has been blacklisted (i.e. logged out)."""
+    client = get_redis()
+    return client.exists(f"bl:jti:{jti}") == 1

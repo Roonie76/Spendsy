@@ -15,6 +15,7 @@ import {
   Save,
 } from "lucide-react";
 import { buildAuthHeader } from "../../../../../packages/shared/utils/helpers";
+import { apiFetch } from "../api";
 
 // --- TOOLTIP DATA ---
 const HELP_TEXTS = {
@@ -89,30 +90,26 @@ export const ITRPage = ({ user, authToken, apiBaseUrl }) => {
     const fetchUserData = async () => {
       try {
         // Path matches your Django finance urls
-      const response = await fetch(`${apiBaseUrl}/itr-data/${user.id}`, {
-        headers: {
-          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-        },
-      });
-        if (response.ok) {
-          const data = await response.json();
-          const payload = data?.data || data;
-          if (payload) {
-            setIncome((prev) => ({ ...prev, ...(payload.income_data || {}) }));
-            setDeductions((prev) => ({ ...prev, ...(payload.deductions_data || {}) }));
-            setFilingDetails((prev) => ({ ...prev, ...(payload.filing_details || {}) }));
-            setTaxRegime(payload.tax_regime || "new");
-            setDbStatus("online");
-          }
-        } else {
-          setDbStatus("new_profile");
+        const data = await apiFetch(`${apiBaseUrl}/itr-data/${user.id}`);
+        const payload = data?.data || data;
+        if (payload) {
+          setIncome((prev) => ({ ...prev, ...(payload.income_data || {}) }));
+          setDeductions((prev) => ({ ...prev, ...(payload.deductions_data || {}) }));
+          setFilingDetails((prev) => ({ ...prev, ...(payload.filing_details || {}) }));
+          setTaxRegime(payload.tax_regime || "new");
+          setDbStatus("online");
         }
       } catch (error) {
-        setDbStatus("offline");
+        // Distinguish between 404 (new profile) and other errors
+        if (error.status === 404) {
+          setDbStatus("new_profile");
+        } else {
+          setDbStatus("offline");
+        }
       }
     };
     fetchUserData();
-  }, [user.id, apiBaseUrl, authToken]);
+  }, [user.id, apiBaseUrl]);
 
   // --- 2. DATABASE SAVE (POST) ---
   const saveProgress = async () => {
@@ -125,22 +122,18 @@ export const ITRPage = ({ user, authToken, apiBaseUrl }) => {
     };
 
     try {
-      const response = await fetch(`${apiBaseUrl}/itr-data/${user.id}`, {
+      await apiFetch(`${apiBaseUrl}/itr-data/${user.id}`, {
         method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-      },
         body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        setDbStatus("online");
-      } else {
-        setDbStatus("error");
-      }
+      setDbStatus("online");
     } catch (error) {
-      setDbStatus("offline");
+      if (error.status && error.status >= 400 && error.status < 500) {
+        setDbStatus("error");
+      } else {
+        setDbStatus("offline");
+      }
     } finally {
       setIsSaving(false);
     }

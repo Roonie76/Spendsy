@@ -30,6 +30,7 @@ import AuditPage from "./pages/AuditPage";
 import StatsPage from "./pages/StatsPage";
 import ITRPage from "./pages/ITRPage";
 import AICopilot from "./components/ai/AICopilot";
+import { apiFetch } from "./api"; // Centralized wrapper
 
 export default function App() {
   const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
@@ -93,17 +94,8 @@ export default function App() {
     localStorage.getItem("access_token") ||
     localStorage.getItem("auth_token") ||
     localStorage.getItem("token");
-  const apiFetch = useCallback(
-    (url, options = {}) => {
-      const headers = { ...(options.headers || {}) };
-      const authHeader = buildAuthHeader(authToken);
-      if (authHeader) {
-        headers.Authorization = authHeader;
-      }
-      return fetch(url, { ...options, headers });
-    },
-    [authToken],
-  );
+  // Removed local apiFetch in favor of the centralized one imported from ./api.js
+
 
   const localTotals = useMemo(() => {
     if (!Array.isArray(transactions)) return { income: 0, expenses: 0 };
@@ -191,12 +183,7 @@ export default function App() {
   async function fetchHistory() {
     if (!currentUser?.id) return;
     try {
-      const response = await apiFetch(`${API_BASE_URL}/transactions`);
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.message || "Failed to fetch transactions");
-      }
-
+      const data = await apiFetch(`${API_BASE_URL}/transactions`);
       const payload = data?.data || data;
       const items = Array.isArray(payload) ? payload : payload?.data;
 
@@ -240,9 +227,8 @@ export default function App() {
   async function fetchSettings() {
     if (!currentUser?.id) return;
     try {
-      const response = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
-      const data = await response.json();
-      if (response.ok) setSettings(data?.data || data);
+      const data = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
+      setSettings(data?.data || data);
     } catch (err) {
       console.error("Failed to load settings:", err);
     }
@@ -251,9 +237,8 @@ export default function App() {
   const fetchSummary = useCallback(async () => {
     if (!currentUser?.id) return;
     try {
-      const response = await apiFetch(`${API_BASE_URL}/summary`);
-      const data = await response.json();
-      if (response.ok) setServerSummary(data?.data || null);
+      const data = await apiFetch(`${API_BASE_URL}/summary`);
+      setServerSummary(data?.data || null);
     } catch (err) {
       console.error("Failed to load summary:", err);
     }
@@ -262,11 +247,8 @@ export default function App() {
   const fetchWealth = useCallback(async () => {
     if (!currentUser?.id) return;
     try {
-      const response = await apiFetch(`${API_BASE_URL}/wealth`);
-      if (response.ok) {
-        const data = await response.json();
-        setWealthItems(data?.data || data);
-      }
+      const data = await apiFetch(`${API_BASE_URL}/wealth`);
+      setWealthItems(data?.data || data);
     } catch (err) {
       showToast("Could not sync portfolio", "error");
     }
@@ -275,20 +257,14 @@ export default function App() {
   const fetchTaxProfile = useCallback(async () => {
     if (!currentUser?.id) return;
     try {
-      // Ensure this matches your Django urls.py exactly
-      const response = await apiFetch(`${API_BASE_URL}/tax-profile/${currentUser.id}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        // If Django returns a single object, but your state expects initialDefaultProfile keys:
-        const payload = data?.data || data;
-        setTaxProfile(payload);
-        localStorage.setItem("tax_profile", JSON.stringify(payload));
-      }
+      const data = await apiFetch(`${API_BASE_URL}/tax-profile/${currentUser.id}`);
+      const payload = data?.data || data;
+      setTaxProfile(payload);
+      localStorage.setItem("tax_profile", JSON.stringify(payload));
     } catch (e) {
       console.error("Network error during tax profile sync", e);
     }
-  }, [currentUser?.id, apiFetch]);
+  }, [currentUser?.id]); // apiFetch is stable from import
 
   const updateTaxProfile = async (localProfile) => {
     if (!currentUser?.id) {
@@ -297,19 +273,15 @@ export default function App() {
     }
 
     try {
-      const response = await apiFetch(`${API_BASE_URL}/tax-profile/${currentUser.id}`, {
+      const savedData = await apiFetch(`${API_BASE_URL}/tax-profile/${currentUser.id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(localProfile),
       });
 
-      if (response.ok) {
-        const savedData = await response.json();
-        const payload = savedData?.data || savedData;
-        setTaxProfile(payload);
-        localStorage.setItem("tax_profile", JSON.stringify(payload));
-        showToast("Profile synced!", "success");
-      }
+      const payload = savedData?.data || savedData;
+      setTaxProfile(payload);
+      localStorage.setItem("tax_profile", JSON.stringify(payload));
+      showToast("Profile synced!", "success");
     } catch (error) {
       showToast("Network error", "error");
     }
@@ -331,16 +303,12 @@ export default function App() {
       // If we have an ID but no email, fetch the full profile from Django
       const fetchFullProfile = async () => {
         try {
-          const response = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
-          const data = await response.json();
+          const data = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
           const payload = data?.data || data;
-          if (response.ok) {
-            // Merge the existing user data with the new email/details from Django
-            setCurrentUser((prev) => ({
-              ...prev,
-              email: payload.email || payload.user_email, // Match your Django field name
-            }));
-          }
+          setCurrentUser((prev) => ({
+            ...prev,
+            email: payload.email || payload.user_email, 
+          }));
         } catch (err) {
           console.error("Could not fetch full user profile:", err);
         }
@@ -351,16 +319,11 @@ export default function App() {
 
   const deleteTransaction = async (id) => {
     try {
-      // Use the constant!
-      const response = await apiFetch(`${API_BASE_URL}/transactions/${id}`, {
+      await apiFetch(`${API_BASE_URL}/transactions/${id}`, {
         method: "DELETE",
       });
-      if (response.ok) {
-        setTransactions((prev) => prev.filter((t) => t.id !== id));
-        fetchSummary();
-      } else {
-        showToast("Delete failed on server", "error");
-      }
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
+      fetchSummary();
     } catch (error) {
       console.error("Delete failed:", error);
       showToast("Delete failed", "error");
@@ -368,9 +331,8 @@ export default function App() {
   };
   const updateTransaction = async (updatedTx) => {
     try {
-      const response = await apiFetch(`${API_BASE_URL}/transactions/${updatedTx.id}`, {
+      await apiFetch(`${API_BASE_URL}/transactions/${updatedTx.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: updatedTx.description,
           amount: updatedTx.amount,
@@ -379,15 +341,10 @@ export default function App() {
           date: updatedTx.date,
         }),
       });
-
-      if (response.ok) {
-        showToast("Transaction updated!", "success");
-        fetchHistory();
-      } else {
-        showToast("Update failed on server", "error");
-      }
+      showToast("Transaction updated!", "success");
+      fetchHistory();
     } catch (err) {
-      showToast("Connection error", "error");
+      showToast(err.message || "Update failed", "error");
     }
   };
   const bulkDeleteTransactions = async (items) => {
@@ -425,60 +382,43 @@ export default function App() {
     );
   const updateWealthItem = async (updatedItem) => {
     try {
-      const response = await apiFetch(`${API_BASE_URL}/wealth/${updatedItem.id}`, {
+      await apiFetch(`${API_BASE_URL}/wealth/${updatedItem.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedItem),
       });
-
-      if (response.ok) {
-        showToast("Portfolio updated!", "success");
-        fetchWealth();
-      } else {
-        showToast("Failed to update item", "error");
-      }
+      showToast("Portfolio updated!", "success");
+      fetchWealth();
     } catch (err) {
-      showToast("Connection error", "error");
+      showToast(err.message || "Update failed", "error");
     }
   };
   const saveSettings = async (dataToSave) => {
     try {
-      const response = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`, {
+      const data = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSave),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Update failed");
-      }
-
-      const data = await response.json();
       const payload = data?.data || data;
       setSettings(payload);
       showToast("Settings saved!", "success");
       return true;
     } catch (err) {
       console.error("Save Error:", err);
-      showToast(err.message, "error");
+      showToast(err.message || "Update failed", "error");
       return false;
     }
   };
 
   const executeDeleteWealth = async (itemId) => {
     try {
-      const response = await apiFetch(`${API_BASE_URL}/wealth/${itemId}`, {
+      await apiFetch(`${API_BASE_URL}/wealth/${itemId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
       });
-
-      if (response.ok) {
-        showToast("Item removed", "success");
-        fetchWealth();
-      }
+      showToast("Item removed", "success");
+      fetchWealth();
     } catch (e) {
-      showToast("Failed to remove", "error");
+      showToast(e.message || "Failed to remove", "error");
     }
   };
 

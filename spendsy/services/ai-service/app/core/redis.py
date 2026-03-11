@@ -42,3 +42,9 @@ def load_history(user_id: int, limit: int = 20) -> list[dict]:
 def clear_history(user_id: int) -> None:
     key = f"ai:chat:{user_id}"
     get_redis().delete(key)
+
+
+def is_token_blacklisted(jti: str) -> bool:
+    """Return True if the given JTI has been blacklisted (i.e. logged out)."""
+    client = get_redis()
+    return client.exists(f"bl:jti:{jti}") == 1

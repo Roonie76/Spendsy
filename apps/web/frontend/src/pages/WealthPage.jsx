@@ -6,6 +6,7 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
 import { formatIndianCompact, buildAuthHeader } from "../../../../../packages/shared/utils/helpers";
 import UnitSelector from "../components/domain/UnitSelector";
 import WealthItem from "../components/domain/WealthItem";
+import { apiFetch } from "../api";
 
 const WealthPage = ({
   wealthItems,
@@ -43,12 +44,8 @@ const WealthPage = ({
   // --- 3. Handlers ---
   const executeAddWealth = async (data) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/wealth`, {
+      const response = await apiFetch(`${apiBaseUrl}/wealth`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-        },
         body: JSON.stringify({
           title: data.title, // Correctly mapped
           amount: parseFloat(data.amount) * parseFloat(data.unit),
@@ -57,14 +54,10 @@ const WealthPage = ({
         }),
       });
 
-      if (response.ok) {
-        setWealthName("");
-        setWealthAmount("");
-        showToast("Item added successfully!", "success");
-        onSuccess(); // <--- CRITICAL: Refetches data from Django
-      } else {
-        showToast("Failed to add item", "error");
-      }
+      setWealthName("");
+      setWealthAmount("");
+      showToast("Item added successfully!", "success");
+      onSuccess(); // <--- CRITICAL: Refetches data from Django
     } catch (error) {
       showToast("Server error", "error");
     }
@@ -90,17 +83,12 @@ const WealthPage = ({
   const executeDeleteWealth = async (id) => {
     try {
       // Correct URL format matching your Django urls.py
-      const response = await fetch(`${apiBaseUrl}/wealth/${id}`, {
+      await apiFetch(`${apiBaseUrl}/wealth/${id}`, {
         method: "DELETE",
-        headers: {
-          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-        },
       });
 
-      if (response.ok) {
-        showToast("Item removed", "success");
-        onSuccess(); // <--- CRITICAL: Refetches data from Django
-      }
+      showToast("Item removed", "success");
+      onSuccess(); // <--- CRITICAL: Refetches data from Django
     } catch (e) {
       showToast("Failed to remove", "error");
     }
@@ -114,24 +102,16 @@ const WealthPage = ({
   // ADD THIS NEW HANDLER HERE
   const executeUpdateWealth = async (id, updatedData) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/wealth/${id}`, {
+      await apiFetch(`${apiBaseUrl}/wealth/${id}`, {
         method: "PUT", // or "PATCH"
-        headers: {
-          "Content-Type": "application/json",
-          ...(buildAuthHeader(authToken) ? { Authorization: buildAuthHeader(authToken) } : {}),
-        },
         body: JSON.stringify({
           title: updatedData.title,
           amount: updatedData.amount,
         }),
       });
 
-      if (response.ok) {
-        showToast("Item updated", "success");
-        onSuccess(); // Refetch data to refresh the UI
-      } else {
-        showToast("Failed to update", "error");
-      }
+      showToast("Item updated", "success");
+      onSuccess(); // Refetch data to refresh the UI
     } catch (error) {
       showToast("Server connection error", "error");
     }

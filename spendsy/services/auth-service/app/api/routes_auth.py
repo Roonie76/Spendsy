@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -69,7 +71,11 @@ def register(payload: UserCreate, request: Request, response: Response, db: Sess
         date_joined=datetime.now(timezone.utc),
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
     db.refresh(user)
 
     access_token, _ = security.create_access_token(str(user.id), user.username, user.email)
