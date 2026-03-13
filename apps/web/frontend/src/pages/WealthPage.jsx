@@ -208,10 +208,16 @@ const WealthPage = ({
           {/* 2. Amount Row (Stacked) */}
           <div className="flex gap-2">
             <input
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={wealthAmount}
-              onChange={(e) => setWealthAmount(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                // Allow only valid decimal numbers
+                if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
+                  setWealthAmount(val);
+                }
+              }}
               className="w-full flex-1 px-4 py-3 sm:py-4 bg-black/20 border border-white/10 rounded-2xl text-base text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50 transition-colors"
               placeholder="Amount (e.g. 1.5)"
               required

@@ -434,6 +434,7 @@ def add_transaction(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump(exclude_unset=True)
+    logger.info(f"add_transaction received: {data}")
     if "amount" not in data or data["amount"] is None:
         return error_response(request, "Amount is required and must be > 0", code=ErrorCode.INVALID_AMOUNT)
     if "type" not in data or data["type"] is None:
@@ -470,6 +471,7 @@ def add_transaction(
         db.rollback()
         raise
     db.refresh(tx)
+    logger.info(f"add_transaction created transaction id={tx.id} with amount={tx.amount} (type: {type(tx.amount).__name__})")
     _audit(
         db,
         request,
@@ -892,12 +894,14 @@ def parse_statement_proxy(
     if file is None:
         return error_response(request, "Missing statement file upload", code=ErrorCode.MISSING_FILE)
 
+    logger.info(f"parse_statement_proxy: file={file.filename}, size={file.size}, content_type={file.content_type}, user={user.id}")
     content = file.file.read()
     statement_hash = hashlib.sha256(content).hexdigest()
     request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
 
     try:
         parsed = parse_statement(content, file.filename, file.content_type)
+        logger.info(f"parse_statement_proxy: parser returned {len(parsed.get('transactions', []))} transactions")
     except Exception as exc:
         logger.error("parser_failed request_id=%s error=%s", request_id, str(exc))
         _audit(
@@ -911,7 +915,7 @@ def parse_statement_proxy(
         )
         return error_response(
             request,
-            "Statement parser failed. Please try again shortly.",
+            f"Statement parser failed: {str(exc)}",
             code=ErrorCode.PARSER_UNAVAILABLE,
             http_status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )

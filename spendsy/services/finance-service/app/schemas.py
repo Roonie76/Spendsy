@@ -9,12 +9,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TransactionCategory(str, Enum):
+    salary = "salary"
+    investment = "investment"
+    housing = "housing"
+    utilities = "utilities"
     food = "food"
+    shopping = "shopping"
+    transport = "transport"
+    entertainment = "entertainment"
     rent = "rent"
     travel = "travel"
-    shopping = "shopping"
-    utilities = "utilities"
-    investment = "investment"
     other = "other"
 
 

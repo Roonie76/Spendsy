@@ -50,7 +50,7 @@ const InfoTooltip = ({ field }) => (
   </div>
 );
 
-export const ITRPage = ({ user, authToken, apiBaseUrl }) => {
+export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [taxRegime, setTaxRegime] = useState("new");
   const [isSaving, setIsSaving] = useState(false);
@@ -128,6 +128,10 @@ export const ITRPage = ({ user, authToken, apiBaseUrl }) => {
       });
 
       setDbStatus("online");
+      // Refresh tax profile after saving ITR data
+      if (refreshProfile) {
+        refreshProfile();
+      }
     } catch (error) {
       if (error.status && error.status >= 400 && error.status < 500) {
         setDbStatus("error");
@@ -257,7 +261,12 @@ export const ITRPage = ({ user, authToken, apiBaseUrl }) => {
                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2 ml-1 group-focus-within:text-blue-400">{key.replace(/([A-Z])/g, " $1")} <InfoTooltip field={key} /></div>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium italic">₹</span>
-                          <input type="number" value={income[key]} onChange={(e) => handleInputChange("income", key, e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white focus:border-blue-500/50 outline-none transition-all shadow-inner" placeholder="0.00" />
+                          <input type="text" inputMode="decimal" value={income[key]} onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
+                              handleInputChange("income", key, val);
+                            }
+                          }} className="w-full bg-black/20 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white focus:border-blue-500/50 outline-none transition-all shadow-inner" placeholder="0.00" />
                         </div>
                       </div>
                     ))}
@@ -277,7 +286,12 @@ export const ITRPage = ({ user, authToken, apiBaseUrl }) => {
                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1 group-focus-within:text-blue-400">{key.replace(/([A-Z])/g, " $1")} <InfoTooltip field={key} /></div>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
-                          <input type="number" value={deductions[key]} onChange={(e) => handleInputChange("deductions", key, e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white focus:border-blue-500/50 outline-none transition-all shadow-inner" placeholder="0.00" />
+                          <input type="text" inputMode="decimal" value={deductions[key]} onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
+                              handleInputChange("deductions", key, val);
+                            }
+                          }} className="w-full bg-black/20 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white focus:border-blue-500/50 outline-none transition-all shadow-inner" placeholder="0.00" />
                         </div>
                       </div>
                     ))}

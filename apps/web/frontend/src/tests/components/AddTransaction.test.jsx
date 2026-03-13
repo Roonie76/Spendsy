@@ -15,7 +15,7 @@ const baseProps = {
 };
 
 const fillTransactionForm = () => {
-  const amountInput = screen.getByRole("spinbutton");
+  const amountInput = screen.getByPlaceholderText("0");
   const descInput = screen.getByPlaceholderText(/what was this for\?/i);
 
   fireEvent.click(screen.getByRole("button", { name: /expense/i }));
@@ -71,7 +71,7 @@ describe("AddPage - Add Transaction", () => {
     );
     expect(baseProps.showToast).toHaveBeenCalledWith("Added!", "success");
     expect(baseProps.refreshData).toHaveBeenCalled();
-    expect(amountInput).toHaveValue(null);
+    expect(amountInput).toHaveValue("");
     expect(descInput).toHaveValue("");
   });
 

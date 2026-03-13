@@ -28,6 +28,7 @@ import { TaxService } from "../../../../../packages/shared/services/taxService";
 import { AIService } from "../../../../../packages/shared/services/aiService";
 import { formatIndianCompact } from "../../../../../packages/shared/utils/helpers";
 import { TABS } from "../../../../../packages/shared/config/constants";
+import { apiFetch } from "../api";
 
 // --- Sub-components ---
 const DeductionBar = ({
@@ -246,11 +247,14 @@ const AuditPage = ({
   showToast,
   settings,
   setActiveTab,
+  user,
+  apiBaseUrl,
 }) => {
   const [adviceCards, setAdviceCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [isRateLimited, setIsRateLimited] = useState(false);
+  const [itrData, setItrData] = useState(null);
 
   // 1. Load cached advice on mount
   useEffect(() => {
@@ -264,12 +268,22 @@ const AuditPage = ({
     }
   }, []);
 
+  // Fetch ITR data
+  useEffect(() => {
+    if (user?.id && apiBaseUrl) {
+      apiFetch(`${apiBaseUrl}/itr-data/${user.id}`)
+        .then((data) => setItrData(data))
+        .catch((err) => console.error("Failed to fetch ITR data:", err));
+    }
+  }, [user?.id, apiBaseUrl]);
+
   const data = useMemo(() => {
     const results = TaxService.calculate(
       transactions,
       taxProfile,
       wealthItems,
       settings,
+      itrData,
     );
     const isNewCheaper = results.taxNew <= results.taxOld;
     return {
@@ -280,7 +294,7 @@ const AuditPage = ({
         : results.taxableOld,
       recommendedTax: isNewCheaper ? results.taxNew : results.taxOld,
     };
-  }, [transactions, taxProfile, wealthItems, settings]);
+  }, [transactions, taxProfile, wealthItems, settings, itrData]);
 
   const detectedValues = useMemo(() => {
     const result = { rent: 0, epf: 0, health: 0, nps: 0 };

@@ -21,13 +21,26 @@ def _run_gemini(payload: AIRequest) -> AIResponse:
     try:
         raw = generate_text(prompt, response_format=payload.response_format)
     except GeminiError as exc:
+        print(f"ERROR: AI Request failed: {str(exc)}")
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     output: str | dict | list = raw
     if payload.response_format == "json":
         try:
-            output = json.loads(raw)
-        except json.JSONDecodeError:
+            # Robust JSON extraction
+            content = raw.strip()
+            if content.startswith("```"):
+                # Handle markdown code blocks
+                lines = content.splitlines()
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].startswith("```"):
+                    lines = lines[:-1]
+                content = "\n".join(lines).strip()
+            
+            output = json.loads(content)
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"ERROR: JSON Parsing failed for raw output: {raw[:100]}... Error: {str(e)}")
             output = []
     return AIResponse(status="ok", output=output, raw=raw)
 

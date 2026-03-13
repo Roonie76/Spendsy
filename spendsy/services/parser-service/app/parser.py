@@ -143,17 +143,18 @@ class IntegratedParser:
             parsed_rows = digital_rows
             method = "digital"
 
-            # Hybrid fallback: if digital extraction is sparse, supplement with OCR rows.
-            if len(digital_rows) < 8:
-                ocr_rows = self._extract_ocr(file_bytes, bank=bank)
-                if ocr_rows:
-                    merged: dict[tuple[str, str, int, str], ParsedTransaction] = {
-                        self._tx_key(tx): tx for tx in digital_rows
-                    }
-                    for tx in ocr_rows:
-                        merged.setdefault(self._tx_key(tx), tx)
-                    parsed_rows = list(merged.values())
-                    method = "ocr" if not digital_rows else "hybrid"
+            # Hybrid fallback: if digital extraction is incomplete (< 90% confidence), supplement with OCR rows.
+            # This handles cases where pdfplumber misses some rows or where tables are poorly formatted.
+            ocr_rows = self._extract_ocr(file_bytes, bank=bank)
+            if ocr_rows and len(digital_rows) < len(ocr_rows):
+                # OCR found more transactions than digital; use OCR or hybrid approach
+                merged: dict[tuple[str, str, int, str], ParsedTransaction] = {
+                    self._tx_key(tx): tx for tx in digital_rows
+                }
+                for tx in ocr_rows:
+                    merged.setdefault(self._tx_key(tx), tx)
+                parsed_rows = list(merged.values())
+                method = "ocr" if not digital_rows else "hybrid"
 
         if file_type in {"csv", "xlsx"} and not parsed_rows:
             return ParserResponse(
@@ -635,6 +636,8 @@ class IntegratedParser:
             cleaned = cleaned.replace(date_token.group(0), " ")
 
         tokens: list[str] = []
+        # Only extract amounts that have explicit currency markers or decimal points
+        # to avoid picking up transaction reference numbers
         for match in re.finditer(r"(?:[+-]|\()?\s*(?:₹|INR|RS\.?)?\s*(?:\d{1,3}(?:,\d{2,3})+|\d+)(?:\.\d{1,2})?\)?", cleaned, re.IGNORECASE):
             token = self._normalize_cell(match.group(0))
             if self._looks_like_ocr_amount_token(token):
@@ -644,9 +647,14 @@ class IntegratedParser:
     def _looks_like_ocr_amount_token(self, token: str) -> bool:
         if not token:
             return False
-        if not any(marker in token for marker in (".", ",", "₹", "+", "-", "(", ")", "INR", "RS")):
+        # More lenient: accept anything that looks like a monetary value
+        # (has decimal point or thousands separator or currency marker)
+        has_decimal_or_separator = any(marker in token for marker in (".", ",", "₹", "INR", "RS"))
+        if not has_decimal_or_separator:
             return False
-        return self._parse_amount(token) is not None
+        # Simple check: can we parse it as an amount?
+        parsed = self._parse_amount(token)
+        return parsed is not None and parsed > 0
 
     def _strip_ocr_date_and_amounts(self, text: str, amount_tokens: list[str]) -> str:
         desc = text
@@ -662,18 +670,29 @@ class IntegratedParser:
             return None
 
         descriptions = [self._normalize_cell(part) for part in candidate.get("descriptions", []) if self._normalize_cell(part)]
-        if not descriptions:
-            return None
+        # Don't require description; if we have date + amount, that's sufficient
         description = " ".join(descriptions).strip()[:255] or "Transaction"
 
         amount_tokens = candidate.get("amount_tokens", [])
-        amount_raw = amount_tokens[-2] if len(amount_tokens) >= 2 else (amount_tokens[0] if amount_tokens else None)
-        balance_raw = amount_tokens[-1] if len(amount_tokens) >= 2 else None
-
-        amount_dec = self._parse_amount(amount_raw or "")
-        balance_dec = self._parse_amount(balance_raw or "") if balance_raw else None
-        if amount_dec is None or amount_dec == 0:
+        if not amount_tokens:
             return None
+
+        # Filter to reasonable transaction amounts (< 5 crore = 50 million to exclude balance numbers)
+        # Prefer the smallest valid amount in the range
+        valid_amounts = []
+        for token in amount_tokens:
+            amt = self._parse_amount(token)
+            # Accept amounts in realistic transaction range (exclude > 50M which are likely balances)
+            if amt is not None and amt > 0 and amt < 50000000:  # < 5 crore
+                valid_amounts.append((amt, token))
+
+        if not valid_amounts:
+            return None
+
+        # Sort by amount value and take the smallest (actual transaction vs balance)
+        valid_amounts.sort(key=lambda x: x[0])
+        amount_dec = valid_amounts[0][0]
+        amount_raw = valid_amounts[0][1]
 
         tx_type, tx_amount = self._infer_type_and_amount(
             description,
@@ -686,13 +705,13 @@ class IntegratedParser:
         if tx_type is None or tx_amount is None or tx_amount <= 0:
             return None
 
-        confidence = self._score_ocr_candidate(candidate, bool(balance_dec is not None), tx_type is not None)
+        confidence = self._score_ocr_candidate(candidate, False, tx_type is not None)
         return ParsedTransaction(
             date=candidate["date"],
             description=description,
             amount=tx_amount,
             type=tx_type,
-            balance=float(balance_dec) if balance_dec is not None else None,
+            balance=None,
             confidence=confidence,
             is_valid=True,
         )
@@ -880,6 +899,12 @@ class IntegratedParser:
         if credit is not None and credit > 0:
             return "income", float(abs(credit))
         if amount is None or amount == 0:
+            return None, None
+
+        # Reject unreasonably large amounts (likely balance values, not transactions)
+        # Use a more lenient threshold of 50 million (5 crore)
+        abs_amount = float(abs(amount))
+        if abs_amount >= 50000000:  # 5 crore - balance threshold
             return None, None
 
         if bank == "sbi" and self._has_explicit_sign(raw_amount):

@@ -21,25 +21,15 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
+logger = logging.getLogger("finance.main")
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     yield
 
 
-origins = [
-    "http://localhost:5173",
-]
-
 app = FastAPI(title="Spendsy Finance Service", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Observability: request ID generation and structured access logging
 app.add_middleware(RequestLoggingMiddleware)

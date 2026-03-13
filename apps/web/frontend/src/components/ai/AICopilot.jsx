@@ -32,10 +32,10 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
     try {
       // Use local spendsy-ai port 8005 for Ask Tora
       const toraEndpoint = "http://localhost:8005/ask-tora";
-      
+
       const response = await apiFetch(toraEndpoint, {
         method: "POST",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           question: trimmed,
           user_id: userId || 1
         }),
@@ -62,7 +62,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
 
   return (
     <>
-      <FloatingAIButton isOpen={isOpen} onClick={() => setIsOpen(true)} />
+      {/* <FloatingAIButton isOpen={isOpen} onClick={() => setIsOpen(true)} />
       <AIChatPanel
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
@@ -72,7 +72,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         onSend={handleSend}
         isLoading={isLoading}
         authMissing={authMissing}
-      />
+      /> */}
     </>
   );
 }

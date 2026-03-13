@@ -7,12 +7,14 @@ export const TaxService = {
     profile = {},
     wealthItems = [],
     settings = {},
+    itrData = null,
   ) => {
     // --- 1. DEFENSIVE INITIALIZATION ---
     // Ensures code doesn't crash if transactions or wealthItems are undefined/null
     const txList = Array.isArray(transactions) ? transactions : [];
     const wealthList = Array.isArray(wealthItems) ? wealthItems : [];
     const userProfile = profile || {};
+    const itr = itrData || {};
 
     let fyStartYear;
     if (txList.length > 0) {
@@ -41,6 +43,17 @@ export const TaxService = {
     let savingsInterest = 0;
     let detected80C = 0;
     let detected80D = 0;
+
+    // --- 1.5. LOAD ITR INCOME DATA IF PROVIDED ---
+    if (itr?.income_data) {
+      const income = itr.income_data || {};
+      salaryIncome += parseFloat(income.salary) || 0;
+      housePropertyIncome += parseFloat(income.houseProperty) || 0;
+      businessIncome += parseFloat(income.businessIncome) || 0;
+      capitalGainsReceipts += parseFloat(income.capitalGains) || 0;
+      otherSourcesIncome += parseFloat(income.otherIncome) || 0;
+      savingsInterest += parseFloat(income.interestIncome) || 0;
+    }
 
     // --- 2. SAFE TRANSACTION PROCESSING ---
     txList.forEach((t) => {
@@ -104,15 +117,15 @@ export const TaxService = {
 
     // --- 3. SAFE PROFILE & WEALTH INTEGRATION ---
     const manualEPF = parseFloat(userProfile.annualEPF || 0);
-    const inv80C = manualEPF + detected80C;
+    const inv80C = manualEPF + detected80C + (parseFloat(itr?.deductions_data?.section80C) || 0);
     const manualHealth = parseFloat(userProfile.healthInsuranceSelf || 0);
-    const inv80D_Self = Math.max(manualHealth, detected80D);
+    const inv80D_Self = Math.max(manualHealth, detected80D) + (parseFloat(itr?.deductions_data?.section80D) || 0);
 
     const inv80D_Parents = parseFloat(userProfile.healthInsuranceParents || 0);
-    const invNPS = parseFloat(userProfile.npsContribution || 0);
-    const interest24b = parseFloat(userProfile.homeLoanInterest || 0);
-    const interest80E = parseFloat(userProfile.educationLoanInterest || 0);
-    const rentPaid = parseFloat(userProfile.annualRent || 0);
+    const invNPS = parseFloat(userProfile.npsContribution || 0) + (parseFloat(itr?.deductions_data?.nps80CCD) || 0);
+    const interest24b = parseFloat(userProfile.homeLoanInterest || 0) + (parseFloat(itr?.deductions_data?.homeLoanInterest) || 0);
+    const interest80E = parseFloat(userProfile.educationLoanInterest || 0) + (parseFloat(itr?.deductions_data?.section80E) || 0);
+    const rentPaid = parseFloat(userProfile.annualRent || 0) + (parseFloat(itr?.deductions_data?.hra) || 0);
 
     // FIXED: Using optional chaining and fallback for wealthItems names
     const hasHomeLoan = wealthList.some(

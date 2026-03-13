@@ -77,7 +77,8 @@ const AddPage = ({
 
     setIsSubmitting(true);
 
-    const finalAmount = parseFloat(amount) * transUnit;
+    const finalAmount = Number(amount) * transUnit;
+    console.log("AddPage: amount input =", { rawAmount: amount, parsedAmount: Number(amount), transUnit, finalAmount });
     const normalizedType = String(type || "").trim().toLowerCase();
     if (!["income", "expense"].includes(normalizedType)) {
       setIsSubmitting(false);
@@ -88,7 +89,7 @@ const AddPage = ({
     // 2. Updated formData to match the finance service payload
     const formData = {
       title: desc, // Matches 'title' in models.py
-      amount: finalAmount,
+      amount: String(finalAmount), // Send as string to avoid float precision loss
       type: normalizedType, // 'income' or 'expense'
       category: cat, // Matches the slug/id of the category
       is_recurring: isRecurring, // Note: Ensure this is added to models.py
@@ -100,6 +101,7 @@ const AddPage = ({
         body: JSON.stringify(formData),
       });
 
+      console.log("AddPage transaction response:", data);
       showToast(isRecurring ? "Recurring bill added!" : "Added!", "success");
       if (refreshData) refreshData();
       // Clear form
@@ -127,27 +129,26 @@ const AddPage = ({
       const formData = new FormData();
       formData.append("file", f);
 
-      // We let apiFetch handle auth via cookie, but since this is FormData,
-      // the browser needs to set the Content-Type with the boundary string.
-      // We must explicitly ensure we don't set Content-Type: application/json here.
-      // apiFetch should handle FormData automatically if not overridden.
+      console.log("Uploading file:", { name: f.name, size: f.size, type: f.type });
+
       const data = await apiFetch(`${apiBaseUrl}/parse-statement`, {
         method: "POST",
         body: formData,
-        // Optional: specify headers: {} to override any default if necessary, 
-        // but apiFetch typically relies on the caller not setting Content-Type for FormData
       });
 
+      console.log("Parser response:", data);
+
+      // Handle both wrapped and unwrapped response formats
       const parserPayload = data?.data || data;
+      console.log("Parser payload extracted:", parserPayload);
 
       if (Array.isArray(parserPayload.transactions) && parserPayload.transactions.length) {
+        console.log("Found transactions:", parserPayload.transactions.length);
         setDraftTransactions(parserPayload.transactions);
-        setAlreadyPersisted(true);
-        if (refreshData) {
-          await refreshData();
-        }
-        showToast("Statement uploaded successfully.", "success");
+        setAlreadyPersisted(false); // Don't mark as persisted until user syncs
+        showToast(`Parsed ${parserPayload.transactions.length} transactions successfully!`, "success");
       } else {
+        console.warn("No transactions found in parser response", parserPayload);
         showToast("No transactions found in statement", "error");
       }
     } catch (err) {
@@ -158,6 +159,10 @@ const AddPage = ({
       );
     } finally {
       setParsing(false);
+      // Reset file input
+      if (fileRef.current) {
+        fileRef.current.value = "";
+      }
     }
   };
 
@@ -209,9 +214,10 @@ const AddPage = ({
 
           if (failed.length === 0) {
             setDraftTransactions([]);
+            setAlreadyPersisted(true); // Mark as persisted only after successful sync
             showToast("All items synced to Cloud!", "success");
 
-            if (refreshData) refreshData(); // <--- THIS triggers the frontend to pull the new Django data
+            if (refreshData) refreshData();
 
             setTimeout(() => setActiveTab(TABS.HOME), 1500);
           } else {
@@ -329,9 +335,16 @@ const AddPage = ({
                     ₹
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Allow only valid decimal numbers
+                      if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
+                        setAmount(val);
+                      }
+                    }}
                     className="w-full text-center bg-transparent border-b-2 border-white/10 text-6xl font-black text-white py-4 outline-none focus:border-blue-500 transition-all placeholder:text-white/5"
                     placeholder="0"
                     required

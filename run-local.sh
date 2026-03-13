@@ -1,4 +1,4 @@
-#!/bin/bash
+cls#!/bin/bash
 
 # run-local.sh - Unified Spendsy Local Development Manager
 # Starts Infrastructure (Docker), Backend Services (Python), and Frontend (Vite)

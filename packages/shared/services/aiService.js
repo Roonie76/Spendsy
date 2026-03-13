@@ -26,6 +26,7 @@ export const AIService = {
         "Content-Type": "application/json",
         ...getAuthHeaders(),
       },
+      credentials: "include",
       body: JSON.stringify({
         prompt: systemPrompt,
         context: userContext,
@@ -67,6 +68,7 @@ export const AIService = {
         "Content-Type": "application/json",
         ...getAuthHeaders(),
       },
+      credentials: "include",
       body: JSON.stringify({
         prompt: systemPrompt,
         context: userContext,

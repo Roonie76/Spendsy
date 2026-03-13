@@ -20,7 +20,7 @@ from ..core.redis import (
 from ..models import User
 from ..schemas import AuthResponse, RefreshRequest, TokenPair, UserCreate, UserLogin, UserOut
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 RATE_LIMIT_WINDOW = settings.auth_rate_limit_window_seconds
 RATE_LIMIT_LOGIN = settings.auth_rate_limit_login

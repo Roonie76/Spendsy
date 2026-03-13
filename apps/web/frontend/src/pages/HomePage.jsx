@@ -98,83 +98,85 @@ const metrics = useMemo(() => {
   const percentage =
     budget > 0 ? Math.min(100, (metrics.expense / budget) * 100) : 0;
 
-  const bouncySpring = { type: "spring", stiffness: 500, damping: 20, mass: 1 };
+const bouncySpring = { type: "spring", stiffness: 500, damping: 20, mass: 1 };
 
-  const MetricTile = ({
-    title,
-    value,
-    icon: Icon,
-    colorClass,
-    tab,
-    isSpecial = false,
-  }) => (
-    <div className="relative group">
+const MetricTile = ({
+  title,
+  value,
+  icon: Icon,
+  colorClass,
+  tab,
+  isSpecial = false,
+  setActiveTab,
+  theme
+}) => (
+  <div className="relative group">
+    <div
+      className={cn(
+        "pointer-events-none absolute -inset-3 rounded-[3rem] opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl",
+        isSpecial
+          ? "bg-blue-500/40"
+          : colorClass?.includes("blue")
+            ? "bg-blue-500/30"
+            : colorClass?.includes("emerald")
+              ? "bg-emerald-500/30"
+              : colorClass?.includes("purple")
+                ? "bg-purple-500/30"
+                : "bg-white/20",
+      )}
+    />
+
+    <motion.button
+      whileHover={{ scale: 1.05, y: -10 }}
+      whileTap={{ scale: 0.95 }}
+      transition={bouncySpring}
+      onClick={() => setActiveTab(tab)}
+      className={cn(
+        "relative overflow-hidden p-6 rounded-[2.5rem] border text-left w-full transition-shadow duration-300",
+        isSpecial
+          ? "bg-blue-600 border-blue-400 shadow-blue-500/40"
+          : theme === "dark"
+            ? "bg-white/10 border-white/10 backdrop-blur-md shadow-2xl"
+            : "bg-white border-white shadow-xl shadow-blue-500/10",
+      )}
+    >
       <div
         className={cn(
-          "pointer-events-none absolute -inset-3 rounded-[3rem] opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl",
-          isSpecial
-            ? "bg-blue-500/40"
-            : colorClass?.includes("blue")
-              ? "bg-blue-500/30"
-              : colorClass?.includes("emerald")
-                ? "bg-emerald-500/30"
-                : colorClass?.includes("purple")
-                  ? "bg-purple-500/30"
-                  : "bg-white/20",
-        )}
-      />
-
-      <motion.button
-        whileHover={{ scale: 1.05, y: -10 }}
-        whileTap={{ scale: 0.95 }}
-        transition={bouncySpring}
-        onClick={() => setActiveTab(tab)}
-        className={cn(
-          "relative overflow-hidden p-6 rounded-[2.5rem] border text-left w-full transition-shadow duration-300",
-          isSpecial
-            ? "bg-blue-600 border-blue-400 shadow-blue-500/40"
-            : theme === "dark"
-              ? "bg-white/10 border-white/10 backdrop-blur-md shadow-2xl"
-              : "bg-white border-white shadow-xl shadow-blue-500/10",
+          "mb-4 p-3 rounded-2xl inline-flex",
+          isSpecial ? "bg-white/20 text-white" : colorClass,
         )}
       >
-        <div
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <p
           className={cn(
-            "mb-4 p-3 rounded-2xl inline-flex",
-            isSpecial ? "bg-white/20 text-white" : colorClass,
+            "text-[10px] font-black uppercase tracking-[0.2em] mb-1",
+            isSpecial
+              ? "text-blue-100"
+              : theme === "dark"
+                ? "text-blue-400/60"
+                : "text-blue-600",
           )}
         >
-          <Icon className="w-5 h-5" />
-        </div>
-        <div>
-          <p
-            className={cn(
-              "text-[10px] font-black uppercase tracking-[0.2em] mb-1",
-              isSpecial
-                ? "text-blue-100"
-                : theme === "dark"
-                  ? "text-blue-400/60"
-                  : "text-blue-600",
-            )}
-          >
-            {title}
-          </p>
-          <p
-            className={cn(
-              "text-2xl font-black tracking-tighter",
-              isSpecial
+          {title}
+        </p>
+        <p
+          className={cn(
+            "text-2xl font-black tracking-tighter",
+            isSpecial
+              ? "text-white"
+              : theme === "dark"
                 ? "text-white"
-                : theme === "dark"
-                  ? "text-white"
-                  : "text-indigo-950",
-            )}
-          >
-            {value}
-          </p>
-        </div>
-      </motion.button>
-    </div>
-  );
+                : "text-indigo-950",
+          )}
+        >
+          {value}
+        </p>
+      </div>
+    </motion.button>
+  </div>
+);
 
   return (
     <div className="space-y-10">
@@ -247,6 +249,7 @@ const metrics = useMemo(() => {
             icon={Scale}
             colorClass="bg-rose-500/10 text-rose-500"
             tab={TABS.ITR}
+            theme={theme}
           />
 
           {/* Bottom Grid */}
@@ -258,6 +261,7 @@ const metrics = useMemo(() => {
               icon={FileText}
               colorClass="bg-blue-500/10 text-blue-500"
               tab={TABS.AUDIT}
+              theme={theme}
             />
             <MetricTile
               title="Net Worth"
@@ -266,6 +270,7 @@ const metrics = useMemo(() => {
               icon={Coins}
               colorClass="bg-emerald-500/10 text-emerald-500"
               tab={TABS.WEALTH}
+              theme={theme}
             />
             <MetricTile
               title="Analytics"
@@ -273,6 +278,7 @@ const metrics = useMemo(() => {
               icon={PieChart}
               colorClass="bg-purple-500/10 text-purple-500"
               tab={TABS.STATS}
+              theme={theme}
             />
             <MetricTile
               title="Entries"
@@ -280,6 +286,7 @@ const metrics = useMemo(() => {
               icon={History}
               colorClass="bg-amber-500/10 text-amber-500"
               tab={TABS.HISTORY}
+              theme={theme}
             />
           </div>
         </div>

@@ -39,49 +39,17 @@ services:
           cpus: "0.25"
           memory: 128M
 
-  # ── Connection Pooler ──────────────────────────────────────────────────────
-  # PgBouncer sits between app services and PostgreSQL to enforce transaction-
-  # mode pooling, preventing microservices from exhausting max_connections.
-  pgbouncer:
-    image: bitnami/pgbouncer:1
-    container_name: spendsy_pgbouncer
-    restart: always
-    environment:
-      PGBOUNCER_DATABASE: ${POSTGRES_DB:-spendsy}
-      POSTGRESQL_HOST: postgres
-      POSTGRESQL_PORT: 5432
-      POSTGRESQL_USERNAME: ${POSTGRES_USER:-smartuser}
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
-      PGBOUNCER_PORT: 6432
-      PGBOUNCER_POOL_MODE: transaction
-      PGBOUNCER_MAX_CLIENT_CONN: 200
-      PGBOUNCER_DEFAULT_POOL_SIZE: 20
-      PGBOUNCER_MIN_POOL_SIZE: 5
-      PGBOUNCER_RESERVE_POOL_SIZE: 5
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "6432:6432" # Standard pgbouncer port
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER:-smartuser}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 128M
-
   auth-service:
-    build: ../../spendsy/services/auth-service
+    build:
+      context: ../../
+      dockerfile: Spendsy/services/auth-service/Dockerfile
     container_name: spendsy_auth
     restart: always
+    env_file:
+      - ../../.env
     environment:
-      # Route through PgBouncer (port 6432) instead of Postgres directly
-      DB_HOST: pgbouncer
-      DB_PORT: 6432
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-spendsy}
       DB_USER: ${POSTGRES_USER:-smartuser}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
@@ -92,8 +60,10 @@ services:
       AUTH_RATE_LIMIT_LOGIN: ${AUTH_RATE_LIMIT_LOGIN:-200}
       AUTH_RATE_LIMIT_REGISTER: ${AUTH_RATE_LIMIT_REGISTER:-50}
       ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - ../../Spendsy/services/auth-service:/app
     depends_on:
-      pgbouncer:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -111,13 +81,16 @@ services:
           memory: 256M
 
   finance-service:
-    build: ../../spendsy/services/finance-service
+    build:
+      context: ../../
+      dockerfile: Spendsy/services/finance-service/Dockerfile
     container_name: spendsy_finance
     restart: always
+    env_file:
+      - ../../.env
     environment:
-      # Route through PgBouncer (port 6432) instead of Postgres directly
-      DB_HOST: pgbouncer
-      DB_PORT: 6432
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-spendsy}
       DB_USER: ${POSTGRES_USER:-smartuser}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
@@ -127,8 +100,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
       ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - ../../Spendsy/services/finance-service:/app
     depends_on:
-      pgbouncer:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -138,21 +113,25 @@ services:
       - "8002:8000" # Host port 8002 -> Finance Service
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
-      interval: 20s
+      interval: 30s
       timeout: 5s
       retries: 5
     deploy:
       resources:
         limits:
-          cpus: "0.75"
-          memory: 512M
+          cpus: "1.00"
+          memory: 1024M
 
   parser-service:
-    build: ../../spendsy/services/parser-service
+    build:
+      context: ../../
+      dockerfile: Spendsy/services/parser-service/Dockerfile
     container_name: spendsy_parser
     restart: always
     environment:
       REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../../Spendsy/services/parser-service:/app
     depends_on:
       redis:
         condition: service_healthy
@@ -163,16 +142,21 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 5s
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 512M
+          cpus: "1.00"
+          memory: 1024M
 
   ai-service:
-    build: ../../spendsy/services/ai-service
+    build:
+      context: ../../
+      dockerfile: Spendsy/services/ai-service/Dockerfile
     container_name: spendsy_ai
     restart: always
+    env_file:
+      - ../../.env
     environment:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
@@ -180,6 +164,8 @@ services:
       FINANCE_SERVICE_URL: http://finance-service:8000
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
       ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - ../../Spendsy/services/ai-service:/app
     depends_on:
       redis:
         condition: service_healthy

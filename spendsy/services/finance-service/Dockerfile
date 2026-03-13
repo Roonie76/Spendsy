@@ -13,9 +13,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY alembic.ini .
-COPY alembic ./alembic
-COPY app ./app
+COPY Spendsy/services/finance-service/alembic.ini ./alembic.ini
+COPY Spendsy/services/finance-service/alembic ./alembic
+COPY Spendsy/services/finance-service/app ./app
 
 EXPOSE 8000
 

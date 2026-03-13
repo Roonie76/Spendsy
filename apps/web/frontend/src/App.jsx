@@ -343,6 +343,7 @@ export default function App() {
       });
       showToast("Transaction updated!", "success");
       fetchHistory();
+      fetchSummary();
     } catch (err) {
       showToast(err.message || "Update failed", "error");
     }
@@ -668,7 +669,9 @@ export default function App() {
                   showToast={showToast}
                   settings={settings}
                   setActiveTab={setActiveTab}
-                  refreshProfile={fetchTaxProfile} // Add this
+                  refreshProfile={fetchTaxProfile}
+                  user={currentUser}
+                  apiBaseUrl={API_BASE_URL}
                 />
               )}
 
@@ -684,6 +687,7 @@ export default function App() {
                   transactions={transactions}
                   setActiveTab={setActiveTab}
                   showToast={showToast}
+                  refreshProfile={fetchTaxProfile}
                 />
               )}
             </motion.div>

@@ -100,10 +100,15 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave }) => {
                              <div className="relative">
                                 <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                 <input 
-                                    type="number" 
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={formData.amount}
-                                    onChange={handleAmountChange}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
+                                        handleAmountChange(e);
+                                      }
+                                    }}
                                     className={`w-full bg-white/5 border rounded-xl py-3 pl-10 pr-4 text-white font-bold outline-none focus:border-blue-500 ${showWarning ? 'border-rose-500 text-rose-400' : 'border-white/10'}`}
                                     required
                                 />

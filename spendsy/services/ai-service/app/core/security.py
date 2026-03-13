@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 
@@ -10,7 +10,7 @@ from .config import settings
 from .redis import is_token_blacklisted
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -24,7 +24,15 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UserContext:
+def get_current_user(
+    request: Request,
+    bearer: str | None = Depends(oauth2_scheme),
+    access_token: str | None = Cookie(default=None),
+) -> UserContext:
+    token = bearer or access_token
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
     try:
         payload = decode_token(token)
     except Exception as exc:

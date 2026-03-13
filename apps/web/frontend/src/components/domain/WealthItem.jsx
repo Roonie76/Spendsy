@@ -45,10 +45,16 @@ const WealthItem = ({ item, onDelete, onUpdate }) => {
                 {isEditing ? (
                     <div className="flex flex-col items-end gap-2">
                         <input 
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             className="bg-black/20 border border-white/20 rounded-lg px-2 py-1 text-white w-24 text-right outline-none"
                             value={tempValue}
-                            onChange={(e) => setTempValue(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
+                                setTempValue(val);
+                              }
+                            }}
                         />
                         <div className="flex gap-2">
                             <button onClick={handleSave} className="p-1 text-emerald-400 hover:bg-emerald-400/10 rounded-full"><Check className="w-4 h-4" /></button>

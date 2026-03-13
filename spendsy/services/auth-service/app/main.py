@@ -20,20 +20,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-]
-
 app = FastAPI(title="Spendsy Auth Service", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.exception_handler(SQLAlchemyError)
