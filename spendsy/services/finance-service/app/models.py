@@ -171,3 +171,38 @@ class NetWorthSnapshot(Base):
     total_liabilities = Column(Numeric(15, 2), nullable=False, default=0)
     net_worth = Column(Numeric(15, 2), nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class FinanceGoal(Base):
+    """Saving goals — e.g. 'Emergency Fund', 'New Car', 'Down Payment'."""
+
+    __tablename__ = "finance_goal"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    title = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    target_amount = Column(Numeric(15, 2), nullable=False)
+    current_amount = Column(Numeric(15, 2), nullable=False, default=0)
+    target_date = Column(Date, nullable=True)
+    category = Column(String(50), default="savings")  # e.g. emergency, travel, asset, education
+    is_completed = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ToraConversation(Base):
+    """Stores TORA chat history per user for persistent conversational memory."""
+
+    __tablename__ = "tora_conversation"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    role = Column(String(20), nullable=False)  # 'user' or 'assistant'
+    content = Column(String(2000), nullable=False)
+    # Structured AI response components (only set for role='assistant')
+    financial_overview = Column(String(2000), nullable=True)
+    current_position = Column(String(2000), nullable=True)
+    recommended_strategy = Column(String(4000), nullable=True)
+    expected_outcome = Column(String(2000), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)

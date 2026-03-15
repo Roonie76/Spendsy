@@ -99,7 +99,7 @@ def finance_context(
         db.query(Transaction)
         .filter(Transaction.user_id == user_id)
         .order_by(Transaction.date.desc(), Transaction.id.desc())
-        .limit(8)
+        .limit(50)
         .all()
     )
 
@@ -153,6 +153,9 @@ def finance_context(
                 "loan_type": l.loan_type,
                 "principal_amount": float(l.principal_amount or 0),
                 "remaining_balance": float(l.remaining_balance or 0),
+                "interest_rate": float(l.interest_rate or 0),
+                "emi_amount": float(l.emi_amount or 0),
+                "tenure_months": l.tenure_months,
             }
             for l in loans
         ],
@@ -177,3 +180,80 @@ def finance_context(
     }
 
     return success_response(request, payload, message="Finance context")
+
+
+# ─── TORA Conversation History ─────────────────────────────────────────────────
+
+from app.models import ToraConversation
+from pydantic import BaseModel as _BaseModel
+from typing import Optional as _Optional
+
+class _ToraMsgPayload(_BaseModel):
+    role: str
+    content: str
+    financial_overview: _Optional[str] = None
+    current_position: _Optional[str] = None
+    recommended_strategy: _Optional[str] = None
+    expected_outcome: _Optional[str] = None
+
+
+@router.post("/tora-conversation/{user_id}")
+def save_tora_message(
+    request: Request,
+    user_id: int,
+    payload: _ToraMsgPayload,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Persist a single TORA conversation turn (user or assistant)."""
+    msg = ToraConversation(
+        user_id=user_id,
+        role=payload.role,
+        content=payload.content[:2000],
+        financial_overview=(payload.financial_overview or "")[:2000] or None,
+        current_position=(payload.current_position or "")[:2000] or None,
+        recommended_strategy=(payload.recommended_strategy or "")[:4000] or None,
+        expected_outcome=(payload.expected_outcome or "")[:2000] or None,
+    )
+    db.add(msg)
+    try:
+        db.commit()
+        db.refresh(msg)
+    except Exception:
+        db.rollback()
+        raise
+    return success_response(request, {"id": msg.id}, message="Message saved")
+
+
+@router.get("/tora-conversation/{user_id}")
+def get_tora_history(
+    request: Request,
+    user_id: int,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Fetch the N most recent TORA conversation turns for a user."""
+    msgs = (
+        db.query(ToraConversation)
+        .filter(ToraConversation.user_id == user_id)
+        .order_by(ToraConversation.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    # Reverse to chronological order for prompt injection
+    msgs = list(reversed(msgs))
+    data = [
+        {
+            "id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "financial_overview": m.financial_overview,
+            "current_position": m.current_position,
+            "recommended_strategy": m.recommended_strategy,
+            "expected_outcome": m.expected_outcome,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in msgs
+    ]
+    return success_response(request, data, message="Conversation history")

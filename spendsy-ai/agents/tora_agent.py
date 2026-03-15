@@ -1,5 +1,4 @@
 import json
-import json
 import logging
 import copy
 from typing import Dict, Any, List
@@ -257,27 +256,89 @@ def generate_financial_strategy(user_id: int, question: str) -> Dict[str, Any]:
         return {"error": f"Failed to generate strategy: {str(e)}"}
 
 
+def _save_conversation(user_id: int, role: str, content: str, structured: Dict[str, Any] | None = None) -> None:
+    """
+    Persist a single conversation turn to the finance-service internal API.
+    The ToraConversation table is owned by finance-service for co-location with
+    user data, but written to via the internal API key.
+    """
+    url = f"{settings.finance_service_url}/internal/tora-conversation/{user_id}"
+    payload = {
+        "role": role,
+        "content": content,
+    }
+    if structured:
+        payload["financial_overview"] = structured.get("Financial Overview", "")
+        payload["current_position"] = structured.get("Current Position", "")
+        payload["recommended_strategy"] = structured.get("Recommended Strategy", "")
+        payload["expected_outcome"] = structured.get("Expected Outcome", "")
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Internal-API-Key": settings.internal_api_key,
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=3):
+            pass
+    except Exception as e:
+        logger.warning(f"Could not save conversation turn: {e}")
+
+
+def _load_recent_conversation(user_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Load the last N conversation turns for a user.
+    Returns a list of dicts with 'role' and 'content' keys for prompt injection.
+    """
+    data = call_finance_internal("tora-conversation", user_id, {"limit": limit})
+    if not data or not isinstance(data, list):
+        return []
+    history = []
+    for msg in data:
+        history.append({
+            "role": msg.get("role", "user"),
+            "content": msg.get("content", ""),
+        })
+    return history
+
+
 def handle_user_question(user_id: int, question: str) -> Dict[str, Any]:
     """
     Main entry point for the TORA agent endpoint.
     1. Detects message intent (greeting, finance, or other).
     2. Routes to local responses or AI workflow.
+    3. Persists conversation history for memory across sessions.
     """
-    
+
     # 1. Intent Detection
     intent = detect_intent(question)
-    
+
     if intent == "greeting":
         logger.info(f"Greeting detected: {question}")
-        return json.loads(get_greeting_response())
-        
+        response = json.loads(get_greeting_response())
+        _save_conversation(user_id, "user", question)
+        _save_conversation(user_id, "assistant", response.get("Financial Overview", ""), response)
+        return response
+
     if intent == "non_finance_query":
         logger.info(f"Non-financial query detected: {question}")
-        return json.loads(get_fallback_response())
+        response = json.loads(get_fallback_response())
+        _save_conversation(user_id, "user", question)
+        _save_conversation(user_id, "assistant", response.get("Financial Overview", ""), response)
+        return response
 
     # 2. Proceed with financial intelligence lifecycle for 'finance_query'
+    # Save the user turn first
+    _save_conversation(user_id, "user", question)
+
     try:
         strategy_json = generate_financial_strategy(user_id, question)
+        # Persist the assistant response
+        _save_conversation(user_id, "assistant", strategy_json.get("Financial Overview", ""), strategy_json)
         return strategy_json
     except Exception as e:
         logger.error(f"TORA execution failed: {str(e)}")

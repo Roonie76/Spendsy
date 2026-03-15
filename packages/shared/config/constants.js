@@ -252,6 +252,7 @@ export const TABS = {
   CREDIT_CARDS: "credit_cards",
   SETTINGS: "settings",
   BANK_ACCOUNTS: "bank_accounts",
+  GOALS: "goals",
 };
 
 export const UNITS = [

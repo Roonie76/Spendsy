@@ -31,6 +31,7 @@ import DebitCardsPage from "./pages/DebitCardsPage";
 import CreditCardsPage from "./pages/CreditCardsPage";
 import SettingsPage from "./pages/SettingsPage";
 import BankAccountsPage from "./pages/BankAccountsPage";
+import GoalsPage from "./pages/GoalsPage";
 import AICopilot from "./components/ai/AICopilot";
 import { apiFetch, authApi, clearStoredAuth } from "./api";
 
@@ -780,6 +781,9 @@ export default function App() {
                   onSignOut={() => triggerConfirm("Are you sure you want to sign out?", clearClientSession)}
                   triggerConfirm={triggerConfirm}
                 />
+              )}
+              {activeTab === TABS.GOALS && (
+                <GoalsPage theme={theme} />
               )}
               {activeTab === TABS.BANK_ACCOUNTS && (
                 <BankAccountsPage setActiveTab={setActiveTab} />

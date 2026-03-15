@@ -296,3 +296,49 @@ class NetWorthSnapshotOut(NetWorthSnapshotPayload):
     id: int
     user_id: int
     created_at: datetime
+
+
+# ─── Goals ────────────────────────────────────────────────────────────────────
+
+class GoalCategory(str, Enum):
+    savings = "savings"
+    emergency = "emergency"
+    travel = "travel"
+    education = "education"
+    asset = "asset"
+    retirement = "retirement"
+    other = "other"
+
+
+class GoalPayload(BaseModel):
+    title: str = Field(..., max_length=100)
+    description: str | None = Field(default=None, max_length=255)
+    target_amount: Decimal = Field(..., gt=0)
+    current_amount: Decimal = Field(default=0, ge=0)
+    target_date: dt_date | None = None
+    category: GoalCategory = GoalCategory.savings
+
+
+class GoalUpdatePayload(BaseModel):
+    title: str | None = Field(default=None, max_length=100)
+    description: str | None = None
+    target_amount: Decimal | None = Field(default=None, gt=0)
+    current_amount: Decimal | None = Field(default=None, ge=0)
+    target_date: dt_date | None = None
+    category: GoalCategory | None = None
+    is_completed: bool | None = None
+
+
+class GoalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: int
+    title: str
+    description: str | None
+    target_amount: Decimal
+    current_amount: Decimal
+    target_date: dt_date | None
+    category: str
+    is_completed: bool
+    created_at: datetime
+    updated_at: datetime
