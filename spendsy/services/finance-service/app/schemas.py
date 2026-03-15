@@ -202,3 +202,70 @@ class ParseStatementResponse(BaseModel):
     meta: ParserMeta
     saved_count: int
     financial_summary: dict
+
+
+class CreditCardPayload(BaseModel):
+    name: str | None = Field(default=None, max_length=100)
+    credit_limit: Decimal | None = Field(default=None, ge=0)
+    billing_day: int | None = Field(default=None, ge=1, le=31)
+    due_day: int | None = Field(default=None, ge=1, le=31)
+    current_balance: Decimal | None = Field(default=None, ge=0)
+
+
+class CreditCardOut(BaseModel):
+    id: int
+    name: str
+    credit_limit: Decimal
+    billing_day: int
+    due_day: int
+    current_balance: Decimal
+    updated_at: datetime
+
+
+class LoanPayload(BaseModel):
+    loan_type: str | None = Field(default=None, max_length=20)
+    principal_amount: Decimal | None = Field(default=None, ge=0)
+    interest_rate: Decimal | None = Field(default=None, ge=0)
+    tenure_months: int | None = Field(default=None, ge=1)
+    start_date: date | None = None
+    emi_amount: Decimal | None = Field(default=None, ge=0)
+    remaining_balance: Decimal | None = Field(default=None, ge=0)
+
+
+class LoanOut(BaseModel):
+    id: int
+    loan_type: str
+    principal_amount: Decimal
+    interest_rate: Decimal
+    tenure_months: int
+    start_date: date
+    emi_amount: Decimal
+    remaining_balance: Decimal
+    created_at: datetime
+
+
+class StatementRecordPayload(BaseModel):
+    filename: str
+    status: str = "pending"
+    account_type: str | None = None
+    tx_count: int = 0
+    reconciliation_score: Decimal | None = None
+
+
+class StatementRecordOut(StatementRecordPayload):
+    id: int
+    user_id: int
+    created_at: datetime
+
+
+class NetWorthSnapshotPayload(BaseModel):
+    date: date
+    total_assets: Decimal = Field(default=0)
+    total_liabilities: Decimal = Field(default=0)
+    net_worth: Decimal = Field(default=0)
+
+
+class NetWorthSnapshotOut(NetWorthSnapshotPayload):
+    id: int
+    user_id: int
+    created_at: datetime

@@ -1,12 +1,9 @@
-import os
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from .tora_agent import ask_tora
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from tora_agent import ask_tora
+from config import settings
 
 app = FastAPI(title="Ask Tora AI Service")
 

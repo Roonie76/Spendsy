@@ -8,8 +8,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from .api.routes_ai import router as ai_router
-from .api.routes_chat import router as chat_router
+from app.api.routes_ai import router as ai_router
+from app.api.routes_chat import router as chat_router
 
 app = FastAPI(title="Spendsy AI Service")
 

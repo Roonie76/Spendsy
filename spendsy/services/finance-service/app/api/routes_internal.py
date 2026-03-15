@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..core.database import get_db
-from ..core.internal_auth import verify_internal_api_key
-from ..models import ITRData, TaxProfile, Transaction, UserProfile, WealthItem
-from ..utils.response import success_response
+from app.core.database import get_db
+from app.core.internal_auth import verify_internal_api_key
+from app.models import CreditCard, ITRData, Loan, TaxProfile, Transaction, UserProfile, WealthItem
+from app.utils.response import success_response
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
@@ -90,6 +90,8 @@ def finance_context(
     count = db.query(func.count(Transaction.id)).filter(Transaction.user_id == user_id).scalar()
 
     wealth_items = db.query(WealthItem).filter(WealthItem.user_id == user_id).all()
+    credit_cards = db.query(CreditCard).filter(CreditCard.user_id == user_id).all()
+    loans = db.query(Loan).filter(Loan.user_id == user_id).all()
     wealth_assets = sum(float(item.amount) for item in wealth_items if item.type == "asset")
     wealth_liabilities = sum(float(item.amount) for item in wealth_items if item.type == "liability")
 
@@ -137,6 +139,24 @@ def finance_context(
             "filing_details": itr.filing_details if itr else {},
             "tax_regime": itr.tax_regime if itr else "new",
         },
+        "credit_cards": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "credit_limit": float(c.credit_limit or 0),
+                "current_balance": float(c.current_balance or 0),
+            }
+            for c in credit_cards
+        ],
+        "loans": [
+            {
+                "id": l.id,
+                "loan_type": l.loan_type,
+                "principal_amount": float(l.principal_amount or 0),
+                "remaining_balance": float(l.remaining_balance or 0),
+            }
+            for l in loans
+        ],
         "recent_transactions": [
             {
                 "id": tx.id,

@@ -23,6 +23,8 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  AreaChart,
+  Area,
 } from "recharts";
 import { CATEGORIES } from "../../../../../packages/shared/config/constants";
 import {
@@ -125,7 +127,7 @@ const InsightCard = ({ type, title, message, impact }) => {
 };
 
 // --- MAIN PAGE COMPONENT ---
-const StatsPage = ({ transactions }) => {
+const StatsPage = ({ transactions, netWorthHistory = [] }) => {
   const [aiInsights, setAiInsights] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
@@ -394,7 +396,7 @@ const StatsPage = ({ transactions }) => {
         </h3>
         <div className="h-64 relative">
           {pieChartData.data.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <RePieChart>
                 <Pie
                   data={pieChartData.data}
@@ -472,7 +474,7 @@ const StatsPage = ({ transactions }) => {
           </div>
         </div>
         <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={trendChartData} barGap={4}>
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -515,6 +517,65 @@ const StatsPage = ({ transactions }) => {
               />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Net Worth History Tracker */}
+      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+        <div className="flex justify-between items-start mb-6 gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-1">
+              <TrendingUp className="w-4 h-4 text-indigo-400" /> Net Worth History
+            </h3>
+            <p className="text-xs text-slate-500">Assets vs Liabilities over time</p>
+          </div>
+        </div>
+        
+        <div className="h-[300px] w-full relative">
+          {netWorthHistory && netWorthHistory.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <AreaChart data={netWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorLiabilities" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} dy={10}
+                  tickFormatter={(val) => {
+                    const d = new Date(val);
+                    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  }}
+                />
+                <YAxis 
+                  axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }}
+                  tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
+                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', marginBottom: '8px' }}
+                  formatter={(value) => [`₹${value.toLocaleString("en-IN")}`, '']}
+                  labelFormatter={(label) => new Date(label).toDateString()}
+                />
+                <Area type="monotone" dataKey="total_assets" name="Assets" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAssets)" />
+                <Area type="monotone" dataKey="total_liabilities" name="Liabilities" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorLiabilities)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700/50 rounded-xl">
+              <TrendingUp className="w-8 h-8 mb-2 opacity-50 text-indigo-500" />
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No History Available</p>
+              <p className="text-[10px] mt-1 text-slate-500 max-w-[250px] text-center">Take a snapshot on the Wealth tab to start tracking your net worth journey.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -7,15 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Node
 node_modules
 dist
 dist-ssr
 *.local
 
-.env
-
-
-# Editor directories and files
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -26,27 +24,33 @@ dist-ssr
 *.sln
 *.sw?
 
-# Python/Django
+# Python
 **/__pycache__/
 **/*.py[cod]
 **/.pytest_cache/
 **/.mypy_cache/
 **/.coverage*
-**/venv/
-**/.venv/
+venv/
+.venv/
 
-# Environment files (keep templates)
-**/.env
-**/.env.*
-!**/.env.example
+# Environment files
+.env
+.env.*
+!.env.example
 
 # Local database/artifacts
 apps/web/backend/db.sqlite3
+*.db
+*.sqlite
 
 # Test files
 test_*.py
 *_test.py
-.pytest_cache/
-tests/
-.venv
-**pycache**/
+
+# System & Agentic
+.gemini/
+.agents/
+.agent/
+.system_generated/
+tmp/
+brain/

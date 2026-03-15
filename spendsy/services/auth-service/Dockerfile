@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libpq-dev \
@@ -13,9 +14,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY Spendsy/services/auth-service/alembic.ini ./alembic.ini
-COPY Spendsy/services/auth-service/alembic ./alembic
-COPY Spendsy/services/auth-service/app ./app
+COPY spendsy/services/auth-service/alembic.ini ./alembic.ini
+COPY spendsy/services/auth-service/alembic ./alembic
+COPY spendsy/services/auth-service/app ./app
 
 EXPOSE 8000
 

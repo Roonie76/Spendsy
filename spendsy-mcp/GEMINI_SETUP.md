@@ -13,15 +13,20 @@ To use the Spendsy Financial Assistant with Gemini, follow these steps.
     export SPENDSY_USER_ID=1
     ```
 
-2.  **Run the Gemini Client**:
-    Open a terminal, activate the root virtual environment, and run the client:
+2.  **Create and activate a virtual environment**:
     ```bash
     cd /home/rohinvengatesh04/Spendsy/Spendsy
-    source .venv/bin/activate
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+3.  **Run the Gemini Client**:
+    Open a terminal, activate the root virtual environment, and run the client:
+    ```bash
     python3 spendsy-mcp/gemini_client.py
     ```
 
-3.  **Interact with Gemini**:
+4.  **Interact with Gemini**:
     You can now ask questions like:
     - "Show me my latest transactions."
     - "Can I afford to buy a house for 80 lakhs?"

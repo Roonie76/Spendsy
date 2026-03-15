@@ -1,3 +1,5 @@
 #!/usr/bin/env sh
 
-rq worker --url redis://redis:6379
+export PYTHONPATH="/app${PYTHONPATH:+:$PYTHONPATH}"
+
+exec rq worker --url redis://redis:6379

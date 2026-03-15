@@ -1,8 +1,10 @@
 /**
  * api.js - Centralised API client for Spendsy Frontend
  *
- * Uses credentials: "include" so HttpOnly cookies (access_token, refresh_token)
- * are sent automatically. No tokens are stored in localStorage.
+ * Authentication is resilient in local development:
+ * - cookies are sent for the FastAPI cookie flow
+ * - a stored bearer token is attached as a fallback
+ * - one refresh attempt is made on 401 before surfacing the error
  *
  * All responses are expected to be JSON with shape:
  *   { ok: boolean, data: any, message: string, error?: string }
@@ -16,36 +18,169 @@ export const AUTH_BASE = import.meta.env.VITE_AUTH_URL
   ? `${import.meta.env.VITE_AUTH_URL}`
   : `${GATEWAY_URL}/auth`;
 export const AI_BASE = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/ai`;
+const ACCESS_TOKEN_KEYS = ["access_token", "auth_token", "token"];
+const REFRESH_TOKEN_KEY = "refresh_token";
+
+let refreshPromise = null;
+
+function storage() {
+  return typeof window === "undefined" ? null : window.localStorage;
+}
+
+export function getStoredAccessToken() {
+  const localStore = storage();
+  if (!localStore) return "";
+
+  return ACCESS_TOKEN_KEYS
+    .map((key) => localStore.getItem(key))
+    .find(Boolean) || "";
+}
+
+function getStoredRefreshToken() {
+  const localStore = storage();
+  return localStore?.getItem(REFRESH_TOKEN_KEY) || "";
+}
+
+function storeToken(key, value) {
+  const localStore = storage();
+  if (!localStore) return;
+
+  if (value) {
+    localStore.setItem(key, value);
+    return;
+  }
+
+  localStore.removeItem(key);
+}
+
+function persistTokens(payload = {}) {
+  const tokenPayload = payload?.tokens ?? payload;
+  const accessToken = tokenPayload?.access_token || payload?.access_token || "";
+  const refreshToken = tokenPayload?.refresh_token || payload?.refresh_token || "";
+
+  if (accessToken) {
+    storeToken("access_token", accessToken);
+    storeToken("token", accessToken);
+  }
+
+  if (refreshToken) {
+    storeToken(REFRESH_TOKEN_KEY, refreshToken);
+  }
+}
+
+async function persistAuthResponse(requestPromise) {
+  const data = await requestPromise;
+  persistTokens(data?.data || data);
+  return data;
+}
+
+export function clearStoredAuth() {
+  const localStore = storage();
+  if (!localStore) return;
+
+  [...ACCESS_TOKEN_KEYS, REFRESH_TOKEN_KEY].forEach((key) => {
+    localStore.removeItem(key);
+  });
+}
+
+function buildHeaders(options = {}) {
+  const headers = new Headers(options.headers || {});
+
+  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const accessToken = getStoredAccessToken();
+  if (accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  return headers;
+}
+
+async function readJsonBody(response) {
+  try {
+    return await response.json();
+  } catch (_) {
+    return {};
+  }
+}
+
+function buildRequestError(response, errorBody = {}) {
+  const message =
+    errorBody.message || errorBody.detail || `Request failed (${response.status})`;
+  const error = new Error(message);
+  error.status = response.status;
+  error.body = errorBody;
+  return error;
+}
+
+function isRefreshExcluded(url = "") {
+  return /\/auth\/(login|register|refresh)(\/)?$/.test(url);
+}
+
+async function refreshAccessToken() {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+    const refreshToken = getStoredRefreshToken();
+    const headers = new Headers();
+    const requestOptions = {
+      method: "POST",
+      headers,
+      credentials: "include",
+    };
+
+    // Support both the HttpOnly-cookie path and the local-storage fallback path.
+    if (refreshToken) {
+      headers.set("Content-Type", "application/json");
+      requestOptions.body = JSON.stringify({ refresh_token: refreshToken });
+    }
+
+    const response = await fetch(`${AUTH_BASE}/refresh`, requestOptions);
+    if (!response.ok) {
+      clearStoredAuth();
+      throw buildRequestError(response, await readJsonBody(response));
+    }
+
+    const data = await readJsonBody(response);
+    persistTokens(data?.data || data);
+    return data;
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
 
 /**
  * Core fetch wrapper — always sends cookies, always expects JSON back.
  * Throws on non-2xx so React Query / callers can handle errors uniformly.
  */
 export async function apiFetch(url, options = {}) {
-  const headers = {
-    ...(options.body && !(options.body instanceof FormData)
-      ? { "Content-Type": "application/json" }
-      : {}),
-    ...(options.headers || {}),
-  };
+  const headers = buildHeaders(options);
 
   const res = await fetch(url, {
     ...options,
     headers,
-    credentials: "include",   // <- HttpOnly cookie auth (replaces localStorage tokens)
+    credentials: "include",
   });
 
-  if (!res.ok) {
-    let errorBody = {};
+  if (res.status === 401 && !options._retry && !isRefreshExcluded(url)) {
     try {
-      errorBody = await res.json();
-    } catch (_) {}
-    const message =
-      errorBody.message || errorBody.detail || `Request failed (${res.status})`;
-    const error = new Error(message);
-    error.status = res.status;
-    error.body = errorBody;
-    throw error;
+      await refreshAccessToken();
+      return apiFetch(url, { ...options, _retry: true });
+    } catch (_) {
+      clearStoredAuth();
+    }
+  }
+
+  if (!res.ok) {
+    throw buildRequestError(res, await readJsonBody(res));
   }
 
   return res.json();
@@ -55,11 +190,21 @@ export async function apiFetch(url, options = {}) {
 
 export const authApi = {
   login: (body) =>
-    apiFetch(`${AUTH_BASE}/login`, { method: "POST", body: JSON.stringify(body) }),
+    persistAuthResponse(
+      apiFetch(`${AUTH_BASE}/login`, { method: "POST", body: JSON.stringify(body) }),
+    ),
   register: (body) =>
-    apiFetch(`${AUTH_BASE}/register`, { method: "POST", body: JSON.stringify(body) }),
+    persistAuthResponse(
+      apiFetch(`${AUTH_BASE}/register`, { method: "POST", body: JSON.stringify(body) }),
+    ),
+  refresh: () =>
+    persistAuthResponse(
+      apiFetch(`${AUTH_BASE}/refresh`, { method: "POST" }),
+    ),
   logout: () =>
-    apiFetch(`${AUTH_BASE}/logout`, { method: "POST" }),
+    apiFetch(`${AUTH_BASE}/logout`, { method: "POST" }).finally(() => {
+      clearStoredAuth();
+    }),
   me: () =>
     apiFetch(`${AUTH_BASE}/me`),
 };

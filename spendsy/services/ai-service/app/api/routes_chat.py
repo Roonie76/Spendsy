@@ -4,11 +4,11 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..core.redis import append_message, load_history
-from ..core.security import UserContext, get_current_user
-from ..schemas import ChatRequest, ChatResponse
-from ..services.gemini_client import GeminiError, generate_text
-from ..services.finance_client import fetch_finance_context
+from app.core.redis import append_message, load_history
+from app.core.security import UserContext, get_current_user
+from app.schemas import ChatRequest, ChatResponse
+from app.services.finance_client import fetch_finance_context
+from app.services.gemini_client import GeminiError, generate_text
 
 router = APIRouter(tags=["chat"])
 

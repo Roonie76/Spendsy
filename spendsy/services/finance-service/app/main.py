@@ -3,16 +3,14 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 import logging
 
-import logging
-
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .api.routes_finance import router as finance_router
-from .api.routes_internal import router as internal_router
-from .core.middleware import RequestLoggingMiddleware
+from app.api.routes_finance import router as finance_router
+from app.api.routes_internal import router as internal_router
+from app.core.middleware import RequestLoggingMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -23,6 +21,11 @@ logging.basicConfig(
 
 logger = logging.getLogger("finance.main")
 
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+]
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -30,6 +33,15 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Spendsy Finance Service", lifespan=lifespan)
+
+# Allow the Vite frontend to call finance-service directly during local dev.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Observability: request ID generation and structured access logging
 app.add_middleware(RequestLoggingMiddleware)
@@ -54,15 +66,31 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
-    """Catch all unhandled database exceptions and return a standardized 500 response."""
-    logger.exception("Database error occurred: %s", str(exc))
+    """
+    Catch unhandled SQLAlchemy failures so DB issues surface as structured JSON
+    instead of opaque FastAPI 500 pages.
+    """
+    logger.exception("Database error occurred on %s: %s", request.url.path, str(exc))
+    error_text = str(exc).lower()
+    message = "A database operation failed"
+    details = None
+
+    if any(token in error_text for token in ("does not exist", "undefined table", "no such table", "undefined column")):
+        message = "Finance database schema is missing or out of date"
+        details = {
+            "hint": "Run `alembic upgrade head` in spendsy/services/finance-service",
+        }
+
     return JSONResponse(
         status_code=500,
         content={
             "ok": False,
             "error": "database_error",
-            "message": "A database operation failed",
-            "meta": {}
+            "message": message,
+            "meta": {
+                "request_id": getattr(request.state, "request_id", None),
+            },
+            **({"details": details} if details else {}),
         },
     )
 

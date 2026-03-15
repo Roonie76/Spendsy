@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   WifiOff,
   Save,
-  Trash2,
   Zap,
 } from "lucide-react";
 import {
@@ -18,6 +17,7 @@ import {
 import { buildAuthHeader } from "../../../../../packages/shared/utils/helpers";
 import UnitSelector from "../components/domain/UnitSelector";
 import TransactionItem from "../components/domain/TransactionItem";
+import StatementHub from "../components/ui/StatementHub";
 import { apiFetch, API_BASE } from "../api";
 
 const AddPage = ({
@@ -40,31 +40,9 @@ const AddPage = ({
   const [isRecurring, setIsRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Removed offline scanning states, now handled by StatementHub.
   // --- OFFLINE SCANNER STATE ---
-  const [parsing, setParsing] = useState(false);
   const [draftTransactions, setDraftTransactions] = useState([]);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [isScanned, setIsScanned] = useState(false);
-  const [alreadyPersisted, setAlreadyPersisted] = useState(false);
-  const fileRef = useRef(null);
-
-  const parsedSummary = useMemo(() => {
-    return draftTransactions.reduce(
-      (acc, tx) => {
-        const amount = Number(tx.amount || 0);
-        const normalizedType = String(tx.type || tx.tx_type || "expense").toLowerCase();
-        if (normalizedType === "income") acc.income += amount;
-        else acc.expense += amount;
-        acc.balance = acc.income - acc.expense;
-        return acc;
-      },
-      { income: 0, expense: 0, balance: 0 },
-    );
-  }, [draftTransactions]);
-
-  useEffect(() => {
-    // No-op for now; previously loaded offline drafts from IndexedDB.
-  }, [mode]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -115,133 +93,6 @@ const AddPage = ({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleFile = async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-
-    setParsing(true);
-    setIsScanned(false);
-    setAlreadyPersisted(false);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", f);
-
-      console.log("Uploading file:", { name: f.name, size: f.size, type: f.type });
-
-      const data = await apiFetch(`${apiBaseUrl}/parse-statement`, {
-        method: "POST",
-        body: formData,
-      });
-
-      console.log("Parser response:", data);
-
-      // Handle both wrapped and unwrapped response formats
-      const parserPayload = data?.data || data;
-      console.log("Parser payload extracted:", parserPayload);
-
-      if (Array.isArray(parserPayload.transactions) && parserPayload.transactions.length) {
-        console.log("Found transactions:", parserPayload.transactions.length);
-        setDraftTransactions(parserPayload.transactions);
-        setAlreadyPersisted(false); // Don't mark as persisted until user syncs
-        showToast(`Parsed ${parserPayload.transactions.length} transactions successfully!`, "success");
-      } else {
-        console.warn("No transactions found in parser response", parserPayload);
-        showToast("No transactions found in statement", "error");
-      }
-    } catch (err) {
-      console.error("Parser upload error:", err);
-      showToast(
-        `Error uploading file to parser: ${err?.message || "Unknown error"}`,
-        "error",
-      );
-    } finally {
-      setParsing(false);
-      // Reset file input
-      if (fileRef.current) {
-        fileRef.current.value = "";
-      }
-    }
-  };
-
-  const handleSyncToCloud = () => {
-    if (alreadyPersisted) {
-      showToast("These parsed transactions are already saved.", "info");
-      return;
-    }
-
-    // 1. Session Check
-    if (!user || (!user.user_id && !user.id)) {
-      showToast("User session not found. Please re-login.", "error");
-      return;
-    }
-
-    triggerConfirm(
-      `Sync ${draftTransactions.length} items to your Database?`,
-      async () => {
-        setIsSubmitting(true);
-        try {
-          // Map the promises for individual POST requests
-          const promises = draftTransactions.map((t) => {
-            // Data Normalization for Django Backend
-            const normalizedType =
-              t.type?.toLowerCase().includes("income") ||
-              t.type?.toLowerCase() === "cr"
-                ? "income"
-                : "expense";
-
-            return apiFetch(`${apiBaseUrl}/transactions`, {
-              method: "POST",
-              body: JSON.stringify({
-                title: t.description || t.title || "Scanned Transaction",
-                amount: parseFloat(t.amount),
-                type: normalizedType,
-                category: t.category?.toLowerCase() || "other",
-                is_recurring: false,
-              }),
-            })
-            // apiFetch throws on error, so we catch it and return an object indicating failure
-            .then(res => ({ ok: true }))
-            .catch(err => ({ ok: false }));
-          });
-
-          const results = await Promise.all(promises);
-
-          // Check if any requests failed
-          const failed = results.filter((r) => !r.ok);
-
-          if (failed.length === 0) {
-            setDraftTransactions([]);
-            setAlreadyPersisted(true); // Mark as persisted only after successful sync
-            showToast("All items synced to Cloud!", "success");
-
-            if (refreshData) refreshData();
-
-            setTimeout(() => setActiveTab(TABS.HOME), 1500);
-          } else {
-            showToast(
-              `Synced ${results.length - failed.length} items. ${failed.length} failed.`,
-              "warning",
-            );
-          }
-        } catch (e) {
-          console.error("Sync Error:", e);
-          showToast("Sync failed. Check server connection.", "error");
-        } finally {
-          setIsSubmitting(false);
-        }
-      },
-    );
-  };
-
-  const clearLocalData = async () => {
-    triggerConfirm("Discard all local drafts?", async () => {
-      setDraftTransactions([]);
-      setAlreadyPersisted(false);
-      showToast("Drafts cleared", "info");
-    });
   };
 
   return (
@@ -455,147 +306,12 @@ const AddPage = ({
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
-            className="space-y-6"
           >
-            <motion.div
-              whileHover={{ scale: 1.01, borderColor: "rgba(59,130,246,0.5)" }}
-              onClick={() => !parsing && fileRef.current.click()}
-              className={`border-2 border-dashed border-white/10 rounded-[2.5rem] p-12 text-center cursor-pointer transition-all bg-white/[0.02] relative overflow-hidden ${
-                parsing ? "opacity-80 cursor-not-allowed" : ""
-              }`}
-            >
-              {parsing ? (
-                <div className="relative z-10">
-                  <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin" />
-                  <h3 className="font-bold text-white text-lg">
-                    Processing Locally...
-                  </h3>
-                  {ocrProgress > 0 && (
-                    <div className="mt-4 w-48 mx-auto bg-white/5 rounded-full h-1.5 overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${ocrProgress}%` }}
-                        className="bg-blue-500 h-full"
-                      />
-                    </div>
-                  )}
-                  <p className="text-[10px] text-slate-500 mt-4 uppercase tracking-widest">
-                    Privacy Protected: No Cloud processing
-                  </p>
-                </div>
-              ) : (
-                <div className="relative z-10">
-                  <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
-                    <UploadCloud className="w-8 h-8 text-blue-400" />
-                  </div>
-                  <h3 className="font-bold text-white text-lg">
-                    Scan Statement
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-2">
-                    SBI, HDFC, ICICI, Axis • PDF, CSV, or XLSX
-                  </p>
-                </div>
-              )}
-              <input
-                type="file"
-                ref={fileRef}
-                onChange={handleFile}
-                className="hidden"
-                accept=".pdf,.csv,.xlsx"
-                disabled={parsing}
-              />
-            </motion.div>
-
-            {draftTransactions.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                <div className="flex justify-between items-center px-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-                    <h3 className="font-bold text-white">
-                      Offline Drafts ({draftTransactions.length})
-                    </h3>
-                  </div>
-                  <button
-                    onClick={clearLocalData}
-                    className="p-2 hover:bg-rose-500/10 rounded-full text-rose-400 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                    <p className="text-[10px] uppercase tracking-wider text-emerald-300/80">Income</p>
-                    <p className="text-xl font-black text-emerald-300">
-                      ₹{parsedSummary.income.toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
-                    <p className="text-[10px] uppercase tracking-wider text-rose-300/80">Expense</p>
-                    <p className="text-xl font-black text-rose-300">
-                      ₹{parsedSummary.expense.toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4">
-                    <p className="text-[10px] uppercase tracking-wider text-blue-300/80">Balance</p>
-                    <p className="text-xl font-black text-blue-200">
-                      ₹{parsedSummary.balance.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-
-                {draftTransactions.some((t) => t.confidence < 70) && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-                    <div>
-                      <p className="text-sm text-amber-200 font-bold">
-                        Review Needed
-                      </p>
-                      <p className="text-xs text-amber-200/70">
-                        Some scans were low-quality. Please verify amounts
-                        before syncing.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="max-h-[400px] overflow-y-auto space-y-3 mb-6 pr-2 custom-scrollbar">
-                  {draftTransactions.map((t, i) => (
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      key={i}
-                    >
-                      <TransactionItem item={t} />
-                    </motion.div>
-                  ))}
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleSyncToCloud}
-                  disabled={isSubmitting || alreadyPersisted}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 py-4 rounded-2xl font-black text-white shadow-xl shadow-indigo-900/40 flex items-center justify-center gap-3"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Save className="w-5 h-5" />
-                  )}
-                  {isSubmitting
-                    ? "Syncing to Cloud..."
-                    : alreadyPersisted
-                      ? "Already Saved"
-                      : "Push All to Cloud"}
-                </motion.button>
-              </motion.div>
-            )}
+             <StatementHub 
+              user={user} 
+              apiBaseUrl={apiBaseUrl} 
+              showToast={showToast} 
+            />
           </motion.div>
         )}
       </AnimatePresence>

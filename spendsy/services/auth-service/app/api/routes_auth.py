@@ -5,20 +5,21 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from ..core import security
-from ..core.config import settings
-from ..core.database import get_db
-from ..core.redis import (
+from app.core import security
+from app.core.config import settings
+from app.core.database import get_db
+from app.core.redis import (
     blacklist_token,
     get_identity_from_request,
     is_rate_limited,
     is_token_blacklisted,
     record_audit_event,
 )
-from ..models import User
-from ..schemas import AuthResponse, RefreshRequest, TokenPair, UserCreate, UserLogin, UserOut
+from app.models import User
+from app.schemas import AuthResponse, RefreshRequest, TokenPair, UserCreate, UserLogin, UserOut
 
 router = APIRouter(tags=["auth"])
 
@@ -36,7 +37,7 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
     cookie_kwargs: dict = dict(
         httponly=True,
         secure=is_secure,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
     response.set_cookie("access_token", access_token, max_age=_ACCESS_MAX_AGE, **cookie_kwargs)
@@ -51,8 +52,13 @@ def _clear_auth_cookies(response: Response) -> None:
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, request: Request, response: Response, db: Session = Depends(get_db)):
     identity = get_identity_from_request(request)
-    if is_rate_limited("register", identity, RATE_LIMIT_REGISTER, RATE_LIMIT_WINDOW):
-        raise HTTPException(status_code=429, detail="Too many registration attempts")
+    try:
+        if is_rate_limited("register", identity, RATE_LIMIT_REGISTER, RATE_LIMIT_WINDOW):
+            raise HTTPException(status_code=429, detail="Too many registration attempts")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
 
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(status_code=409, detail="Username already exists")
@@ -93,25 +99,43 @@ def register(payload: UserCreate, request: Request, response: Response, db: Sess
 @router.post("/login", response_model=AuthResponse)
 def login(payload: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)):
     identity = get_identity_from_request(request)
-    if is_rate_limited("login", identity, RATE_LIMIT_LOGIN, RATE_LIMIT_WINDOW):
-        raise HTTPException(status_code=429, detail="Too many login attempts")
+    try:
+        if is_rate_limited("login", identity, RATE_LIMIT_LOGIN, RATE_LIMIT_WINDOW):
+            raise HTTPException(status_code=429, detail="Too many login attempts")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
 
-    user_query = db.query(User)
-    user = None
-    if payload.username:
-        user = user_query.filter(User.username == payload.username.strip()).first()
-    if user is None and payload.email:
-        user = user_query.filter(User.email == str(payload.email).strip()).first()
+    try:
+        user_query = db.query(User)
+        user = None
+        if payload.username:
+            user = user_query.filter(User.username == payload.username.strip()).first()
+        if user is None and payload.email:
+            user = user_query.filter(User.email == str(payload.email).strip()).first()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
 
     if user is None or not security.verify_password(payload.password, user.password):
         record_audit_event({"action": "login_failed", "user_id": user.id if user else None, "ip": identity})
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        return JSONResponse(
+            status_code=401,
+            content={
+                "error": "authentication_failed",
+                "message": "Invalid email or password",
+            },
+        )
 
     access_token, _ = security.create_access_token(str(user.id), user.username, user.email)
     refresh_token, _, _ = security.create_refresh_token(str(user.id))
 
     _set_auth_cookies(response, access_token, refresh_token)
-    record_audit_event({"action": "login_success", "user_id": user.id, "ip": identity})
+    try:
+        record_audit_event({"action": "login_success", "user_id": user.id, "ip": identity})
+    except Exception:
+        pass
 
     return AuthResponse(
         user=UserOut(id=user.id, username=user.username, email=user.email, created_at=user.date_joined),

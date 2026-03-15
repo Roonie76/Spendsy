@@ -4,7 +4,7 @@ import time
 
 import redis
 
-from .config import settings
+from app.core.config import settings
 
 
 _redis_client: redis.Redis | None = None
@@ -33,22 +33,29 @@ def get_identity_from_request(request) -> str:  # type: ignore[no-untyped-def]
 
 
 def is_rate_limited(scope: str, identity: str, limit: int, window_seconds: int) -> bool:
-    key = f"rl:{scope}:{identity}"
-    client = get_redis()
-    pipeline = client.pipeline()
-    pipeline.incr(key, 1)
-    pipeline.ttl(key)
-    count, ttl = pipeline.execute()
-    if ttl == -1:
-        client.expire(key, window_seconds)
-    return int(count) > limit
+    try:
+        key = f"rl:{scope}:{identity}"
+        client = get_redis()
+        pipeline = client.pipeline()
+        pipeline.incr(key, 1)
+        pipeline.ttl(key)
+        count, ttl = pipeline.execute()
+        if ttl == -1:
+            client.expire(key, window_seconds)
+        return int(count) > limit
+    except Exception:
+        # Graceful failure: don't block requests if Redis is down
+        return False
 
 
 def record_audit_event(event: dict) -> None:
-    client = get_redis()
-    payload = {"ts": int(time.time()), **event}
-    client.lpush("auth:audit", str(payload))
-    client.ltrim("auth:audit", 0, 999)
+    try:
+        client = get_redis()
+        payload = {"ts": int(time.time()), **event}
+        client.lpush("auth:audit", str(payload))
+        client.ltrim("auth:audit", 0, 999)
+    except Exception:
+        pass
 
 
 def blacklist_token(jti: str, ttl_seconds: int) -> None:

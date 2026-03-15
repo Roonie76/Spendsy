@@ -4,9 +4,9 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..core.security import UserContext, get_current_user
-from ..schemas import AIRequest, AIResponse, HealthResponse
-from ..services.gemini_client import GeminiError, build_prompt, generate_text
+from app.core.security import UserContext, get_current_user
+from app.schemas import AIRequest, AIResponse, HealthResponse
+from app.services.gemini_client import GeminiError, build_prompt, generate_text
 
 router = APIRouter(tags=["ai"])
 

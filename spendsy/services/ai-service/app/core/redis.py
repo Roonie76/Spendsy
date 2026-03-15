@@ -5,7 +5,7 @@ import time
 
 import redis
 
-from .config import settings
+from app.core.config import settings
 
 
 _redis_client: redis.Redis | None = None

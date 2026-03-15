@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc tesseract-ocr poppler-utils libglib2.0-0 libgl1 \
@@ -13,7 +14,7 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY Spendsy/services/parser-service/app ./app
+COPY spendsy/services/parser-service/app ./app
 
 EXPOSE 8000
 

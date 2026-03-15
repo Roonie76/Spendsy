@@ -5,8 +5,8 @@ import logging
 
 import httpx
 
-from ..core.config import settings
-from ..core.redis import get_redis
+from app.core.config import settings
+from app.core.redis import get_redis
 
 logger = logging.getLogger("ai.finance_client")
 

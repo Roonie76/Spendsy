@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
-from ..core.config import settings
+from app.core.config import settings
 
 
 def _guess_content_type(filename: str, provided: str | None = None) -> str:

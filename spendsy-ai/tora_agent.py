@@ -1,11 +1,11 @@
 import ollama
-import os
-from .tools import (
+from config import settings
+from tools import (
     get_summary, get_transactions, spending_insights, 
     subscription_detection, budget_recommendation
 )
 
-MODEL = os.getenv("TORA_MODEL", "deepseek-r1:7b")
+
 
 def ask_tora(question: str, user_id: int):
     """
@@ -45,7 +45,7 @@ Provide your reasoning and then the final answer.
     try:
         # 3. Call local Ollama instance
         response = ollama.chat(
-            model=MODEL,
+            model=settings.tora_model,
             messages=[
                 {"role": "user", "content": prompt}
             ]

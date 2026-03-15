@@ -2,7 +2,6 @@ import atexit
 import os
 import sys
 import importlib
-import importlib.util
 import types
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -74,6 +73,20 @@ class _DummyRedisClient:
 
     def delete(self, key: str) -> int:
         return int(self._store.pop(key, None) is not None)
+
+    def exists(self, key: str) -> int:
+        return int(key in self._store or key in getattr(self, "_strings", {}))
+
+    def setex(self, key: str, time: int, value: str) -> bool:
+        if not hasattr(self, "_strings"):
+            self._strings = {}
+        self._strings[key] = value
+        return True
+
+    def lpush(self, key: str, *values: str) -> int:
+        for v in reversed(values):
+            self._store[key].insert(0, v)
+        return len(self._store[key])
 
     def pipeline(self):
         return _DummyRedisPipeline(self)
@@ -148,6 +161,32 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 _SERVICE_CACHE: dict[str, dict] = {}
 
 
+def _purge_module_tree(prefix: str) -> None:
+    for name in list(sys.modules):
+        if name == prefix or name.startswith(f"{prefix}."):
+            sys.modules.pop(name, None)
+
+
+def _discover_service_modules(app_dir: Path) -> list[str]:
+    modules: list[str] = []
+    for path in sorted(app_dir.rglob("*.py")):
+        rel = path.relative_to(app_dir)
+        if rel.name == "__init__.py":
+            parts = rel.parent.parts
+        else:
+            parts = rel.with_suffix("").parts
+        module_name = ".".join(("app", *parts)) if parts else "app"
+        modules.append(module_name)
+    return sorted(set(modules), key=lambda name: (name.count("."), name))
+
+
+def _alias_app_namespace(alias_prefix: str) -> None:
+    for name, module in list(sys.modules.items()):
+        if name == "app" or name.startswith("app."):
+            alias = alias_prefix if name == "app" else f"{alias_prefix}{name[3:]}"
+            sys.modules[alias] = module
+
+
 def load_service(service_dir: str) -> dict:
     """
     Load a service's FastAPI app as an isolated Python package.
@@ -159,15 +198,15 @@ def load_service(service_dir: str) -> dict:
     app_dir = SERVICES_ROOT / service_dir / "app"
     package_name = f"{service_dir.replace('-', '_')}_app"
 
-    if package_name not in sys.modules:
-        spec = importlib.util.spec_from_file_location(
-            package_name,
-            app_dir / "__init__.py",
-            submodule_search_locations=[str(app_dir)],
-        )
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[package_name] = module
-        spec.loader.exec_module(module)
+    _purge_module_tree("app")
+    sys.path.insert(0, str(app_dir.parent))
+    try:
+        for module_name in _discover_service_modules(app_dir):
+            importlib.import_module(module_name)
+        _alias_app_namespace(package_name)
+    finally:
+        sys.path.pop(0)
+        _purge_module_tree("app")
 
     main = importlib.import_module(f"{package_name}.main")
     _SERVICE_CACHE[service_dir] = {"package": package_name, "app": main.app}

@@ -62,7 +62,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
 
   return (
     <>
-      {/* <FloatingAIButton isOpen={isOpen} onClick={() => setIsOpen(true)} />
+      <FloatingAIButton isOpen={isOpen} onClick={() => setIsOpen(true)} />
       <AIChatPanel
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
@@ -72,7 +72,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         onSend={handleSend}
         isLoading={isLoading}
         authMissing={authMissing}
-      /> */}
+      />
     </>
   );
 }

@@ -1,23 +1,16 @@
 import os
 import asyncio
 import json
-from dotenv import load_dotenv
+from config import settings
 from google import genai
 from google.genai import types
 
-# Load environment variables
-load_dotenv()
-
-# Configuration
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-USER_ID = int(os.getenv("SPENDSY_USER_ID", "1")) # Default to user 1 for dev
-
-if not GOOGLE_API_KEY:
+if not settings.google_api_key:
     print("❌ Error: GOOGLE_API_KEY not found in environment.")
     print("Please set it: export GOOGLE_API_KEY='your-key-here'")
     exit(1)
 
-client = genai.Client(api_key=GOOGLE_API_KEY)
+client = genai.Client(api_key=settings.google_api_key)
 
 # Tool Definitions (Mapping from MCP tools)
 # Note: For a production app, these would be dynamically pulled from the MCP server.
@@ -59,7 +52,7 @@ def chat():
         model="gemini-2.0-flash",
         config=types.GenerateContentConfig(
             tools=tools,
-            system_instruction=f"You are Spendsy AI, a helpful financial assistant. You have access to the user's financial data for user_id={USER_ID}. Always use the provided tools to answer financial questions accurately. If a user asks about complex planning like buying a house or closing a loan, use the simulation tools."
+            system_instruction=f"You are Spendsy AI, a helpful financial assistant. You have access to the user's financial data for user_id={settings.spendsy_user_id}. Always use the provided tools to answer financial questions accurately. If a user asks about complex planning like buying a house or closing a loan, use the simulation tools."
         )
     )
     

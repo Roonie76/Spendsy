@@ -1,6 +1,5 @@
 alembic==1.13.3
 email-validator==2.1.1
-fastapi
 fastapi==0.129.0
 google-genai
 httpx==0.28.1
@@ -16,6 +15,7 @@ psycopg2-binary==2.9.11
 pydantic
 pydantic-settings==2.13.0
 pytesseract==0.3.13
+pytest
 python-dotenv
 python-jose[cryptography]==3.5.0
 python-multipart==0.0.6
@@ -24,5 +24,4 @@ requests
 rq==1.16.1
 sqlalchemy==2.0.25
 tenacity==8.5.0
-uvicorn
 uvicorn[standard]==0.27.0

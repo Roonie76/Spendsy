@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   TABS,
   APP_VERSION,
@@ -11,11 +11,9 @@ import {
   Moon,
   ArrowDown,
   ArrowUp,
-  Pin,
-  PinOff,
   Layout as LayoutIcon,
 } from "lucide-react";
-import { formatIndianCompact, buildAuthHeader } from "../../../../packages/shared/utils/helpers";
+import { formatIndianCompact } from "../../../../packages/shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
 import { Toast, ConfirmationDialog } from "./components/ui/Shared";
 
@@ -30,7 +28,7 @@ import AuditPage from "./pages/AuditPage";
 import StatsPage from "./pages/StatsPage";
 import ITRPage from "./pages/ITRPage";
 import AICopilot from "./components/ai/AICopilot";
-import { apiFetch } from "./api"; // Centralized wrapper
+import { apiFetch, authApi, clearStoredAuth } from "./api";
 
 export default function App() {
   const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
@@ -70,6 +68,8 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [serverSummary, setServerSummary] = useState(null);
   const [wealthItems, setWealthItems] = useState([]);
+  const [netWorthHistory, setNetWorthHistory] = useState([]);
+  const [sessionReady, setSessionReady] = useState(() => !currentUser);
   const [settings, setSettings] = useState({
     monthlyBudget: 0,
     monthlyIncome: 0,
@@ -89,6 +89,7 @@ export default function App() {
     message: "",
     action: null,
   });
+  const unauthorizedHandledRef = useRef(false);
   const authToken =
     currentUser?.token ||
     localStorage.getItem("access_token") ||
@@ -164,6 +165,38 @@ export default function App() {
     else localStorage.removeItem("auth_user");
   }, [currentUser]);
 
+  const clearClientSession = useCallback(() => {
+    setCurrentUser(null);
+    setTransactions([]);
+    setServerSummary(null);
+    setWealthItems([]);
+    setNetWorthHistory([]);
+    setSettings({
+      monthlyBudget: 0,
+      monthlyIncome: 0,
+    });
+    setTaxProfile(initialDefaultProfile);
+    setShowWizard(false);
+    localStorage.removeItem("tax_profile");
+    localStorage.removeItem("auth_user");
+    clearStoredAuth();
+  }, [initialDefaultProfile]);
+
+  const handleUnauthorized = useCallback(
+    (message = "Session expired. Please sign in again.") => {
+      if (unauthorizedHandledRef.current) return;
+      unauthorizedHandledRef.current = true;
+      clearClientSession();
+      showToast(message, "error");
+    },
+    [clearClientSession, showToast],
+  );
+
+  const handleAuthSuccess = useCallback((user) => {
+    unauthorizedHandledRef.current = false;
+    setCurrentUser(user);
+  }, []);
+
   // Fixed: The triggerConfirm function was defined but the confirmModal state (isOpen, message, action) was never utilized.
   // Switching to the state-based approach for a better UI experience.
   const triggerConfirm = (message, onConfirm) => {
@@ -219,8 +252,12 @@ export default function App() {
       setTransactions([...cleanedData]);
       return cleanedData;
     } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return [];
+      }
       console.error("Fetch Error:", err);
-      throw err;
+      return [];
     }
   }
 
@@ -230,6 +267,10 @@ export default function App() {
       const data = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
       setSettings(data?.data || data);
     } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       console.error("Failed to load settings:", err);
     }
   }
@@ -240,9 +281,13 @@ export default function App() {
       const data = await apiFetch(`${API_BASE_URL}/summary`);
       setServerSummary(data?.data || null);
     } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       console.error("Failed to load summary:", err);
     }
-  }, [currentUser?.id, apiFetch]);
+  }, [API_BASE_URL, currentUser?.id, handleUnauthorized]);
 
   const fetchWealth = useCallback(async () => {
     if (!currentUser?.id) return;
@@ -250,9 +295,27 @@ export default function App() {
       const data = await apiFetch(`${API_BASE_URL}/wealth`);
       setWealthItems(data?.data || data);
     } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       showToast("Could not sync portfolio", "error");
     }
-  }, [currentUser?.id, showToast]);
+  }, [API_BASE_URL, currentUser?.id, handleUnauthorized, showToast]);
+
+  const fetchNetWorthHistory = useCallback(async () => {
+    if (!currentUser?.id) return;
+    try {
+      const data = await apiFetch(`${API_BASE_URL}/net-worth/history`);
+      setNetWorthHistory(data?.data || data);
+    } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      console.error("Failed to fetch net worth history:", err);
+    }
+  }, [API_BASE_URL, currentUser?.id, handleUnauthorized]);
 
   const fetchTaxProfile = useCallback(async () => {
     if (!currentUser?.id) return;
@@ -262,9 +325,13 @@ export default function App() {
       setTaxProfile(payload);
       localStorage.setItem("tax_profile", JSON.stringify(payload));
     } catch (e) {
+      if (e.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       console.error("Network error during tax profile sync", e);
     }
-  }, [currentUser?.id]); // apiFetch is stable from import
+  }, [API_BASE_URL, currentUser?.id, handleUnauthorized]); // apiFetch is stable from import
 
   const updateTaxProfile = async (localProfile) => {
     if (!currentUser?.id) {
@@ -283,23 +350,77 @@ export default function App() {
       localStorage.setItem("tax_profile", JSON.stringify(payload));
       showToast("Profile synced!", "success");
     } catch (error) {
+      if (error.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       showToast("Network error", "error");
     }
   };
 
   useEffect(() => {
-    if (currentUser?.id) {
+    if (currentUser?.id && sessionReady) {
       fetchHistory();
       fetchSettings();
       fetchSummary();
       fetchWealth();
+      fetchNetWorthHistory();
       fetchTaxProfile(); // Add this!
     }
-  }, [currentUser?.id, fetchWealth, fetchTaxProfile, fetchSummary]); // Add fetchTaxProfile to dependencies
+  }, [currentUser?.id, fetchWealth, fetchTaxProfile, fetchSummary, sessionReady]); // Add fetchTaxProfile to dependencies
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      unauthorizedHandledRef.current = false;
+      setSessionReady(true);
+      return;
+    }
+
+    let isActive = true;
+    setSessionReady(false);
+
+    const validateSession = async () => {
+      try {
+        const data = await authApi.me();
+        if (!isActive) return;
+
+        const payload = data?.data || data;
+        unauthorizedHandledRef.current = false;
+        setCurrentUser((prev) => (
+          prev
+            ? {
+                ...prev,
+                id: payload.id ?? prev.id,
+                username: payload.username ?? prev.username,
+                email: payload.email ?? prev.email,
+              }
+            : prev
+        ));
+        setSessionReady(true);
+      } catch (err) {
+        if (!isActive) return;
+
+        if (err.status === 401) {
+          handleUnauthorized();
+          setSessionReady(true);
+          return;
+        }
+
+        console.error("Failed to validate auth session:", err);
+        setSessionReady(true);
+      }
+    };
+
+    validateSession();
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser?.id, handleUnauthorized]);
 
   // Inside your App() function, add this useEffect or update your existing one
   useEffect(() => {
-    if (currentUser?.id && !currentUser.email) {
+    if (currentUser?.id && sessionReady && !currentUser.email) {
       // If we have an ID but no email, fetch the full profile from Django
       const fetchFullProfile = async () => {
         try {
@@ -310,12 +431,16 @@ export default function App() {
             email: payload.email || payload.user_email, 
           }));
         } catch (err) {
+          if (err.status === 401) {
+            handleUnauthorized();
+            return;
+          }
           console.error("Could not fetch full user profile:", err);
         }
       };
       fetchFullProfile();
     }
-  }, [currentUser?.id]);
+  }, [API_BASE_URL, currentUser?.email, currentUser?.id, handleUnauthorized, sessionReady]);
 
   const deleteTransaction = async (id) => {
     try {
@@ -325,6 +450,10 @@ export default function App() {
       setTransactions((prev) => prev.filter((t) => t.id !== id));
       fetchSummary();
     } catch (error) {
+      if (error.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       console.error("Delete failed:", error);
       showToast("Delete failed", "error");
     }
@@ -345,6 +474,10 @@ export default function App() {
       fetchHistory();
       fetchSummary();
     } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       showToast(err.message || "Update failed", "error");
     }
   };
@@ -390,6 +523,10 @@ export default function App() {
       showToast("Portfolio updated!", "success");
       fetchWealth();
     } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       showToast(err.message || "Update failed", "error");
     }
   };
@@ -405,6 +542,10 @@ export default function App() {
       showToast("Settings saved!", "success");
       return true;
     } catch (err) {
+      if (err.status === 401) {
+        handleUnauthorized();
+        return false;
+      }
       console.error("Save Error:", err);
       showToast(err.message || "Update failed", "error");
       return false;
@@ -419,6 +560,10 @@ export default function App() {
       showToast("Item removed", "success");
       fetchWealth();
     } catch (e) {
+      if (e.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       showToast(e.message || "Failed to remove", "error");
     }
   };
@@ -449,7 +594,7 @@ export default function App() {
   }, []);
 
   if (!currentUser) {
-    return <LoginScreen onAuthSuccess={setCurrentUser} showToast={showToast} />;
+    return <LoginScreen onAuthSuccess={handleAuthSuccess} showToast={showToast} />;
   }
   return (
     <div
@@ -473,16 +618,7 @@ export default function App() {
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onSignOut={() => {
-          setCurrentUser(null);
-          setTransactions([]);
-          setWealthItems([]);
-          localStorage.removeItem("tax_profile"); // Clean up sensitive tax data
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          localStorage.removeItem("auth_user");
-        }}
+        onSignOut={clearClientSession}
       />
       <WelcomeWizard isOpen={showWizard} onComplete={handleWizardComplete} />
       <ConfirmationDialog
@@ -638,13 +774,7 @@ export default function App() {
                   user={currentUser}
                   settings={settings}
                   onUpdateSettings={saveSettings}
-                  onSignOut={() => {
-                    setCurrentUser(null);
-                    localStorage.removeItem("auth_token");
-                    localStorage.removeItem("access_token");
-                    localStorage.removeItem("refresh_token");
-                    localStorage.removeItem("auth_user");
-                  }}
+                  onSignOut={clearClientSession}
                   triggerConfirm={triggerConfirm}
                 />
               )}
@@ -676,7 +806,7 @@ export default function App() {
               )}
 
               {activeTab === TABS.STATS && (
-                <StatsPage transactions={transactions} />
+                <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} />
               )}
 
               {activeTab === TABS.ITR && (

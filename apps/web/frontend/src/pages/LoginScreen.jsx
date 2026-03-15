@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Wallet, Eye, EyeOff } from "lucide-react";
 import { APP_VERSION } from "../../../../../packages/shared/config/constants";
-import { apiFetch, AUTH_BASE } from "../api";
+import { authApi } from "../api";
 
 const LoginScreen = ({ onAuthSuccess, showToast }) => {
   // Local state for the form
@@ -16,19 +16,17 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    const endpoint = isSignup ? "register" : "login";
 
     try {
       setErrorMessage("");
-      // apiFetch automatically throws on non-2xx so we can rely on try/catch
-      const data = await apiFetch(`${AUTH_BASE}/${endpoint}`, {
-        method: "POST",
-        body: JSON.stringify({
-          username: authData.username,
-          password: authData.password,
-          email: authData.email || undefined,
-        }),
-      });
+      const requestBody = {
+        username: authData.username,
+        password: authData.password,
+        email: authData.email || undefined,
+      };
+      const data = isSignup
+        ? await authApi.register(requestBody)
+        : await authApi.login(requestBody);
 
       // Support both microservices auth ({ user, tokens }) and Django auth ({ data: { user_id, token, ... } })
       const payload = data?.data ?? data;
@@ -39,15 +37,6 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
         payload?.token ||
         payload?.access_token ||
         "";
-
-      if (accessToken) {
-        localStorage.setItem("access_token", accessToken);
-        localStorage.setItem("token", accessToken);
-      }
-      if (tokens?.refresh_token) {
-        localStorage.setItem("refresh_token", tokens.refresh_token);
-      }
-
       onAuthSuccess({
         id: user.id || payload.user_id,
         username: user.username || payload.username || authData.username,

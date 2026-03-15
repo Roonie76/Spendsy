@@ -8,8 +8,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from .api.routes_health import router as health_router
-from .api.routes_parser import router as parser_router
+from app.api.routes_health import router as health_router
+from app.api.routes_parser import router as parser_router
 
 app = FastAPI(title="Spendsy Parser Service")
 

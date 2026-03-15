@@ -1,27 +1,59 @@
 import asyncio
 import json
+import mimetypes
 import os
-import requests
 import hashlib
+import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from urllib import parse, request
+from urllib.error import HTTPError, URLError
 from mcp.server.fastmcp import FastMCP
 
-# Configuration
-FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8002")
-PARSER_SERVICE_URL = os.getenv("PARSER_SERVICE_URL", "http://localhost:8003")
-INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "internal-dev-key")
+from config import settings
 
 # Initialize FastMCP server
 mcp = FastMCP("Spendsy Financial Assistant")
 
 # Helper to call finance-service internal APIs
-def call_finance_internal(endpoint: str, user_id: int, params: Dict = None):
-    url = f"{FINANCE_SERVICE_URL}/internal/{endpoint}/{user_id}"
-    headers = {"X-Internal-API-Key": INTERNAL_API_KEY}
-    response = requests.get(url, headers=headers, params=params)
-    response.raise_for_status()
-    return response.json().get("data", {})
+def call_finance_internal(endpoint: str, user_id: int, params: Dict | None = None):
+    url = f"{settings.finance_service_url}/internal/{endpoint}/{user_id}"
+    if params:
+        url = f"{url}?{parse.urlencode(params)}"
+    req = request.Request(url, headers={"X-Internal-API-Key": settings.internal_api_key}, method="GET")
+    with request.urlopen(req, timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return payload.get("data", {})
+
+
+def _post_file(url: str, file_path: str) -> dict[str, Any]:
+    filename = os.path.basename(file_path)
+    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    boundary = f"----SpendsyBoundary{uuid.uuid4().hex}"
+
+    with open(file_path, "rb") as handle:
+        file_bytes = handle.read()
+
+    parts = [
+        f"--{boundary}\r\n".encode("utf-8"),
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode("utf-8"),
+        f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
+        file_bytes,
+        b"\r\n",
+        f"--{boundary}--\r\n".encode("utf-8"),
+    ]
+    body = b"".join(parts)
+    req = request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Content-Length": str(len(body)),
+        },
+        method="POST",
+    )
+    with request.urlopen(req, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
 
 # --- SECTION 3: Core MCP Tools ---
 
@@ -161,14 +193,9 @@ def parse_statement(file_path: str) -> str:
         if not os.path.exists(file_path):
             return f"File not found: {file_path}"
             
-        url = f"{PARSER_SERVICE_URL}/parser/parse"
-        with open(file_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(url, files=files)
-            response.raise_for_status()
-            
-        return json.dumps(response.json(), indent=2)
-    except Exception as e:
+        url = f"{settings.parser_service_url}/parser/parse"
+        return json.dumps(_post_file(url, file_path), indent=2)
+    except (HTTPError, URLError, json.JSONDecodeError, OSError) as e:
         return f"Error parsing statement: {str(e)}"
 
 # --- SECTION 6: Database Query Tool ---

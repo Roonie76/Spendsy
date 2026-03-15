@@ -10,25 +10,33 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from ..core.database import get_db
-from ..core.redis import enqueue_task, get_identity_from_request, record_event
-from ..core.security import UserContext, get_current_user
-from ..models import ApiAuditLog, ITRData, TaxProfile, Transaction, UserProfile, WealthItem
-from ..schemas import (
+from app.core.database import check_database_connection, get_db
+from app.core.redis import enqueue_task, get_identity_from_request, record_event
+from app.core.security import UserContext, get_current_user
+from app.models import ApiAuditLog, CreditCard, ITRData, Loan, NetWorthSnapshot, StatementRecord, TaxProfile, Transaction, UserProfile, WealthItem
+from app.schemas import (
+    CreditCardOut,
+    CreditCardPayload,
     ITRPayload,
+    LoanOut,
+    LoanPayload,
     TaxProfilePayload,
     TransactionCategory,
     TransactionPayload,
     UserProfilePayload,
     WealthPayload,
+    StatementRecordOut,
+    StatementRecordPayload,
+    NetWorthSnapshotOut,
+    NetWorthSnapshotPayload,
 )
-from ..services.parser_client import parse_statement
-from ..utils.error_codes import ErrorCode
-from ..utils.response import error_response, success_response
+from app.services.parser_client import parse_statement
+from app.utils.error_codes import ErrorCode
+from app.utils.response import error_response, success_response
 
 router = APIRouter(tags=["finance"])
 logger = logging.getLogger("finance.routes")
@@ -350,15 +358,28 @@ def _enforce_ownership(user: UserContext, path_user_id: int) -> None:
 
 @router.get("/health")
 def health(request: Request):
-    return success_response(request, {"service": "finance", "status": "ok"}, message="Finance service healthy")
+    db_ok, db_detail = check_database_connection()
+    http_status = status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE
+    return success_response(
+        request,
+        {
+            "service": "finance",
+            "status": "ok" if db_ok else "degraded",
+            "database_connected": db_ok,
+            "database_detail": db_detail if not db_ok else "ok",
+        },
+        message="Finance service healthy" if db_ok else "Finance service degraded",
+        http_status=http_status,
+    )
 
 
 @router.get("/ready")
 def readiness(request: Request, db: Session = Depends(get_db)):
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db_ok = True
-    except Exception:
+    except SQLAlchemyError:
+        db.rollback()
         db_ok = False
     status_code = status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE
     return success_response(
@@ -1012,3 +1033,142 @@ def parse_statement_proxy(
         # Non-fatal: notification is best-effort; continue returning parsed data.
 
     return success_response(request, parsed_payload, message="Statement parsed", http_status=status.HTTP_200_OK)
+
+
+@router.get("/credit-cards")
+def list_credit_cards(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    cards = db.query(CreditCard).filter(CreditCard.user_id == user.id).all()
+    return success_response(request, [CreditCardOut.model_validate(c).model_dump() for c in cards])
+
+
+@router.post("/credit-cards")
+def create_credit_card(
+    request: Request,
+    payload: CreditCardPayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    card = CreditCard(
+        user_id=user.id,
+        name=payload.name,
+        credit_limit=payload.credit_limit,
+        billing_day=payload.billing_day,
+        due_day=payload.due_day,
+        current_balance=payload.current_balance,
+    )
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    return success_response(request, CreditCardOut.model_validate(card).model_dump(), message="Credit card created")
+
+
+@router.get("/loans")
+def list_loans(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    loans = db.query(Loan).filter(Loan.user_id == user.id).all()
+    return success_response(request, [LoanOut.model_validate(l).model_dump() for l in loans])
+
+
+@router.post("/loans")
+def create_loan(
+    request: Request,
+    payload: LoanPayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    loan = Loan(
+        user_id=user.id,
+        loan_type=payload.loan_type,
+        principal_amount=payload.principal_amount,
+        interest_rate=payload.interest_rate,
+        tenure_months=payload.tenure_months,
+        start_date=payload.start_date or date.today(),
+        emi_amount=payload.emi_amount,
+        remaining_balance=payload.remaining_balance,
+    )
+    db.add(loan)
+    db.commit()
+    db.refresh(loan)
+    return success_response(request, LoanOut.model_validate(loan).model_dump(), message="Loan created")
+
+
+@router.get("/net-worth/history")
+def get_net_worth_history(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    snapshots = db.query(NetWorthSnapshot).filter(NetWorthSnapshot.user_id == user.id).order_by(NetWorthSnapshot.date.asc()).all()
+    return success_response(request, [NetWorthSnapshotOut.model_validate(s).model_dump() for s in snapshots])
+
+
+@router.post("/net-worth/snapshot")
+def create_net_worth_snapshot(
+    request: Request,
+    payload: NetWorthSnapshotPayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    # Check if a snapshot for today already exists
+    existing = db.query(NetWorthSnapshot).filter(
+        NetWorthSnapshot.user_id == user.id,
+        NetWorthSnapshot.date == payload.date
+    ).first()
+    
+    if existing:
+        existing.total_assets = payload.total_assets
+        existing.total_liabilities = payload.total_liabilities
+        existing.net_worth = payload.net_worth
+        db.commit()
+        db.refresh(existing)
+        return success_response(request, NetWorthSnapshotOut.model_validate(existing).model_dump(), message="Snapshot updated")
+    
+    snapshot = NetWorthSnapshot(
+        user_id=user.id,
+        date=payload.date,
+        total_assets=payload.total_assets,
+        total_liabilities=payload.total_liabilities,
+        net_worth=payload.net_worth,
+    )
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+    return success_response(request, NetWorthSnapshotOut.model_validate(snapshot).model_dump(), message="Snapshot created")
+
+
+@router.get("/statements/history")
+def get_statement_history(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    records = db.query(StatementRecord).filter(StatementRecord.user_id == user.id).order_by(StatementRecord.created_at.desc()).all()
+    return success_response(request, [StatementRecordOut.model_validate(r).model_dump() for r in records])
+
+
+@router.post("/statements/record")
+def create_statement_record(
+    request: Request,
+    payload: StatementRecordPayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    record = StatementRecord(
+        user_id=user.id,
+        filename=payload.filename,
+        status=payload.status,
+        account_type=payload.account_type,
+        tx_count=payload.tx_count,
+        reconciliation_score=payload.reconciliation_score,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return success_response(request, StatementRecordOut.model_validate(record).model_dump(), message="Statement record created")

@@ -7,6 +7,8 @@ import uuid
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.config import settings
+
 logger = logging.getLogger("finance.access")
 
 
@@ -33,11 +35,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         user_id: str | None = None
         try:
             from jose import jwt
-            from .config import settings as cfg
             token = request.cookies.get("access_token") or \
                 request.headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
             if token:
-                claims = jwt.decode(token, cfg.jwt_secret, algorithms=[cfg.jwt_algorithm])
+                claims = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
                 user_id = claims.get("sub")
         except Exception:
             pass

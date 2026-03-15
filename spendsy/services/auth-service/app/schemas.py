@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-
+from typing import Any
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 PASSWORD_PATTERN = re.compile(
@@ -43,6 +43,13 @@ class UserOut(BaseModel):
     username: str
     email: EmailStr | None
     created_at: datetime
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def empty_to_none(cls, v: Any) -> Any:
+        if v == "":
+            return None
+        return v
 
 
 class AuthResponse(BaseModel):

@@ -8,8 +8,8 @@ from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 
-from .config import settings
-from .redis import is_token_blacklisted
+from app.core.config import settings
+from app.core.redis import is_token_blacklisted
 
 logger = logging.getLogger("finance.security")
 

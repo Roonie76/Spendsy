@@ -1,19 +1,21 @@
-import os
-import requests
+
 import json
 from typing import Dict, List, Any
+from urllib import parse, request
+from urllib.error import HTTPError, URLError
 
-FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8002")
-INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "internal-dev-key")
+from config import settings
 
-def call_finance_internal(endpoint: str, user_id: int, params: Dict = None):
-    url = f"{FINANCE_SERVICE_URL}/internal/{endpoint}/{user_id}"
-    headers = {"X-Internal-API-Key": INTERNAL_API_KEY}
+def call_finance_internal(endpoint: str, user_id: int, params: Dict | None = None):
+    url = f"{settings.finance_service_url}/internal/{endpoint}/{user_id}"
+    if params:
+        url = f"{url}?{parse.urlencode(params)}"
+    req = request.Request(url, headers={"X-Internal-API-Key": settings.internal_api_key}, method="GET")
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=5)
-        response.raise_for_status()
-        return response.json().get("data", {})
-    except Exception as e:
+        with request.urlopen(req, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return payload.get("data", {})
+    except (HTTPError, URLError, json.JSONDecodeError) as e:
         print(f"Error calling finance service: {e}")
         return None
 

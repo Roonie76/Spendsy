@@ -7,7 +7,7 @@ import uuid
 import redis as redis_lib
 from rq import Queue
 
-from .config import settings
+from app.core.config import settings
 
 logger = logging.getLogger("finance.redis")
 

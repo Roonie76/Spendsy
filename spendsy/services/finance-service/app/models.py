@@ -5,7 +5,7 @@ from datetime import date, datetime
 from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, Index, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .core.database import Base
+from app.core.database import Base
 
 
 class UserProfile(Base):
@@ -103,4 +103,57 @@ class ApiAuditLog(Base):
     error_code = Column(String(64), default="")
     ip_address = Column(String(64), nullable=True)
     details = Column(JSONB, default=dict)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class CreditCard(Base):
+    __tablename__ = "finance_creditcard"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    credit_limit = Column(Numeric(15, 2), default=0)
+    billing_day = Column(Integer, default=1)
+    due_day = Column(Integer, default=20)
+    current_balance = Column(Numeric(15, 2), default=0)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Loan(Base):
+    __tablename__ = "finance_loan"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    loan_type = Column(String(20), nullable=False)  # home, car, student, personal
+    principal_amount = Column(Numeric(15, 2), nullable=False)
+    interest_rate = Column(Numeric(5, 2), nullable=False)
+    tenure_months = Column(Integer, nullable=False)
+    start_date = Column(Date, default=date.today)
+    emi_amount = Column(Numeric(15, 2), nullable=False)
+    remaining_balance = Column(Numeric(15, 2), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class StatementRecord(Base):
+    __tablename__ = "finance_statementrecord"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    filename = Column(String(255), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")  # 'pending', 'success', 'failed'
+    account_type = Column(String(20), nullable=True)  # e.g., 'credit_card', 'savings'
+    tx_count = Column(Integer, default=0)
+    reconciliation_score = Column(Numeric(5, 4), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class NetWorthSnapshot(Base):
+    __tablename__ = "finance_networthsnapshot"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    date = Column(Date, default=date.today, nullable=False)
+    total_assets = Column(Numeric(15, 2), nullable=False, default=0)
+    total_liabilities = Column(Numeric(15, 2), nullable=False, default=0)
+    net_worth = Column(Numeric(15, 2), nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

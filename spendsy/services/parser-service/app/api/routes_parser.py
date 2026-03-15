@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, File, UploadFile
 
-from ..parser import IntegratedParser
+from app.parser import IntegratedParser
 
 router = APIRouter(tags=["parser"])
 
