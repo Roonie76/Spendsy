@@ -4,6 +4,7 @@ import uuid
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 
 def request_id_from_request(request: Request) -> str:
@@ -16,7 +17,7 @@ def success_response(request: Request, data, message: str = "OK", code: str = "O
         "ok": True,
         "code": code,
         "message": message,
-        "data": data,
+        "data": jsonable_encoder(data),
         "meta": {"request_id": request_id_from_request(request)},
     }
     return JSONResponse(payload, status_code=http_status)
@@ -31,4 +32,4 @@ def error_response(request: Request, message: str, code: str, http_status: int =
     }
     if details is not None:
         payload["details"] = details
-    return JSONResponse(payload, status_code=http_status)
+    return JSONResponse(jsonable_encoder(payload), status_code=http_status)

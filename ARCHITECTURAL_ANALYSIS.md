@@ -13,7 +13,7 @@ This document provides a comprehensive technical breakdown of the **Spendsy** ec
 - **Backend**: Python (FastAPI), SQLAlchemy ORM.
 - **Database**: PostgreSQL 15.
 - **Caching/Queuing**: Redis.
-- **AI**: Google Gemini API, Local LLM (via Ollama/deepseek-r1).
+- **AI**: Google Gemini API, OpenAI API (gpt-4o-mini).
 - **Infrastructure**: Docker & Docker Compose, Nginx (API Gateway).
 
 ---
@@ -156,7 +156,7 @@ Core logic is primarily located in the **Route Handlers** (`routes_finance.py`) 
 
 - **Redis**: Used for rate-limiting, task queuing, and temporary session blacklisting.
 - **Gemini Pro**: The primary brain for financial advice and categorization refinement.
-- **Ollama (Local AI)**: Fallback for Tora chat agent when external API access is restricted.
+- **OpenAI (TORA)**: Powers the dedicated financial intelligence agent.
 - **PDFPlumber/Tesseract**: Heavy-lifting engines for parsing messy bank PDFs and images.
 
 ---

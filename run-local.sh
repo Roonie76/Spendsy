@@ -42,9 +42,6 @@ cd "$PROJECT_ROOT/infra/docker"
 docker compose -f docker-compose.dev.yml pull
 cd "$PROJECT_ROOT"
 
-echo "🤖 Pulling Ollama Model (deepseek-r1:1.5b)..."
-ollama pull deepseek-r1:1.5b || echo "⚠️ Ollama not found or failed to pull model, skipping..."
-
 # 3. Preflight: Kill any existing processes on the required ports
 # Including Vite port 5173 to ensure full environment reset
 ALL_PORTS=("${PORTS[@]}" 5173)
@@ -146,6 +143,7 @@ for i in "${!SERVICES[@]}"; do
         
         # Run Service
         if [ "$SERVICE" == "spendsy-ai" ]; then
+            export FINANCE_SERVICE_URL="http://127.0.0.1:8002"
             exec uvicorn main:app --host 0.0.0.0 --port $PORT --log-level warning
         else
             exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level warning

@@ -42,16 +42,33 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
       });
 
       const data = response; // apiFetch returns JSON directly
+      
+      // The new TORA agent returns a structured JSON object
+      let finalContent = "";
+      if (data.answer && typeof data.answer === "object") {
+        const a = data.answer;
+        if (a.error) {
+           finalContent = `⚠️ **Error**: ${a.error}`;
+        } else {
+           finalContent = `**Financial Overview**\n${a["Financial Overview"] || ""}\n\n` +
+                          `**Current Position**\n${a["Current Position"] || ""}\n\n` +
+                          `**Recommended Strategy**\n${a["Recommended Strategy"] || ""}\n\n` +
+                          `**Expected Outcome**\n${a["Expected Outcome"] || ""}`;
+        }
+      } else {
+        finalContent = data.answer || "I couldn't generate a response.";
+      }
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.answer || "I couldn't generate a response." },
+        { role: "assistant", content: finalContent },
       ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "I couldn't reach Tora (Local AI). Please ensure Ollama and the AI service are running.",
+          content: "I couldn't reach TORA. Please ensure the AI service is running and API keys are set.",
         },
       ]);
     } finally {

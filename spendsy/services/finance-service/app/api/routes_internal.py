@@ -142,9 +142,8 @@ def finance_context(
         "credit_cards": [
             {
                 "id": c.id,
-                "name": c.name,
+                "name": c.bank_name,
                 "credit_limit": float(c.credit_limit or 0),
-                "current_balance": float(c.current_balance or 0),
             }
             for c in credit_cards
         ],

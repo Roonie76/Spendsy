@@ -5,6 +5,6 @@ class Settings(BaseSettings):
 
     finance_service_url: str = "http://localhost:8002"
     internal_api_key: str = "internal-dev-key"
-    tora_model: str = "deepseek-r1:1.5b"
+    google_api_key: str | None = None
 
 settings = Settings()

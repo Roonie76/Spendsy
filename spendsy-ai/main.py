@@ -1,8 +1,7 @@
-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from tora_agent import ask_tora
+from agents.tora_agent import handle_user_question
 from config import settings
 
 app = FastAPI(title="Ask Tora AI Service")
@@ -31,7 +30,10 @@ async def handle_ask_tora(request: QuestionRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty")
     
     try:
-        answer = ask_tora(request.question, request.user_id)
+        # Route to the new OpenAI-powered TORA Agent
+        answer = handle_user_question(request.user_id, request.question)
+        if "error" in answer:
+            raise HTTPException(status_code=500, detail=answer["error"])
         return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
