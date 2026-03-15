@@ -17,10 +17,12 @@ from sqlalchemy.orm import Session
 from app.core.database import check_database_connection, get_db
 from app.core.redis import enqueue_task, get_identity_from_request, record_event
 from app.core.security import UserContext, get_current_user
-from app.models import ApiAuditLog, CreditCard, ITRData, Loan, NetWorthSnapshot, StatementRecord, TaxProfile, Transaction, UserProfile, WealthItem
+from app.models import ApiAuditLog, CreditCard, DebitCard, ITRData, Loan, NetWorthSnapshot, StatementRecord, TaxProfile, Transaction, UserProfile, WealthItem
 from app.schemas import (
     CreditCardOut,
     CreditCardPayload,
+    DebitCardOut,
+    DebitCardPayload,
     ITRPayload,
     LoanOut,
     LoanPayload,
@@ -1042,7 +1044,7 @@ def list_credit_cards(
     user: UserContext = Depends(get_current_user),
 ):
     cards = db.query(CreditCard).filter(CreditCard.user_id == user.id).all()
-    return success_response(request, [CreditCardOut.model_validate(c).model_dump() for c in cards])
+    return success_response(request, [CreditCardOut.model_validate(c).model_dump(by_alias=True) for c in cards])
 
 
 @router.post("/credit-cards")
@@ -1054,16 +1056,123 @@ def create_credit_card(
 ):
     card = CreditCard(
         user_id=user.id,
-        name=payload.name,
+        bank_name=payload.bank_name,
+        card_holder_name=payload.card_holder_name,
+        last_four_digits=payload.last_four_digits,
         credit_limit=payload.credit_limit,
-        billing_day=payload.billing_day,
+        billing_cycle=payload.billing_cycle,
         due_day=payload.due_day,
-        current_balance=payload.current_balance,
     )
     db.add(card)
     db.commit()
     db.refresh(card)
-    return success_response(request, CreditCardOut.model_validate(card).model_dump(), message="Credit card created")
+    return success_response(request, CreditCardOut.model_validate(card).model_dump(by_alias=True), message="Credit card created")
+
+
+@router.put("/credit-cards/{card_id}")
+def update_credit_card(
+    request: Request,
+    card_id: int,
+    payload: CreditCardPayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    card = db.query(CreditCard).filter(CreditCard.id == card_id, CreditCard.user_id == user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    card.bank_name = payload.bank_name
+    card.card_holder_name = payload.card_holder_name
+    card.last_four_digits = payload.last_four_digits
+    card.credit_limit = payload.credit_limit
+    card.billing_cycle = payload.billing_cycle
+    card.due_day = payload.due_day
+
+    db.commit()
+    db.refresh(card)
+    return success_response(request, CreditCardOut.model_validate(card).model_dump(by_alias=True), message="Credit card updated")
+
+
+@router.delete("/credit-cards/{card_id}")
+def delete_credit_card(
+    request: Request,
+    card_id: int,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    card = db.query(CreditCard).filter(CreditCard.id == card_id, CreditCard.user_id == user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    db.delete(card)
+    db.commit()
+    return success_response(request, {"id": card_id, "deleted": True}, message="Credit card deleted")
+
+
+@router.get("/debit-cards")
+def list_debit_cards(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    cards = db.query(DebitCard).filter(DebitCard.user_id == user.id).all()
+    return success_response(request, [DebitCardOut.model_validate(c).model_dump(by_alias=True) for c in cards])
+
+
+@router.post("/debit-cards")
+def create_debit_card(
+    request: Request,
+    payload: DebitCardPayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    card = DebitCard(
+        user_id=user.id,
+        bank_name=payload.bank_name,
+        last_four_digits=payload.last_four_digits,
+        card_holder_name=payload.card_holder_name,
+        expiry_date=payload.expiry_date,
+    )
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    return success_response(request, DebitCardOut.model_validate(card).model_dump(by_alias=True), message="Debit card created")
+
+
+@router.put("/debit-cards/{card_id}")
+def update_debit_card(
+    request: Request,
+    card_id: int,
+    payload: DebitCardPayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    card = db.query(DebitCard).filter(DebitCard.id == card_id, DebitCard.user_id == user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    card.bank_name = payload.bank_name
+    card.last_four_digits = payload.last_four_digits
+    card.card_holder_name = payload.card_holder_name
+    card.expiry_date = payload.expiry_date
+
+    db.commit()
+    db.refresh(card)
+    return success_response(request, DebitCardOut.model_validate(card).model_dump(by_alias=True), message="Debit card updated")
+
+
+@router.delete("/debit-cards/{card_id}")
+def delete_debit_card(
+    request: Request,
+    card_id: int,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    card = db.query(DebitCard).filter(DebitCard.id == card_id, DebitCard.user_id == user.id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    db.delete(card)
+    db.commit()
+    return success_response(request, {"id": card_id, "deleted": True}, message="Debit card deleted")
 
 
 @router.get("/loans")

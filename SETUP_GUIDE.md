@@ -84,7 +84,18 @@ Once services are running, you can access the following:
 
 ---
 
-## 🔧 5. Troubleshooting
+## 🔐 5. Default Credentials
+
+The system comes with a pre-seeded administrative user for development:
+
+- **Username**: `smartuser`
+- **Password**: `SmartPass123`
+
+Use these credentials to log in immediately after the first launch.
+
+---
+
+## 🔧 6. Troubleshooting
 
 ### Port Conflicts
 If you get a "Port already in use" error, check if another service is running on:
@@ -96,8 +107,13 @@ If you get a "Port already in use" error, check if another service is running on
 ### Database Migrations
 If the database schema is empty, run migrations manually:
 ```bash
+# Apply schema changes
 cd spendsy/services/finance-service
 alembic upgrade head
+
+# If user is missing, seed manually
+# (Run from project root)
+PYTHONPATH=./spendsy/services/auth-service python3 /tmp/seed_user.py 
 ```
 
 ### Docker Logs

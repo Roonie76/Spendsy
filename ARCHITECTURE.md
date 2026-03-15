@@ -37,14 +37,16 @@ The entry point for all API traffic. It handles:
 Responsible for identity management.
 - **Tech**: FastAPI, SQLAlchemy, Redis.
 - **Features**: JWT issue/refresh, Password hashing (Argon2), IDOR prevention.
-- **Security**: Uses HttpOnly cookies to prevent XSS-based token theft. Honors global token revocation via Redis.
+- **Security**: Uses HttpOnly cookies to prevent XSS-based token theft. Honors global token revocation via Redis. Secure password hashing via `passlib` (BCrypt).
 
 ### 3. Finance Service (`spendsy/services/finance-service`)
 The core domain service.
 - **Tech**: FastAPI, PostgreSQL (via PgBouncer).
-- **Entities**: Transactions, Wealth Records, User Profiles.
-- **Accuracy**: Uses `Decimal` type for all financial calculations to avoid floating-point errors.
-- **Performance**: Implements cursor-based pagination for transaction histories.
+- **Entities**: Transactions, Wealth Records, User Profiles, Bank Accounts (Debit/Credit).
+- **Accuracy**: Uses `Decimal` type for all financial calculations.
+
+## 🔍 Detailed Analysis
+For a deep-dive into the reverse-engineered system lifecycle, API catalog, and CRUD mappings, see [ARCHITECTURAL_ANALYSIS.md](./ARCHITECTURAL_ANALYSIS.md).
 
 ### 4. Parser Service (`spendsy/services/parser-service`)
 Specialized worker service for document processing.

@@ -27,6 +27,10 @@ import ProfilePage from "./pages/ProfilePage";
 import AuditPage from "./pages/AuditPage";
 import StatsPage from "./pages/StatsPage";
 import ITRPage from "./pages/ITRPage";
+import DebitCardsPage from "./pages/DebitCardsPage";
+import CreditCardsPage from "./pages/CreditCardsPage";
+import SettingsPage from "./pages/SettingsPage";
+import BankAccountsPage from "./pages/BankAccountsPage";
 import AICopilot from "./components/ai/AICopilot";
 import { apiFetch, authApi, clearStoredAuth } from "./api";
 
@@ -618,7 +622,7 @@ export default function App() {
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onSignOut={clearClientSession}
+        onSignOut={() => triggerConfirm("Are you sure you want to sign out?", clearClientSession)}
       />
       <WelcomeWizard isOpen={showWizard} onComplete={handleWizardComplete} />
       <ConfirmationDialog
@@ -769,6 +773,17 @@ export default function App() {
                   }}
                 />
               )}
+              {activeTab === TABS.SETTINGS && (
+                <SettingsPage
+                  user={currentUser}
+                  onBack={() => setActiveTab(TABS.PROFILE)}
+                  onSignOut={() => triggerConfirm("Are you sure you want to sign out?", clearClientSession)}
+                  triggerConfirm={triggerConfirm}
+                />
+              )}
+              {activeTab === TABS.BANK_ACCOUNTS && (
+                <BankAccountsPage setActiveTab={setActiveTab} />
+              )}
               {activeTab === TABS.PROFILE && (
                 <ProfilePage
                   user={currentUser}
@@ -776,6 +791,7 @@ export default function App() {
                   onUpdateSettings={saveSettings}
                   onSignOut={clearClientSession}
                   triggerConfirm={triggerConfirm}
+                  setActiveTab={setActiveTab}
                 />
               )}
               {activeTab === TABS.WEALTH && (

@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 import logging
+from .api.routes_ai import router as ai_router
+from .api.routes_chat import router as chat_router
 
 logger = logging.getLogger(__name__)
 

@@ -54,7 +54,7 @@ export default function AIChatPanel({
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.length === 0 && (
             <div className="rounded-2xl border border-dashed border-white/10 p-4 text-xs text-slate-400">
-              Ask anything about your spending, budget, or savings goals. The copilot reads your latest
+              Ask anything about your spending, budgets, or savings. The copilot reads your latest
               financial context and responds instantly.
             </div>
           )}

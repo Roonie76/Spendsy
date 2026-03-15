@@ -248,6 +248,10 @@ export const TABS = {
   WEALTH: "wealth",
   PROFILE: "profile",
   ITR: "itr",
+  DEBIT_CARDS: "debit_cards",
+  CREDIT_CARDS: "credit_cards",
+  SETTINGS: "settings",
+  BANK_ACCOUNTS: "bank_accounts",
 };
 
 export const UNITS = [

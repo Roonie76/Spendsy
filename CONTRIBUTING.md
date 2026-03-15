@@ -25,8 +25,12 @@ We love new ideas! If you have a feature request:
 ## 🛠️ Development Setup
 
 ### Backend (Python)
-Each service has its own `requirements.txt`.
+We use a unified `requirements.txt` at the root, but each service also manages its own for containerization.
 ```bash
+# Unified setup (recommended)
+pip install -r requirements.txt
+
+# Or per-service
 cd spendsy/services/finance-service
 pip install -r requirements.txt
 pytest

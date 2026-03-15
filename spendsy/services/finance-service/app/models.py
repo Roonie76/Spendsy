@@ -106,16 +106,30 @@ class ApiAuditLog(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 
+class DebitCard(Base):
+    __tablename__ = "finance_debitcard"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    bank_name = Column(String(100), nullable=False)
+    last_four_digits = Column(String(4), nullable=False)
+    card_holder_name = Column(String(100), nullable=False)
+    expiry_date = Column(String(7), nullable=False)  # MM/YYYY
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
 class CreditCard(Base):
     __tablename__ = "finance_creditcard"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
-    name = Column(String(100), nullable=False)
+    bank_name = Column(String(100), nullable=False)
+    card_holder_name = Column(String(100), nullable=False)
+    last_four_digits = Column(String(4), nullable=False)
     credit_limit = Column(Numeric(15, 2), default=0)
-    billing_day = Column(Integer, default=1)
+    billing_cycle = Column(Integer, default=1)
     due_day = Column(Integer, default=20)
-    current_balance = Column(Numeric(15, 2), default=0)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

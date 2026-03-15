@@ -204,21 +204,46 @@ class ParseStatementResponse(BaseModel):
     financial_summary: dict
 
 
+class DebitCardPayload(BaseModel):
+    bank_name: str = Field(..., max_length=100, alias="bankName")
+    last_four_digits: str = Field(..., min_length=4, max_length=4, alias="lastFour")
+    card_holder_name: str = Field(..., max_length=100, alias="cardHolder")
+    expiry_date: str = Field(..., max_length=7, alias="expiry")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DebitCardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    bank_name: str = Field(alias="bankName")
+    last_four_digits: str = Field(alias="lastFour")
+    card_holder_name: str = Field(alias="cardHolder")
+    expiry_date: str = Field(alias="expiry")
+    created_at: datetime
+
+
 class CreditCardPayload(BaseModel):
-    name: str | None = Field(default=None, max_length=100)
-    credit_limit: Decimal | None = Field(default=None, ge=0)
-    billing_day: int | None = Field(default=None, ge=1, le=31)
-    due_day: int | None = Field(default=None, ge=1, le=31)
-    current_balance: Decimal | None = Field(default=None, ge=0)
+    bank_name: str = Field(..., max_length=100, alias="bankName")
+    card_holder_name: str = Field(..., max_length=100, alias="cardHolder")
+    last_four_digits: str = Field(..., min_length=4, max_length=4, alias="lastFour")
+    credit_limit: Decimal = Field(default=0, ge=0, alias="creditLimit")
+    billing_cycle: int = Field(default=1, ge=1, le=31, alias="billingCycle")
+    due_day: int = Field(default=20, ge=1, le=31, alias="dueDay")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CreditCardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
-    name: str
-    credit_limit: Decimal
-    billing_day: int
-    due_day: int
-    current_balance: Decimal
+    bank_name: str = Field(alias="bankName")
+    card_holder_name: str = Field(alias="cardHolder")
+    last_four_digits: str = Field(alias="lastFour")
+    credit_limit: Decimal = Field(alias="creditLimit")
+    billing_cycle: int = Field(alias="billingCycle")
+    due_day: int = Field(alias="dueDay")
+    created_at: datetime
     updated_at: datetime
 
 

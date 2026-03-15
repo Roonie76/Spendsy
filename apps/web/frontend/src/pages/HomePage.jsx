@@ -11,6 +11,7 @@ import {
   History,
   Scale,
   ArrowRightLeft,
+  Landmark,
 } from "lucide-react";
 import TransactionItem from "../components/domain/TransactionItem";
 import { TABS } from "../../../../../packages/shared/config/constants";
@@ -273,11 +274,11 @@ const MetricTile = ({
               theme={theme}
             />
             <MetricTile
-              title="Analytics"
-              value="Stats"
-              icon={PieChart}
-              colorClass="bg-purple-500/10 text-purple-500"
-              tab={TABS.STATS}
+              title="Bank Cards"
+              value="Manage"
+              icon={Landmark}
+              colorClass="bg-blue-500/10 text-blue-500"
+              tab={TABS.BANK_ACCOUNTS}
               theme={theme}
             />
             <MetricTile

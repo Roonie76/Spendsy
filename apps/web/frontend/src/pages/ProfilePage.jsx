@@ -10,10 +10,14 @@ import {
   TrendingUp,
   LogOut,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Settings as SettingsIcon,
+  Landmark,
+  CreditCard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { TABS } from "../../../../../packages/shared/config/constants";
 
 const ProfilePage = ({
   user,
@@ -21,6 +25,7 @@ const ProfilePage = ({
   onUpdateSettings,
   onSignOut,
   triggerConfirm,
+  setActiveTab
 }) => {
   const [localSettings, setLocalSettings] = useState(settings || {});
   const [savingSettings, setSavingSettings] = useState(false);
@@ -96,33 +101,43 @@ const ProfilePage = ({
       variants={containerVariants}
       className="space-y-8 pb-32"
     >
-      {/* Premium Header Card */}
-      <div className="relative group">
-        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-[2.5rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-        <div className="relative bg-black/40 backdrop-blur-2xl p-6 rounded-[2.5rem] border border-white/10 flex items-center space-x-6 overflow-hidden">
-          <div className="absolute top-0 right-0 p-4">
-             <Sparkles className="w-5 h-5 text-indigo-400 opacity-50 animate-pulse" />
-          </div>
-          <div className="relative shrink-0">
-            <div className="w-20 h-20 bg-gradient-to-br from-indigo-500/30 to-purple-500/30 rounded-[1.5rem] flex items-center justify-center text-indigo-400 border border-white/10 shadow-inner">
-              <User className="w-10 h-10" />
+      <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-white/10 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full"></div>
+        
+        <div className="relative z-10 flex justify-between items-start">
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl relative z-10 overflow-hidden">
+                <User className="w-12 h-12 text-white" />
+                <div className="absolute inset-0 bg-white/10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                   <Sparkles className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 rounded-xl border-4 border-[#0f0c29] flex items-center justify-center">
+                 <ShieldCheck className="w-4 h-4 text-white" />
+              </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-full border-4 border-slate-900 flex items-center justify-center">
-              <ShieldCheck className="w-3.5 h-3.5 text-white" />
+
+            <div>
+              <h2 className="text-3xl font-black text-white tracking-tight">{user?.username || "Admin"}</h2>
+              <p className="text-slate-400 font-bold flex items-center gap-2 mt-1">
+                {user?.email || "user@example.com"}
+              </p>
+              <div className="mt-3 flex gap-2">
+                 <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">Pro Member</span>
+                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">Verified</span>
+              </div>
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-black text-white text-2xl tracking-tight leading-none mb-1 truncate">
-              {user?.username || "Financial Pioneer"}
-            </h3>
-            <p className="text-sm text-slate-400 font-medium truncate">
-              {user?.email || "Connect your digital identity"}
-            </p>
-            <div className="mt-3 flex gap-2">
-               <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">Pro Member</span>
-               <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">Verified</span>
-            </div>
-          </div>
+
+          <motion.button
+            whileHover={{ rotate: 90, scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setActiveTab(TABS.SETTINGS)}
+            className="p-3 bg-white/5 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all shadow-xl"
+          >
+            <SettingsIcon className="w-6 h-6" />
+          </motion.button>
         </div>
       </div>
 
@@ -178,7 +193,7 @@ const ProfilePage = ({
         {/* Quick Links / Portfolio Map */}
         <section className="space-y-4">
           {[
-            { label: "Credit Cards", icon: CreditCardIcon, count: "2 Linked", color: "text-blue-400", bg: "bg-blue-500/10" },
+            { label: "Bank Accounts", icon: Landmark, count: "Debit & Credit", color: "text-blue-400", bg: "bg-blue-500/10", onClick: () => setActiveTab(TABS.BANK_ACCOUNTS) },
             { label: "Active Loans", icon: Briefcase, count: "1 Active", color: "text-rose-400", bg: "bg-rose-500/10" },
             { label: "Wealth Portfolio", icon: TrendingUp, count: "3 Assets", color: "text-emerald-400", bg: "bg-emerald-500/10" }
           ].map((item, idx) => (
@@ -215,7 +230,7 @@ const ProfilePage = ({
               <div className="p-2 bg-yellow-400/10 rounded-xl">
                 <Target className="w-6 h-6 text-yellow-500" />
               </div> 
-              Goal Architecture
+              Set Budget
             </h3>
           </div>
 
@@ -269,7 +284,7 @@ const ProfilePage = ({
               </>
             ) : (
               <>
-                <span>Update Financial Blueprint</span>
+                <span>Update Budget Configuration</span>
                 <ChevronRight className="w-6 h-6" />
               </>
             )}
@@ -281,7 +296,7 @@ const ProfilePage = ({
       <motion.button
         whileHover={{ x: 5 }}
         type="button"
-        onClick={() => triggerConfirm("Terminate current session?", onSignOut)}
+        onClick={() => triggerConfirm("Are you sure you want to sign out?", onSignOut)}
         className="group flex items-center gap-3 text-rose-500/60 hover:text-rose-400 font-black text-sm uppercase tracking-widest transition-all px-4 py-2"
       >
         <div className="p-2 bg-rose-500/5 rounded-xl group-hover:bg-rose-500/10 transition-colors">

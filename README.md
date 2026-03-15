@@ -13,12 +13,14 @@ Spendsy is a high-performance, open-source fintech platform designed for persona
 - **🛡️ Microservices Architecture**: Decoupled, high-performance services for Auth, Finance, Document Parsing, and AI.
 - **🔒 Secure by Design**: HttpOnly cookie-based JWT authentication, robust rate-limiting, and IDOR prevention.
 - **📊 Financial Intelligence**: Deep transaction tracking, wealth management, and category-based spend analysis.
+- **💳 Bank Account Portal**: NEW dedicated management for debit and credit cards with automated limit tracking.
+- **⚙️ Profile & Settings**: Comprehensive user management, personal info updates, and app preference controls.
 - **🤖 AI-First Integration**:
     - **Finance Copilot**: Real-time insights and chat-based financial queries.
-    - **Spendsy AI Agent**: An autonomous agent capable of complex financial reasoning and tool-calling.
-    - **MCP Support**: Native [Model Context Protocol](https://modelcontextprotocol.io/) server to allow any AI (Claude, Gemini, etc.) to securely interact with your financial data.
+    - **Spendsy AI Agent**: An autonomous agent (Tora) for complex reasoning and tool-calling.
+    - **MCP Support**: Native [Model Context Protocol](https://modelcontextprotocol.io/) server for external AI integration.
 - **📑 Automated Statement Parsing**: High-fidelity extraction of data from PDF bank statements.
-- **🚀 Developer Experience**: Unified `requirements.txt`, Docker-first development, and a single `run-local.sh` for easy setup.
+- **🚀 Developer Experience**: Docker-first development with the unified `run-local.sh` orchestrator.
 
 ---
 
