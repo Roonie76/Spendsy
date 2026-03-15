@@ -142,8 +142,8 @@ sys.modules.setdefault("rq", rq_mod)
 
 
 def _set_env_case(key: str, value: str) -> None:
-    os.environ.setdefault(key.upper(), value)
-    os.environ.setdefault(key.lower(), value)
+    os.environ[key.upper()] = value
+    os.environ[key.lower()] = value
 
 # --- Global test environment ---
 # We set these before importing any service modules so pydantic Settings picks them up.
@@ -252,13 +252,21 @@ def reset_databases(auth_service, finance_service):
     auth_pkg = auth_service["package"]
     finance_pkg = finance_service["package"]
 
+    # Explicitly import models to register with Base.metadata
     auth_db = importlib.import_module(f"{auth_pkg}.core.database")
+    importlib.import_module(f"{auth_pkg}.models")
+    
     finance_db = importlib.import_module(f"{finance_pkg}.core.database")
+    importlib.import_module(f"{finance_pkg}.models")
 
-    auth_db.Base.metadata.drop_all(bind=auth_db.engine)
-    finance_db.Base.metadata.drop_all(bind=finance_db.engine)
-    auth_db.Base.metadata.create_all(bind=auth_db.engine)
-    finance_db.Base.metadata.create_all(bind=finance_db.engine)
+    # Use a fresh engine connection to avoid locking issues in some environments
+    with auth_db.engine.begin() as conn:
+        auth_db.Base.metadata.drop_all(bind=conn)
+        auth_db.Base.metadata.create_all(bind=conn)
+    
+    with finance_db.engine.begin() as conn:
+        finance_db.Base.metadata.drop_all(bind=conn)
+        finance_db.Base.metadata.create_all(bind=conn)
 
     yield
 

@@ -15,13 +15,37 @@ if [ -f "$PROJECT_ROOT/.venv/bin/activate" ]; then
 elif [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
     VENV_ROOT="$PROJECT_ROOT/venv"
 else
-    echo "❌ No virtualenv found at $PROJECT_ROOT/.venv or $PROJECT_ROOT/venv"
-    exit 1
+    echo "🔨 Creating virtualenv at $PROJECT_ROOT/venv..."
+    python3 -m venv "$PROJECT_ROOT/venv"
+    VENV_ROOT="$PROJECT_ROOT/venv"
 fi
 
 echo "🚀 Starting Spendsy Local Environment..."
 
-# 0. Preflight: Kill any existing processes on the required ports
+# 0. Environment Setup
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo "📄 Creating .env from .env.example..."
+    cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
+fi
+
+# 1. Install Dependencies
+echo "🐍 Installing Python dependencies..."
+source "$VENV_ROOT/bin/activate"
+pip install -r requirements.txt
+
+echo "📦 Installing Node dependencies..."
+npm install
+
+# 2. Infrastructure Setup
+echo "🐳 Pulling Docker images..."
+cd "$PROJECT_ROOT/infra/docker"
+docker compose -f docker-compose.dev.yml pull
+cd "$PROJECT_ROOT"
+
+echo "🤖 Pulling Ollama Model (deepseek-r1:1.5b)..."
+ollama pull deepseek-r1:1.5b || echo "⚠️ Ollama not found or failed to pull model, skipping..."
+
+# 3. Preflight: Kill any existing processes on the required ports
 # Including Vite port 5173 to ensure full environment reset
 ALL_PORTS=("${PORTS[@]}" 5173)
 

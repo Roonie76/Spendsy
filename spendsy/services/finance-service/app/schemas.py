@@ -253,6 +253,7 @@ class StatementRecordPayload(BaseModel):
 
 
 class StatementRecordOut(StatementRecordPayload):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int
     created_at: datetime
@@ -266,6 +267,7 @@ class NetWorthSnapshotPayload(BaseModel):
 
 
 class NetWorthSnapshotOut(NetWorthSnapshotPayload):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int
     created_at: datetime
