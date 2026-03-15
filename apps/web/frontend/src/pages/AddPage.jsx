@@ -216,7 +216,12 @@ const AddPage = ({
                   whileTap={{ scale: 0.95 }}
                   key={c.id}
                   type="button"
-                  onClick={() => setCat(c.id)}
+                  onClick={() => {
+                    setCat(c.id);
+                    if (!desc.trim()) {
+                      setDesc(c.name);
+                    }
+                  }}
                   className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all duration-300 ${
                     cat === c.id
                       ? "bg-blue-500/20 border-blue-500/50 text-white shadow-[0_0_15px_rgba(59,130,246,0.2)]"
