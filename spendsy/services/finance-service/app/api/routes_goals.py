@@ -77,7 +77,7 @@ def list_goals(
 
 # ─── POST /goals ───────────────────────────────────────────────────────────────
 
-@router.post("", status_codes={201})
+@router.post("", status_code=201)
 def create_goal(
     request: Request,
     payload: GoalPayload,
