@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 from app.api.routes_finance import router as finance_router
 from app.api.routes_internal import router as internal_router
 from app.api.routes_goals import router as goals_router
-from app.core.middleware import RequestLoggingMiddleware
+from app.core.config import settings
+from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -22,12 +23,6 @@ logging.basicConfig(
 
 logger = logging.getLogger("finance.main")
 
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-]
 
 
 @asynccontextmanager
@@ -40,11 +35,13 @@ app = FastAPI(title="Spendsy Finance Service", lifespan=lifespan)
 # Allow the Vite frontend to call finance-service directly during local dev.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Observability: request ID generation and structured access logging
 app.add_middleware(RequestLoggingMiddleware)

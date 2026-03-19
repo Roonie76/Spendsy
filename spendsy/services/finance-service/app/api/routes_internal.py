@@ -6,8 +6,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core import cryptography as security_crypto
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.internal_auth import verify_internal_api_key
+from app.core.security import RequireRole, UserContext, get_current_user
 from app.models import CreditCard, ITRData, Loan, TaxProfile, Transaction, UserProfile, WealthItem
 from app.utils.response import success_response
 
@@ -44,6 +47,7 @@ def list_transactions(
         }
         for tx in transactions
     ]
+    record_audit(db, request, action="internal_list_transactions", resource_type="user_transactions", resource_id=str(user_id), status_code=200, user=None)
     return success_response(request, data)
 
 
@@ -62,6 +66,7 @@ def get_summary(
     ).scalar()
     count = db.query(func.count(Transaction.id)).filter(Transaction.user_id == user_id).scalar()
 
+    record_audit(db, request, action="internal_get_summary", resource_type="user_summary", resource_id=str(user_id), status_code=200, user=None)
     return success_response(request, {
         "income": float(income or 0),
         "expense": float(expense or 0),
@@ -179,6 +184,7 @@ def finance_context(
         "generated_at": datetime.utcnow().isoformat() + "Z",
     }
 
+    record_audit(db, request, action="internal_finance_context", resource_type="user_context", resource_id=str(user_id), status_code=200, user=current_user)
     return success_response(request, payload, message="Finance context")
 
 
@@ -209,11 +215,11 @@ def save_tora_message(
     msg = ToraConversation(
         user_id=user_id,
         role=payload.role,
-        content=payload.content[:2000],
-        financial_overview=(payload.financial_overview or "")[:2000] or None,
-        current_position=(payload.current_position or "")[:2000] or None,
-        recommended_strategy=(payload.recommended_strategy or "")[:4000] or None,
-        expected_outcome=(payload.expected_outcome or "")[:2000] or None,
+        content=security_crypto.encrypt_string(payload.content[:2000]),
+        financial_overview=security_crypto.encrypt_string((payload.financial_overview or "")[:2000] or None),
+        current_position=security_crypto.encrypt_string((payload.current_position or "")[:2000] or None),
+        recommended_strategy=security_crypto.encrypt_string((payload.recommended_strategy or "")[:4000] or None),
+        expected_outcome=security_crypto.encrypt_string((payload.expected_outcome or "")[:2000] or None),
     )
     db.add(msg)
     try:
@@ -221,7 +227,9 @@ def save_tora_message(
         db.refresh(msg)
     except Exception:
         db.rollback()
+        record_audit(db, request, action="internal_save_tora_msg_error", resource_type="tora_conversation", resource_id=str(user_id), status_code=500, user=None)
         raise
+    record_audit(db, request, action="internal_save_tora_msg", resource_type="tora_conversation", resource_id=str(user_id), status_code=200, user=None)
     return success_response(request, {"id": msg.id}, message="Message saved")
 
 
@@ -247,13 +255,91 @@ def get_tora_history(
         {
             "id": m.id,
             "role": m.role,
-            "content": m.content,
-            "financial_overview": m.financial_overview,
-            "current_position": m.current_position,
-            "recommended_strategy": m.recommended_strategy,
-            "expected_outcome": m.expected_outcome,
+            "content": security_crypto.decrypt_string(m.content),
+            "financial_overview": security_crypto.decrypt_string(m.financial_overview),
+            "current_position": security_crypto.decrypt_string(m.current_position),
+            "recommended_strategy": security_crypto.decrypt_string(m.recommended_strategy),
+            "expected_outcome": security_crypto.decrypt_string(m.expected_outcome),
             "created_at": m.created_at.isoformat() if m.created_at else None,
         }
         for m in msgs
     ]
+    record_audit(db, request, action="internal_get_tora_history", resource_type="tora_conversation", resource_id=str(user_id), status_code=200, user=current_user)
     return success_response(request, data, message="Conversation history")
+
+
+# ─── TORA Goal Management ──────────────────────────────────────────────────────
+
+from app.models import FinanceGoal
+
+class _InternalGoalPayload(_BaseModel):
+    title: str
+    description: _Optional[str] = None
+    target_amount: float
+    current_amount: float
+    target_date: str
+    category: str
+    is_completed: bool
+
+@router.post("/goals/{user_id}")
+def internal_create_goal(
+    request: Request,
+    user_id: int,
+    payload: _InternalGoalPayload,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Create a goal on behalf of the user (used by TORA AI)."""
+    from datetime import datetime
+    try:
+        # TORA sends ISO strings like 2027-01-01T00:00:00Z
+        parsed_date = datetime.fromisoformat(payload.target_date.replace("Z", "+00:00")).date()
+    except Exception:
+        from datetime import date
+        parsed_date = date.today()
+
+    goal = FinanceGoal(
+        user_id=user_id,
+        title=payload.title,
+        description=payload.description,
+        target_amount=payload.target_amount,
+        current_amount=payload.current_amount,
+        target_date=parsed_date,
+        category=payload.category,
+        is_completed=payload.is_completed,
+    )
+    db.add(goal)
+    try:
+        db.commit()
+        db.refresh(goal)
+    except Exception:
+        db.rollback()
+        record_audit(db, request, action="internal_create_goal_error", resource_type="finance_goal", resource_id=str(user_id), status_code=500, user=None)
+        raise
+    
+    record_audit(db, request, action="internal_create_goal", resource_type="finance_goal", resource_id=str(goal.id), status_code=201, user=None)
+    return success_response(request, {"id": goal.id}, message="Goal created")
+
+@router.delete("/goals/{user_id}/{goal_id}")
+def internal_delete_goal(
+    request: Request,
+    user_id: int,
+    goal_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Delete a goal on behalf of the user (used by TORA AI)."""
+    goal = db.query(FinanceGoal).filter(FinanceGoal.id == goal_id, FinanceGoal.user_id == user_id).first()
+    if not goal:
+        return {"status": "error", "message": "Goal not found"}
+        
+    try:
+        db.delete(goal)
+        db.commit()
+    except Exception:
+        db.rollback()
+        record_audit(db, request, action="internal_delete_goal_error", resource_type="finance_goal", resource_id=str(goal_id), status_code=500, user=None)
+        raise
+        
+    record_audit(db, request, action="internal_delete_goal", resource_type="finance_goal", resource_id=str(goal_id), status_code=200, user=None)
+    return success_response(request, {"id": goal_id}, message="Goal deleted")

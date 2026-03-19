@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from datetime import date, datetime
 
 from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, Index, Integer, Numeric, String, UniqueConstraint
@@ -30,6 +32,7 @@ class Transaction(Base):
     )
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     title = Column(String(255), nullable=False)
     raw_description = Column(String(255), nullable=True)
@@ -50,6 +53,7 @@ class WealthItem(Base):
     __tablename__ = "finance_wealthitem"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     title = Column(String(100), nullable=False)
     amount = Column(Numeric(15, 2), nullable=False)
@@ -110,6 +114,7 @@ class DebitCard(Base):
     __tablename__ = "finance_debitcard"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     bank_name = Column(String(100), nullable=False)
     last_four_digits = Column(String(4), nullable=False)
@@ -122,6 +127,7 @@ class CreditCard(Base):
     __tablename__ = "finance_creditcard"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     bank_name = Column(String(100), nullable=False)
     card_holder_name = Column(String(100), nullable=False)
@@ -137,6 +143,7 @@ class Loan(Base):
     __tablename__ = "finance_loan"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     loan_type = Column(String(20), nullable=False)  # home, car, student, personal
     principal_amount = Column(Numeric(15, 2), nullable=False)
@@ -152,8 +159,11 @@ class StatementRecord(Base):
     __tablename__ = "finance_statementrecord"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     filename = Column(String(255), nullable=False)
+    file_size = Column(BigInteger, nullable=True)
+    file_hash = Column(String(64), nullable=True, index=True)
     status = Column(String(20), nullable=False, default="pending")  # 'pending', 'success', 'failed'
     account_type = Column(String(20), nullable=True)  # e.g., 'credit_card', 'savings'
     tx_count = Column(Integer, default=0)
@@ -179,6 +189,7 @@ class FinanceGoal(Base):
     __tablename__ = "finance_goal"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     title = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
@@ -206,3 +217,32 @@ class ToraConversation(Base):
     recommended_strategy = Column(String(4000), nullable=True)
     expected_outcome = Column(String(2000), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+
+
+class SecurityAlert(Base):
+    __tablename__ = "finance_securityalert"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    type = Column(String(32))  # 'mass_data_access', 'unusual_resource_access', 'parser_attacks'
+    severity = Column(String(16))  # 'low', 'medium', 'high', 'critical'
+    description = Column(String(255))
+    actor_identity = Column(String(64), nullable=True, index=True)  # IP or UserID/UID
+    details = Column(JSONB, default=dict)
+    is_resolved = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class Document(Base):
+    """Generic document storage tracking (Phase 5 requirement)."""
+    __tablename__ = "finance_document"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_type = Column(String(50), nullable=True)  # 'statement', 'receipt', 'identity', etc.
+    file_size = Column(BigInteger, nullable=True)
+    file_hash = Column(String(64), nullable=True, index=True)
+    storage_path = Column(String(512), nullable=True)  # Relative to storage root
+    metadata_json = Column(JSONB, default=dict)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

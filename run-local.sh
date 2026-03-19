@@ -7,8 +7,8 @@ set -e
 
 PROJECT_ROOT=$(cd "$(dirname "$0")" && pwd)
 SERVICES_ROOT="$PROJECT_ROOT/spendsy/services"
-SERVICES=("auth-service" "finance-service" "ai-service" "parser-service" "spendsy-ai")
-PORTS=(8001 8002 8004 8003 8005)
+SERVICES=("auth-service" "finance-service" "ai-service" "parser-service" "spendsy-ai" "spendsy-mcp")
+PORTS=(8001 8002 8004 8003 8005 8006)
 
 if [ -f "$PROJECT_ROOT/.venv/bin/activate" ]; then
     VENV_ROOT="$PROJECT_ROOT/.venv"
@@ -115,6 +115,13 @@ for SERVICE in auth-service finance-service; do
     (
         cd "$SERVICES_ROOT/$SERVICE"
         source "$VENV_ROOT/bin/activate"
+        
+        # Ensure DATABASE_URL is set for alembic
+        if [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ] && [ -n "$DB_HOST" ] && [ -n "$DB_PORT" ] && [ -n "$DB_NAME" ]; then
+            export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
+            echo "  Using DATABASE_URL for $SERVICE migrations"
+        fi
+        
         export PYTHONPATH="$(pwd):$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}"
         alembic upgrade head
     )
@@ -128,7 +135,7 @@ for i in "${!SERVICES[@]}"; do
     echo "⚡ Launching $SERVICE on port $PORT..."
     
     (
-        # Handle services that are in spendsy/services/ and those at root (spendsy-ai)
+        # Handle services that are in spendsy/services/ and those at root (spendsy-ai, spendsy-mcp)
         if [ -d "$SERVICES_ROOT/$SERVICE" ]; then
             cd "$SERVICES_ROOT/$SERVICE"
         else
@@ -145,6 +152,10 @@ for i in "${!SERVICES[@]}"; do
         if [ "$SERVICE" == "spendsy-ai" ]; then
             export FINANCE_SERVICE_URL="http://127.0.0.1:8002"
             exec uvicorn main:app --host 0.0.0.0 --port $PORT --log-level warning
+        elif [ "$SERVICE" == "spendsy-mcp" ]; then
+            # MCP servers usually run as stdio or sse servers. 
+            # If running as a standalone service in run-local, we execute it directly.
+            exec python server.py
         else
             exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level warning
         fi

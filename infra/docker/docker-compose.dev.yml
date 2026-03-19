@@ -204,9 +204,11 @@ services:
       ai-service:
         condition: service_healthy
     ports:
-      - "8080:80"   # Host port 8080 -> NGINX API Gateway
+      - "8080:80"   # Host port 8080 -> NGINX API Gateway HTTP
+      - "8443:443"  # Host port 8443 -> NGINX API Gateway HTTPS
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
     deploy:
       resources:
         limits:

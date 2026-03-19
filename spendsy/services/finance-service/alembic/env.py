@@ -23,6 +23,13 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def include_object(obj, name, type_, reflected, compare_to):
+    if type_ == "table":
+        # Only manage tables starting with finance_ or tora_
+        return name.startswith("finance_") or name.startswith("tora_")
+    return True
+
+
 def get_url() -> str:
     return os.getenv("DATABASE_URL", settings.sqlalchemy_url)
 
@@ -34,6 +41,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        include_object=include_object,
         version_table="alembic_version_finance",
     )
 
@@ -54,6 +62,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
             version_table="alembic_version_finance",
         )
 

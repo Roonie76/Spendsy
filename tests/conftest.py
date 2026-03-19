@@ -152,9 +152,9 @@ _set_env_case("db_host", "localhost")
 _set_env_case("db_name", "test")
 _set_env_case("db_user", "test")
 _set_env_case("db_password", "test")
-_set_env_case("jwt_secret", "test-secret")
+_set_env_case("jwt_secret", "0123456789abcdef0123456789abcdef")
 os.environ.setdefault("JWT_ALGORITHM", "HS256")
-os.environ.setdefault("INTERNAL_API_KEY", "test-internal-key")
+os.environ.setdefault("INTERNAL_API_KEY", "abcdef0123456789abcdef0123456789")
 os.environ.setdefault("FINANCE_SERVICE_URL", "http://test-finance")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
@@ -294,6 +294,7 @@ def access_token():
     now = datetime.now(timezone.utc)
     payload = {
         "sub": "1",
+        "uid": "user-12345",
         "username": "tester",
         "email": "tester@example.com",
         "type": "access",

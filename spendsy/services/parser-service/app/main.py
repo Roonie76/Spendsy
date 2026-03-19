@@ -6,12 +6,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 
-logger = logging.getLogger(__name__)
-
 from app.api.routes_health import router as health_router
 from app.api.routes_parser import router as parser_router
+from app.core.config import settings
+from app.core.middleware import SecurityHeadersMiddleware
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Spendsy Parser Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(health_router)
 app.include_router(parser_router)

@@ -19,10 +19,12 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
 
     try {
       setErrorMessage("");
+      const trimmedUsername = authData.username.trim();
+      const trimmedEmail = authData.email.trim();
       const requestBody = {
-        username: authData.username,
+        username: trimmedUsername,
         password: authData.password,
-        email: authData.email || undefined,
+        email: trimmedEmail || undefined,
       };
       const data = isSignup
         ? await authApi.register(requestBody)
@@ -39,19 +41,26 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
         "";
       onAuthSuccess({
         id: user.id || payload.user_id,
-        username: user.username || payload.username || authData.username,
-        email: user.email || payload.email || authData.email,
+        username: user.username || payload.username || trimmedUsername,
+        email: user.email || payload.email || trimmedEmail,
         token: accessToken,
       });
       showToast(
-        isSignup ? "Account created! You're signed in." : `Logged in as ${user.username || authData.username}`,
+        isSignup ? "Account created! You're signed in." : `Logged in as ${user.username || trimmedUsername}`,
         "success",
       );
     } catch (err) {
       if (err.body) {
-        const detail = err.body.detail || err.body.error || "Incorrect username or password.";
-        setErrorMessage(detail);
-        showToast(detail, "error");
+        const finalMessage =
+          err.body.detail ||
+          err.body.message ||
+          (typeof err.message === "string" ? err.message : "") ||
+          (isSignup
+            ? "Registration failed. Please check your details."
+            : "Incorrect username or password.");
+
+        setErrorMessage(finalMessage);
+        showToast(finalMessage, "error");
       } else {
         setErrorMessage("Backend unreachable. Please try again.");
         showToast("Backend unreachable", "error");

@@ -30,6 +30,16 @@
   ::-webkit-scrollbar-thumb:hover {
     background: darkblue;
   }
+
+  /* Custom Selection */
+  ::selection {
+    background: rgba(99, 102, 241, 0.3);
+    color: white;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {

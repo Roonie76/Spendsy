@@ -93,6 +93,7 @@ class TransactionPayload(BaseModel):
 
 class TransactionOut(BaseModel):
     id: int
+    uid: str
     title: str
     description: str
     raw_description: str | None = None
@@ -138,6 +139,7 @@ class WealthPayload(BaseModel):
 
 class WealthOut(BaseModel):
     id: int
+    uid: str
     title: str
     amount: Decimal
     type: str
@@ -216,6 +218,7 @@ class DebitCardPayload(BaseModel):
 class DebitCardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    uid: str
     bank_name: str = Field(alias="bankName")
     last_four_digits: str = Field(alias="lastFour")
     card_holder_name: str = Field(alias="cardHolder")
@@ -237,6 +240,7 @@ class CreditCardPayload(BaseModel):
 class CreditCardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    uid: str
     bank_name: str = Field(alias="bankName")
     card_holder_name: str = Field(alias="cardHolder")
     last_four_digits: str = Field(alias="lastFour")
@@ -259,6 +263,7 @@ class LoanPayload(BaseModel):
 
 class LoanOut(BaseModel):
     id: int
+    uid: str
     loan_type: str
     principal_amount: Decimal
     interest_rate: Decimal
@@ -275,11 +280,28 @@ class StatementRecordPayload(BaseModel):
     account_type: str | None = None
     tx_count: int = 0
     reconciliation_score: Decimal | None = None
+    file_size: int | None = Field(default=None, alias="fileSize")
+    file_hash: str | None = Field(default=None, alias="fileHash")
+
+
+class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    uid: str
+    user_id: int
+    filename: str
+    file_type: str | None = Field(alias="fileType")
+    file_size: int | None = Field(alias="fileSize")
+    file_hash: str | None = Field(alias="fileHash")
+    storage_path: str | None = Field(alias="storagePath")
+    metadata_json: dict = Field(alias="metadata")
+    created_at: datetime
 
 
 class StatementRecordOut(StatementRecordPayload):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    uid: str
     user_id: int
     created_at: datetime
 
@@ -294,6 +316,7 @@ class NetWorthSnapshotPayload(BaseModel):
 class NetWorthSnapshotOut(NetWorthSnapshotPayload):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    uid: str
     user_id: int
     created_at: datetime
 
@@ -332,6 +355,7 @@ class GoalUpdatePayload(BaseModel):
 class GoalOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    uid: str
     user_id: int
     title: str
     description: str | None

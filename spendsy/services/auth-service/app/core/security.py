@@ -14,16 +14,25 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def hash_password(password: str) -> str:
-    from passlib.hash import django_pbkdf2_sha256
-    return django_pbkdf2_sha256.hash(password)
+    from passlib.hash import argon2
+    return argon2.hash(password)
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    from passlib.hash import django_pbkdf2_sha256
-    return django_pbkdf2_sha256.verify(password, password_hash)
+    from passlib.hash import argon2, django_pbkdf2_sha256
+    
+    # Check if it's an Argon2 hash
+    if password_hash.startswith("$argon2"):
+        return argon2.verify(password, password_hash)
+    
+    # Fallback to PBKDF2 for legacy password verification
+    if password_hash.startswith("pbkdf2_sha256$"):
+        return django_pbkdf2_sha256.verify(password, password_hash)
+        
+    return False
 
 
-def create_access_token(subject: str, username: str, email: str | None) -> tuple[str, str]:
+def create_access_token(subject: str, username: str, email: str | None, uid: str, role: str = "user") -> tuple[str, str]:
     """Returns (token, jti)."""
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.access_token_expire_minutes)
@@ -32,6 +41,8 @@ def create_access_token(subject: str, username: str, email: str | None) -> tuple
         "sub": subject,
         "username": username,
         "email": email,
+        "uid": uid,
+        "role": role,
         "type": "access",
         "jti": jti,
         "iat": int(now.timestamp()),

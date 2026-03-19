@@ -10,15 +10,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes_auth import router as auth_router
 from app.api.routes_health import router as health_router
+from app.core.config import settings
+from app.core.middleware import SecurityHeadersMiddleware
 
 logger = logging.getLogger("auth.main")
 
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-]
 
 
 @asynccontextmanager
@@ -32,11 +28,12 @@ app = FastAPI(title="Spendsy Auth Service", lifespan=lifespan)
 # for cookie-based auth flows from the Vite frontend.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.exception_handler(SQLAlchemyError)

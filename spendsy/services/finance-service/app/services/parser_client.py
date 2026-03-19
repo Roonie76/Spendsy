@@ -26,8 +26,9 @@ def parse_statement(file_bytes: bytes, filename: str, content_type: str | None =
     url = f"{settings.parser_service_url.rstrip('/')}/parse"
     mime_type = _guess_content_type(filename, content_type)
     files = {"file": (filename, file_bytes, mime_type)}
+    headers = {"X-Internal-API-Key": settings.internal_api_key}
     with httpx.Client(timeout=300.0) as client:
-        response = client.post(url, files=files)
+        response = client.post(url, files=files, headers=headers)
     
     # raise_for_status will throw HTTPStatusError which triggers the retry if it's a 5xx
     if response.status_code >= 500:

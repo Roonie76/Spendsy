@@ -1,11 +1,16 @@
 import json
 import logging
 import copy
+import re
 from typing import Dict, Any, List
 import urllib.request
 import urllib.error
 import urllib.parse
 import os
+import sys
+
+# Ensure parent directory is in path for tools import
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import settings
 from .tora_personality import TORA_SYSTEM_PROMPT, detect_intent, get_greeting_response, get_fallback_response
@@ -209,6 +214,13 @@ def call_ai_api(context: str) -> str:
             raise RuntimeError(f"Request failed: {str(e)}")
 
 
+def _clean_json_response(raw_response: str) -> str:
+    """Remove markdown code blocks and whitespace from AI response."""
+    # Remove ```json ... ``` or ``` ... ```
+    clean = re.sub(r"```(?:json)?\s*(.*?)\s*```", r"\1", raw_response, flags=re.DOTALL)
+    return clean.strip()
+
+
 def generate_financial_strategy(user_id: int, question: str) -> Dict[str, Any]:
     """
     The orchestrator function executing the full Agent Workflow.
@@ -231,29 +243,66 @@ def generate_financial_strategy(user_id: int, question: str) -> Dict[str, Any]:
     try:
         raw_response = call_ai_api(prompt)
         
-        # Parse the structured JSON response
+        # Clean and parse the structured JSON response
         try:
-            structured_advice = json.loads(raw_response)
+            clean_response = _clean_json_response(raw_response)
+            structured_advice = json.loads(clean_response)
             
-            # Flatten if AI nested it inside an 'answer' key
-            if "answer" in structured_advice and isinstance(structured_advice["answer"], dict):
-                structured_advice = structured_advice["answer"]
+            # Execute tools if requested
+            if "tool_calls" in structured_advice and isinstance(structured_advice["tool_calls"], list):
+                from tools import create_plan, delete_plan
+                for tool in structured_advice["tool_calls"]:
+                    try:
+                        name = tool.get("name")
+                        params = tool.get("parameters", {})
+                        if name == "create_plan":
+                            logger.info(f"TORA executing tool: create_plan for user {user_id}")
+                            create_plan(
+                                user_id, 
+                                str(params.get("title", "Financial Plan")), 
+                                str(params.get("description", "")),
+                                float(params.get("target_amount", 0)),
+                                params.get("target_date")
+                            )
+                        elif name == "delete_plan":
+                            plan_id = params.get("plan_id")
+                            if plan_id:
+                                logger.info(f"TORA executing tool: delete_plan {plan_id} for user {user_id}")
+                                delete_plan(user_id, str(plan_id))
+                        else:
+                            logger.warning(f"Unknown tool requested by TORA: {name}")
+                    except Exception as e:
+                        logger.error(f"Error executing TORA tool {tool}: {e}")
             
-            # Ensure required keys exist
+            # Return either the 'answer' part or the whole thing if not nested
+            final_output = structured_advice.get("answer", structured_advice)
+            
+            # Ensure required keys exist in the conversational part
             required_keys = ["Financial Overview", "Current Position", "Recommended Strategy", "Expected Outcome"]
             for key in required_keys:
-                if key not in structured_advice:
-                    structured_advice[key] = "Not provided by AI."
+                if key not in final_output:
+                    final_output[key] = "N/A"
                     
-            return structured_advice
+            return final_output
             
         except json.JSONDecodeError:
             logger.error(f"AI response was not valid JSON: {raw_response}")
-            return {"error": "AI returned malformed structured data.", "raw_response": raw_response}
+            return {
+                "Financial Overview": "I encountered an error while processing your request. Could you please try again?",
+                "Current Position": "N/A",
+                "Recommended Strategy": "N/A",
+                "Expected Outcome": "N/A",
+                "error": "AI returned malformed structured data."
+            }
             
     except Exception as e:
         logger.error(f"TORA execution failed: {e}")
-        return {"error": f"Failed to generate strategy: {str(e)}"}
+        return {
+            "Financial Overview": f"I'm sorry, I encountered a technical difficulty: {str(e)}",
+            "Current Position": "N/A",
+            "Recommended Strategy": "N/A",
+            "Expected Outcome": "N/A"
+        }
 
 
 def _save_conversation(user_id: int, role: str, content: str, structured: Dict[str, Any] | None = None) -> None:

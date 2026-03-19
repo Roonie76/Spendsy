@@ -12,11 +12,26 @@ Before you begin, ensure you have the following installed:
 - **Docker & Docker Compose**: To run the database, cache, and poolers.
 - **Node.js (v18+)**: To run the frontend developer server.
 - **Python (3.11+)**: To run the backend microservices.
+- **Ollama**: (Optional but Recommended) To run local LLMs for parsing unstructured statements.
 - **Bash**: (Standard on Linux/macOS; use Git Bash or WSL2 on Windows).
 
 ---
 
-## 🚀 2. Quick Start (Recommended)
+## 🤖 2. AI Model Setup (Ollama)
+
+If you wish to use the local multi-model parser, install [Ollama](https://ollama.com/) and pull the required models:
+
+```bash
+# Primary model (7B)
+ollama pull deepseek-r1:7b
+
+# Fallback model (1.5B) - Recommended for low RAM
+ollama pull deepseek-r1:1.5b
+```
+
+---
+
+## 🚀 3. Quick Start (Recommended)
 
 The easiest way to start Spendsy is using the provided orchestration script.
 

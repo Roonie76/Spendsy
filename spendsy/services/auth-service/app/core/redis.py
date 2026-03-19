@@ -68,3 +68,39 @@ def is_token_blacklisted(jti: str) -> bool:
     """Return True if the given JTI has been blacklisted (i.e. logged out)."""
     client = get_redis()
     return client.exists(f"bl:jti:{jti}") == 1
+
+
+def increment_failed_login(identity: str) -> int:
+    """Increment failed login attempts for a given identity."""
+    try:
+        key = f"lockout:{identity}"
+        client = get_redis()
+        count = client.incr(key)
+        if int(count) == 1:
+            client.expire(key, settings.auth_lockout_window_seconds)
+        return int(count)
+    except Exception:
+        return 0
+
+
+def is_account_locked(identity: str) -> bool:
+    """Check if an account/identity is currently locked out."""
+    try:
+        key = f"lockout:{identity}"
+        client = get_redis()
+        count = client.get(key)
+        if count and int(count) >= settings.auth_lockout_attempts:
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def reset_failed_login(identity: str) -> None:
+    """Reset failed login attempts for a given identity after successful login."""
+    try:
+        key = f"lockout:{identity}"
+        client = get_redis()
+        client.delete(key)
+    except Exception:
+        pass

@@ -46,3 +46,23 @@ def is_token_blacklisted(jti: str) -> bool:
     """Return True if the given JTI has been blacklisted (i.e. logged out)."""
     client = get_redis()
     return client.exists(f"bl:jti:{jti}") == 1
+
+
+def is_rate_limited(scope: str, identity: str, limit: int, window_seconds: int) -> bool:
+    """Check if a given identity is rate limited for a specific scope."""
+    try:
+        key = f"rl:{scope}:{identity}"
+        client = get_redis()
+        pipeline = client.pipeline()
+        pipeline.incr(key, 1)
+        pipeline.ttl(key)
+        count, ttl = pipeline.execute()
+        
+        if ttl == -1:
+            client.expire(key, window_seconds)
+            
+        return int(count) > limit
+    except Exception:
+        # Graceful failure: don't block requests if Redis is down
+        logger.warning(f"rate_limit_redis_error: scope={scope} identity={identity}")
+        return False

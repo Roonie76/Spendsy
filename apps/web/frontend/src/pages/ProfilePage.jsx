@@ -50,9 +50,14 @@ const ProfilePage = ({
   const budget = parseFloat(localSettings.monthlyBudget || 0);
   
   // Simple score heuristic: Budget should be < 70% of income
+  // Default to 0 if no data
   let score = 0;
+  let savingsRate = 0;
+  
   if (income > 0) {
     const ratio = budget / income;
+    savingsRate = Math.max(0, 100 - (ratio * 100));
+    
     if (ratio <= 0.5) score = 95;
     else if (ratio <= 0.7) score = 75;
     else if (ratio <= 0.9) score = 50;
@@ -62,7 +67,7 @@ const ProfilePage = ({
   const scoreColor = score >= 80 ? "#10b981" : score >= 50 ? "#f59e0b" : "#f43f5e";
   const scoreData = [
     { value: score, color: scoreColor },
-    { value: 100 - score, color: "rgba(255,255,255,0.05)" }
+    { value: 100 - score, color: "rgba(255,255,255,0.03)" }
   ];
 
   const requestSaveSettings = (e) => {
@@ -101,20 +106,24 @@ const ProfilePage = ({
       variants={containerVariants}
       className="space-y-8 pb-32"
     >
-      <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-white/10 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full"></div>
+      <div className="bg-gradient-to-br from-indigo-900/60 to-slate-900/60 backdrop-blur-3xl border border-white/20 p-8 rounded-[3rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/20 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-400/30 transition-colors duration-700"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2"></div>
         
         <div className="relative z-10 flex justify-between items-start">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-8">
             <div className="relative">
-              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl relative z-10 overflow-hidden">
-                <User className="w-12 h-12 text-white" />
-                <div className="absolute inset-0 bg-white/10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                   <Sparkles className="w-8 h-8 text-white" />
+              <motion.div 
+                whileHover={{ scale: 1.05, rotate: 2 }}
+                className="w-28 h-28 rounded-3xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 flex items-center justify-center shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] relative z-10 overflow-hidden"
+              >
+                <User className="w-14 h-14 text-white" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                   <Sparkles className="w-8 h-8 text-white/50" />
                 </div>
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 rounded-xl border-4 border-[#0f0c29] flex items-center justify-center">
-                 <ShieldCheck className="w-4 h-4 text-white" />
+              </motion.div>
+              <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-emerald-500 rounded-2xl border-4 border-[#0f172a] shadow-lg flex items-center justify-center z-20">
+                 <ShieldCheck className="w-5 h-5 text-white" />
               </div>
             </div>
 
@@ -145,21 +154,29 @@ const ProfilePage = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Health Score Component */}
-        <section className="bg-white/5 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/10 relative overflow-hidden flex flex-col items-center justify-center">
-          <div className="text-center mb-4">
-            <h4 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Health Score</h4>
-            <p className="text-[10px] text-slate-500 font-bold">Financial Stability Index</p>
+        <section className="bg-white/5 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/10 relative overflow-hidden flex flex-col items-center justify-center group">
+          <div className="absolute -inset-px bg-gradient-to-b from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          
+          <div className="text-center mb-6">
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Financial Health</h4>
+            <div className="h-1 w-12 bg-indigo-500/30 mx-auto rounded-full"></div>
           </div>
           
-          <div className="h-48 w-48 relative">
+          <div className="h-52 w-52 relative">
+            {/* Outer Glow Ring */}
+            <div 
+              className="absolute inset-4 rounded-full blur-2xl opacity-20"
+              style={{ backgroundColor: scoreColor }}
+            ></div>
+            
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={scoreData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={65}
-                  outerRadius={80}
+                  innerRadius={70}
+                  outerRadius={85}
                   startAngle={90}
                   endAngle={450}
                   paddingAngle={0}
@@ -167,25 +184,38 @@ const ProfilePage = ({
                   stroke="none"
                 >
                   {scoreData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.color} 
+                      className={index === 0 ? "drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" : ""}
+                    />
                   ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
+            
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-black text-white leading-none">{score}</span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Perfect</span>
+              <motion.span 
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-5xl font-black text-white tracking-tighter"
+              >
+                {score}
+              </motion.span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-1">
+                {score >= 90 ? "Excellent" : score >= 70 ? "Stable" : score >= 50 ? "Average" : "At Risk"}
+              </span>
             </div>
           </div>
           
-          <div className="mt-4 w-full pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Savings Rate</p>
-              <p className="text-sm font-black text-emerald-400">{(100 - (budget/income*100)).toFixed(0)}%</p>
+          <div className="mt-6 w-full pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
+            <div className="text-center group/stat">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 group-hover/stat:text-indigo-400 transition-colors">Savings Rate</p>
+              <p className="text-lg font-black text-emerald-400">{savingsRate.toFixed(0)}%</p>
             </div>
-            <div className="text-center">
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Risk Level</p>
-              <p className="text-sm font-black text-violet-400">Minimal</p>
+            <div className="text-center group/stat">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 group-hover/stat:text-indigo-400 transition-colors">Risk Level</p>
+              <p className="text-lg font-black text-violet-400">Low</p>
             </div>
           </div>
         </section>
@@ -193,26 +223,27 @@ const ProfilePage = ({
         {/* Quick Links / Portfolio Map */}
         <section className="space-y-4">
           {[
-            { label: "Bank Accounts", icon: Landmark, count: "Debit & Credit", color: "text-blue-400", bg: "bg-blue-500/10", onClick: () => setActiveTab(TABS.BANK_ACCOUNTS) },
-            { label: "Active Loans", icon: Briefcase, count: "1 Active", color: "text-rose-400", bg: "bg-rose-500/10" },
-            { label: "Wealth Portfolio", icon: TrendingUp, count: "3 Assets", color: "text-emerald-400", bg: "bg-emerald-500/10" }
+            { label: "Bank Accounts", icon: Landmark, count: "Debit & Credit", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-l-blue-500", onClick: () => setActiveTab(TABS.BANK_ACCOUNTS) },
+            { label: "Active Loans", icon: Briefcase, count: "1 Active", color: "text-rose-400", bg: "bg-rose-500/10", border: "border-l-rose-500" },
+            { label: "Wealth Portfolio", icon: TrendingUp, count: "3 Assets", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-l-emerald-500" }
           ].map((item, idx) => (
             <motion.div 
               key={idx}
               variants={itemVariants}
-              className="bg-white/5 backdrop-blur-xl p-4 rounded-3xl border border-white/10 flex items-center justify-between group cursor-pointer hover:bg-white/10 transition-all border-l-4"
-              style={{ borderLeftColor: idx === 0 ? '#3b82f6' : idx === 1 ? '#f43f5e' : '#10b981' }}
+              whileHover={{ x: 8, backgroundColor: "rgba(255,255,255,0.08)" }}
+              onClick={item.onClick}
+              className={`bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 flex items-center justify-between group cursor-pointer transition-all border-l-4 ${item.border}`}
             >
-              <div className="flex items-center gap-4">
-                <div className={`${item.bg} ${item.color} p-3 rounded-2xl`}>
-                  <item.icon className="w-5 h-5" />
+              <div className="flex items-center gap-5">
+                <div className={`${item.bg} ${item.color} p-3.5 rounded-2xl shadow-inner group-hover:scale-110 transition-transform`}>
+                  <item.icon className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-white">{item.label}</p>
-                  <p className="text-[10px] font-bold text-slate-500">{item.count}</p>
+                  <p className="text-base font-black text-white leading-tight">{item.label}</p>
+                  <p className="text-[11px] font-bold text-slate-500 tracking-wide mt-0.5">{item.count}</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-white transition-colors" />
+              <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
             </motion.div>
           ))}
         </section>
@@ -234,20 +265,20 @@ const ProfilePage = ({
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-8">
             {[
-              { id: "monthlyIncome", label: "Monthly Revenue", icon: TrendingUp, color: "text-emerald-400" },
-              { id: "monthlyBudget", label: "Operating Budget", icon: Briefcase, color: "text-violet-400" },
-              { id: "dailyBudget", label: "Daily Threshold", icon: Sparkles, color: "text-amber-400" }
+              { id: "monthlyIncome", label: "Monthly Revenue", icon: TrendingUp, color: "text-emerald-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(52,211,153,0.3)]" },
+              { id: "monthlyBudget", label: "Operating Budget", icon: Briefcase, color: "text-violet-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(167,139,250,0.3)]" },
+              { id: "dailyBudget", label: "Daily Threshold", icon: Sparkles, color: "text-amber-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(251,191,36,0.3)]" }
             ].map((field) => (
-              <div key={field.id} className="space-y-3">
-                <label className="text-[10px] text-slate-600 font-extrabold uppercase tracking-[0.3em] flex items-center gap-2">
-                  <field.icon className={`w-3 h-3 ${field.color}`} />
+              <div key={field.id} className="space-y-4">
+                <label className="text-[11px] text-slate-500 font-black uppercase tracking-[0.4em] flex items-center gap-2.5 ml-2">
+                  <field.icon className={`w-3.5 h-3.5 ${field.color}`} />
                   {field.label}
                 </label>
-                <div className="relative group">
-                  <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-white transition-colors">
-                    <IndianRupee className="w-5 h-5" />
+                <div className={`relative group transition-all duration-300 rounded-[2.5rem] ${field.glow}`}>
+                  <div className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-white transition-colors z-20">
+                    <IndianRupee className="w-6 h-6" />
                   </div>
                   <input
                     type="number"
@@ -255,12 +286,12 @@ const ProfilePage = ({
                     onChange={(e) =>
                       setLocalSettings({ ...localSettings, [field.id]: e.target.value })
                     }
-                    className="w-full pl-16 pr-32 py-5 bg-black/40 border-2 border-white/5 rounded-[2rem] text-xl font-black text-white outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all placeholder:text-slate-800 shadow-2xl"
+                    className="w-full pl-16 pr-36 py-6 bg-black/40 border-2 border-white/5 rounded-[2.5rem] text-2xl font-black text-white outline-none focus:border-white/20 focus:bg-white/5 transition-all placeholder:text-slate-800 shadow-inner relative z-10"
                     placeholder="0"
                   />
                   {localSettings[field.id] > 0 && (
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 px-4 py-2 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
-                      <span className="text-xs font-black text-indigo-400">
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-xl z-20 shadow-lg">
+                      <span className={`text-xs font-black ${field.color}`}>
                         {getReadableUnit(localSettings[field.id])}
                       </span>
                     </div>

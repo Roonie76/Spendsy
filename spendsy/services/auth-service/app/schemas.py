@@ -40,6 +40,7 @@ class TokenPair(BaseModel):
 
 class UserOut(BaseModel):
     id: int
+    uid: str
     username: str
     email: EmailStr | None
     created_at: datetime

@@ -86,3 +86,47 @@ def budget_recommendation(user_id: int) -> str:
         "suggested_budget": suggested,
         "advice": "50/30/20 rule: 50% Needs, 30% Wants, 20% Savings."
     }, indent=2)
+
+def create_plan(user_id: int, title: str, description: str, target_amount: float = 0, target_date: str | None = None) -> str:
+    """Invoked by TORA to create a new financial goal/plan."""
+    if not target_date:
+        from datetime import datetime, timedelta
+        target_date = (datetime.utcnow() + timedelta(days=365)).isoformat() + "Z"
+        
+    url = f"{settings.finance_service_url}/internal/goals/{user_id}"
+    payload = json.dumps({
+        "title": title, 
+        "description": description, 
+        "target_amount": target_amount, 
+        "current_amount": 0, 
+        "target_date": target_date, 
+        "category": "General", 
+        "is_completed": False
+    }).encode("utf-8")
+    req = request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json", "X-Internal-API-Key": settings.internal_api_key},
+        method="POST"
+    )
+    try:
+        with request.urlopen(req, timeout=5) as response:
+            return json.dumps({"status": "success", "message": "Plan created successfully"})
+    except Exception as e:
+        print(f"Error calling create_plan: {e}")
+        return json.dumps({"status": "error", "message": str(e)})
+
+def delete_plan(user_id: int, plan_id: str) -> str:
+    """Invoked by TORA to delete an existing financial goal/plan."""
+    url = f"{settings.finance_service_url}/internal/goals/{user_id}/{plan_id}"
+    req = request.Request(
+        url,
+        headers={"X-Internal-API-Key": settings.internal_api_key},
+        method="DELETE"
+    )
+    try:
+        with request.urlopen(req, timeout=5) as response:
+            return json.dumps({"status": "success", "message": f"Plan {plan_id} deleted successfully"})
+    except Exception as e:
+        print(f"Error calling delete_plan: {e}")
+        return json.dumps({"status": "error", "message": str(e)})

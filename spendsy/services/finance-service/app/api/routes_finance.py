@@ -14,8 +14,11 @@ from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core import cryptography as security_crypto
+from app.core.audit import record_audit as _audit
+from app.core.config import settings
 from app.core.database import check_database_connection, get_db
-from app.core.redis import enqueue_task, get_identity_from_request, record_event
+from app.core.redis import enqueue_task, get_identity_from_request, is_rate_limited, record_event
 from app.core.security import UserContext, get_current_user
 from app.models import ApiAuditLog, CreditCard, DebitCard, ITRData, Loan, NetWorthSnapshot, StatementRecord, TaxProfile, Transaction, UserProfile, WealthItem
 from app.schemas import (
@@ -38,6 +41,7 @@ from app.schemas import (
 )
 from app.services.parser_client import parse_statement
 from app.utils.error_codes import ErrorCode
+from app.utils.files import sanitize_filename, validate_file_security
 from app.utils.response import error_response, success_response
 
 router = APIRouter(tags=["finance"])
@@ -75,43 +79,6 @@ FINGERPRINT_STOPWORDS = {
     "upi",
     "via",
 }
-
-
-def _audit(
-    db: Session,
-    request: Request,
-    *,
-    action: str,
-    resource_type: str,
-    status_code: int,
-    resource_id: str = "",
-    error_code: str = "",
-    details: dict | None = None,
-    user: UserContext | None = None,
-) -> None:
-    try:
-        entry = ApiAuditLog(
-            user_id=user.id if user else None,
-            request_id=getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4()),
-            action=action,
-            resource_type=resource_type,
-            resource_id=str(resource_id or ""),
-            method=request.method,
-            path=request.url.path,
-            status_code=status_code,
-            error_code=error_code,
-            ip_address=get_identity_from_request(request),
-            details=details or {},
-        )
-        db.add(entry)
-        try:
-            db.commit()
-        except SQLAlchemyError:
-            db.rollback()
-            raise
-    except Exception:
-        db.rollback()
-
 
 def _safe_category(raw: str | None) -> str:
     value = str(raw or "other").strip().lower()
@@ -349,9 +316,16 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
     return saved
 
 
-def _enforce_ownership(user: UserContext, path_user_id: int) -> None:
-    """Raise HTTP 403 immediately if URL user_id != token user_id."""
-    if int(path_user_id) != user.id:
+def _enforce_ownership(user: UserContext, path_uid: str) -> None:
+    """Raise HTTP 403 immediately if URL uid != token uid and != token id."""
+    # Allow match against either UUID (user.uid) or numeric ID (user.id)
+    if str(path_uid) != user.uid and str(path_uid) != str(user.id):
+        logger.warning(
+            "IDOR_DENIED: path_uid=%s token_uid=%s token_id=%s",
+            path_uid,
+            user.uid,
+            user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: you may only access your own resources",
@@ -398,17 +372,17 @@ def financial_summary(request: Request, user: UserContext = Depends(get_current_
     return success_response(request, summary, message="Financial summary")
 
 
-@router.get("/profile/{user_id}")
-@router.post("/profile/{user_id}")
+@router.get("/profile/{uid}")
+@router.post("/profile/{uid}")
 def profile_settings(
     request: Request,
-    user_id: int,
+    uid: str,
     payload: UserProfilePayload | None = None,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     # IDOR fix: strict 403 if URL doesn't match token
-    _enforce_ownership(user, user_id)
+    _enforce_ownership(user, uid)
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
     if profile is None:
@@ -456,6 +430,10 @@ def add_transaction(
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    identity = get_identity_from_request(request)
+    if is_rate_limited("finance:transaction", identity, settings.finance_rate_limit_default, settings.finance_rate_limit_window_seconds):
+        return error_response(request, "Too many transaction creation attempts", code=ErrorCode.RATE_LIMIT_EXCEEDED, http_status=429)
+
     data = payload.model_dump(exclude_unset=True)
     logger.info(f"add_transaction received: {data}")
     if "amount" not in data or data["amount"] is None:
@@ -594,38 +572,38 @@ def get_transaction_history(
         )
 
 
-@router.delete("/transactions/{transaction_id}", responses={404: {"model": dict}, 200: {"model": dict}})
+@router.delete("/transactions/{uid}", responses={404: {"model": dict}, 200: {"model": dict}})
 def delete_transaction(
     request: Request,
-    transaction_id: int,
+    uid: str,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tx = db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.user_id == user.id).first()
-    if tx is None:
+    txn = db.query(Transaction).filter(Transaction.uid == uid, Transaction.user_id == user.id).first()
+    if txn is None:
         return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
-    db.delete(tx)
+    db.delete(txn)
     try:
         db.commit()
     except SQLAlchemyError:
         db.rollback()
         raise
-    _audit(db, request, action="transaction_deleted", resource_type="transaction", resource_id=str(transaction_id), status_code=200, user=user)
-    return success_response(request, {"id": transaction_id, "deleted": True}, message="Transaction deleted")
+    _audit(db, request, action="transaction_deleted", resource_type="transaction", resource_id=uid, status_code=200, user=user)
+    return success_response(request, {"id": uid, "deleted": True}, message="Transaction deleted")
 
 
-@router.patch("/transactions/{transaction_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
-@router.put("/transactions/{transaction_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
+@router.patch("/transactions/{uid}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
+@router.put("/transactions/{uid}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
 def update_transaction(
     request: Request,
-    transaction_id: int,
+    uid: str,
     payload: TransactionPayload,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tx = db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.user_id == user.id).first()
-    if tx is None:
+    txn = db.query(Transaction).filter(Transaction.uid == uid, Transaction.user_id == user.id).first()
+    if txn is None:
         return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
     data = payload.model_dump(exclude_unset=True)
@@ -635,31 +613,31 @@ def update_transaction(
         return error_response(request, "Amount must be > 0", code=ErrorCode.INVALID_AMOUNT)
 
     if "title" in data or "description" in data:
-        raw_title = (data.get("title") or data.get("description") or _display_title(tx)).strip() or _display_title(tx)
-        tx.title = normalize_title(raw_title)[:255] or tx.title
-        tx.raw_description = raw_title[:255]
+        raw_title = (data.get("title") or data.get("description") or _display_title(txn)).strip() or _display_title(txn)
+        txn.title = normalize_title(raw_title)[:255] or txn.title
+        txn.raw_description = raw_title[:255]
     if "amount" in data:
-        tx.amount = data["amount"]
+        txn.amount = data["amount"]
     if "type" in data:
-        tx.type = data["type"]
+        txn.type = data["type"]
     if "category" in data and data["category"]:
         cat = data["category"]
-        tx.category = cat.value if hasattr(cat, "value") else str(cat)
+        txn.category = cat.value if hasattr(cat, "value") else str(cat)
     if "date" in data and data["date"]:
-        tx.date = data["date"]
+        txn.date = data["date"]
     if "balance" in data:
-        tx.balance = data["balance"]
+        txn.balance = data["balance"]
     if "source" in data and data["source"]:
-        tx.source = _safe_source(data["source"])
+        txn.source = _safe_source(data["source"])
     if "is_recurring" in data and data["is_recurring"] is not None:
-        tx.is_recurring = data["is_recurring"]
+        txn.is_recurring = data["is_recurring"]
 
-    tx.fingerprint = _compute_transaction_fingerprint(
-        tx.user_id,
-        tx.date,
-        tx.amount,
-        tx.type,
-        tx.raw_description or tx.title,
+    txn.fingerprint = _compute_transaction_fingerprint(
+        txn.user_id,
+        txn.date,
+        txn.amount,
+        txn.type,
+        txn.raw_description or txn.title,
     )
 
     try:
@@ -667,8 +645,8 @@ def update_transaction(
     except SQLAlchemyError:
         db.rollback()
         raise
-    _audit(db, request, action="transaction_updated", resource_type="transaction", resource_id=str(transaction_id), status_code=200, user=user)
-    return success_response(request, {"id": tx.id, "title": _display_title(tx)}, message="Updated successfully")
+    _audit(db, request, action="transaction_updated", resource_type="transaction", resource_id=uid, status_code=200, user=user)
+    return success_response(request, {"id": txn.id, "title": _display_title(txn)}, message="Updated successfully")
 
 
 @router.get("/wealth", responses={200: {"model": dict}})
@@ -717,7 +695,7 @@ def wealth_list_create(
         db.rollback()
         raise
     db.refresh(item)
-    _audit(db, request, action="wealth_created", resource_type="wealth", resource_id=str(item.id), status_code=201, user=user)
+    _audit(db, request, action="wealth_created", resource_type="wealth", resource_id=item.uid, status_code=201, user=user)
     return success_response(
         request,
         {
@@ -732,14 +710,14 @@ def wealth_list_create(
     )
 
 
-@router.delete("/wealth/{item_id}", responses={404: {"model": dict}, 200: {"model": dict}})
+@router.delete("/wealth/{uid}", responses={404: {"model": dict}, 200: {"model": dict}})
 def delete_wealth_item(
     request: Request,
-    item_id: int,
+    uid: str,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    item = db.query(WealthItem).filter(WealthItem.id == item_id, WealthItem.user_id == user.id).first()
+    item = db.query(WealthItem).filter(WealthItem.uid == uid, WealthItem.user_id == user.id).first()
     if item is None:
         return error_response(request, "Item not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
@@ -749,20 +727,20 @@ def delete_wealth_item(
     except SQLAlchemyError:
         db.rollback()
         raise
-    _audit(db, request, action="wealth_deleted", resource_type="wealth", resource_id=str(item_id), status_code=200, user=user)
-    return success_response(request, {"id": item_id, "deleted": True}, message="Item deleted")
+    _audit(db, request, action="wealth_deleted", resource_type="wealth", resource_id=uid, status_code=200, user=user)
+    return success_response(request, {"id": uid, "deleted": True}, message="Item deleted")
 
 
 @router.patch("/wealth/{item_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
-@router.put("/wealth/{item_id}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
+@router.put("/wealth/{uid}", responses={404: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
 def update_wealth_item(
     request: Request,
-    item_id: int,
+    uid: str,
     payload: WealthPayload,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    item = db.query(WealthItem).filter(WealthItem.id == item_id, WealthItem.user_id == user.id).first()
+    item = db.query(WealthItem).filter(WealthItem.uid == uid, WealthItem.user_id == user.id).first()
     if item is None:
         return error_response(request, "Item not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
@@ -786,7 +764,7 @@ def update_wealth_item(
     except SQLAlchemyError:
         db.rollback()
         raise
-    _audit(db, request, action="wealth_updated", resource_type="wealth", resource_id=str(item_id), status_code=200, user=user)
+    _audit(db, request, action="wealth_updated", resource_type="wealth", resource_id=uid, status_code=200, user=user)
     return success_response(
         request,
         {
@@ -800,16 +778,16 @@ def update_wealth_item(
     )
 
 
-@router.get("/tax-profile/{user_id}", responses={403: {"model": dict}, 200: {"model": dict}})
-@router.post("/tax-profile/{user_id}", responses={403: {"model": dict}, 200: {"model": dict}})
+@router.get("/tax-profile/{uid}", responses={403: {"model": dict}, 200: {"model": dict}})
+@router.post("/tax-profile/{uid}", responses={403: {"model": dict}, 200: {"model": dict}})
 def manage_tax_profile(
     request: Request,
-    user_id: int,
+    uid: str,
     payload: TaxProfilePayload | None = None,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _enforce_ownership(user, user_id)
+    _enforce_ownership(user, uid)
 
     profile = db.query(TaxProfile).filter(TaxProfile.user_id == user.id).first()
     if profile is None:
@@ -857,16 +835,16 @@ def manage_tax_profile(
     return success_response(request, payload_out, message="Tax profile" if request.method == "GET" else "Tax profile updated")
 
 
-@router.get("/itr-data/{user_id}", responses={403: {"model": dict}, 200: {"model": dict}})
-@router.post("/itr-data/{user_id}", responses={403: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
+@router.get("/itr-data/{uid}", responses={403: {"model": dict}, 200: {"model": dict}})
+@router.post("/itr-data/{uid}", responses={403: {"model": dict}, 400: {"model": dict}, 200: {"model": dict}})
 def itr_data_handler(
     request: Request,
-    user_id: int,
+    uid: str,
     payload: ITRPayload | None = None,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _enforce_ownership(user, user_id)
+    _enforce_ownership(user, uid)
 
     record = db.query(ITRData).filter(ITRData.user_id == user.id).first()
     if record is None:
@@ -914,12 +892,22 @@ def parse_statement_proxy(
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    identity = get_identity_from_request(request)
+    if is_rate_limited("finance:upload", identity, settings.finance_rate_limit_upload, settings.finance_rate_limit_window_seconds):
+        return error_response(request, "Too many upload attempts", code=ErrorCode.RATE_LIMIT_EXCEEDED, http_status=429)
+
     if file is None:
         return error_response(request, "Missing statement file upload", code=ErrorCode.MISSING_FILE)
 
-    logger.info(f"parse_statement_proxy: file={file.filename}, size={file.size}, content_type={file.content_type}, user={user.id}")
+    # File Security Validation (Size, MIME, Extension)
+    validate_file_security(file)
+    file.filename = sanitize_filename(file.filename or "statement.pdf")
+
+    logger.info(f"parse_statement_proxy: file={file.filename}, size={getattr(file, 'size', 'unknown')}, content_type={file.content_type}, user={user.id}")
     content = file.file.read()
-    statement_hash = hashlib.sha256(content).hexdigest()
+    file_size = len(content)
+    file_hash = hashlib.sha256(content).hexdigest()
+    statement_hash = file_hash
     request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
 
     try:
@@ -1013,6 +1001,7 @@ def parse_statement_proxy(
         action="statement_parsed",
         resource_type="statement_parser",
         status_code=status.HTTP_200_OK,
+        user=user,
         details={
             "parsed_transactions": len(transactions),
             "persisted_transactions": persisted_count,
@@ -1021,8 +1010,9 @@ def parse_statement_proxy(
             "preview_mode": effective_preview_mode,
             "requires_review": review_required,
             "confirm_persist": confirm_persist,
+            "file_size": file_size,
+            "file_hash": file_hash,
         },
-        user=user,
     )
 
     try:
@@ -1044,6 +1034,8 @@ def list_credit_cards(
     user: UserContext = Depends(get_current_user),
 ):
     cards = db.query(CreditCard).filter(CreditCard.user_id == user.id).all()
+    for c in cards:
+        c.card_holder_name = security_crypto.decrypt_string(c.card_holder_name)
     return success_response(request, [CreditCardOut.model_validate(c).model_dump(by_alias=True) for c in cards])
 
 
@@ -1057,7 +1049,7 @@ def create_credit_card(
     card = CreditCard(
         user_id=user.id,
         bank_name=payload.bank_name,
-        card_holder_name=payload.card_holder_name,
+        card_holder_name=security_crypto.encrypt_string(payload.card_holder_name),
         last_four_digits=payload.last_four_digits,
         credit_limit=payload.credit_limit,
         billing_cycle=payload.billing_cycle,
@@ -1066,23 +1058,26 @@ def create_credit_card(
     db.add(card)
     db.commit()
     db.refresh(card)
+    
+    # Decrypt for response
+    card.card_holder_name = security_crypto.decrypt_string(card.card_holder_name)
     return success_response(request, CreditCardOut.model_validate(card).model_dump(by_alias=True), message="Credit card created")
 
 
-@router.put("/credit-cards/{card_id}")
+@router.put("/credit-cards/{uid}")
 def update_credit_card(
     request: Request,
-    card_id: int,
+    uid: str,
     payload: CreditCardPayload,
     db: Session = Depends(get_db),
     user: UserContext = Depends(get_current_user),
 ):
-    card = db.query(CreditCard).filter(CreditCard.id == card_id, CreditCard.user_id == user.id).first()
+    card = db.query(CreditCard).filter(CreditCard.uid == uid, CreditCard.user_id == user.id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
     card.bank_name = payload.bank_name
-    card.card_holder_name = payload.card_holder_name
+    card.card_holder_name = security_crypto.encrypt_string(payload.card_holder_name)
     card.last_four_digits = payload.last_four_digits
     card.credit_limit = payload.credit_limit
     card.billing_cycle = payload.billing_cycle
@@ -1090,22 +1085,23 @@ def update_credit_card(
 
     db.commit()
     db.refresh(card)
+    card.card_holder_name = security_crypto.decrypt_string(card.card_holder_name)
     return success_response(request, CreditCardOut.model_validate(card).model_dump(by_alias=True), message="Credit card updated")
 
 
-@router.delete("/credit-cards/{card_id}")
+@router.delete("/credit-cards/{uid}")
 def delete_credit_card(
     request: Request,
-    card_id: int,
+    uid: str,
     db: Session = Depends(get_db),
     user: UserContext = Depends(get_current_user),
 ):
-    card = db.query(CreditCard).filter(CreditCard.id == card_id, CreditCard.user_id == user.id).first()
+    card = db.query(CreditCard).filter(CreditCard.uid == uid, CreditCard.user_id == user.id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     db.delete(card)
     db.commit()
-    return success_response(request, {"id": card_id, "deleted": True}, message="Credit card deleted")
+    return success_response(request, {"id": uid, "deleted": True}, message="Credit card deleted")
 
 
 @router.get("/debit-cards")
@@ -1115,6 +1111,8 @@ def list_debit_cards(
     user: UserContext = Depends(get_current_user),
 ):
     cards = db.query(DebitCard).filter(DebitCard.user_id == user.id).all()
+    for c in cards:
+        c.card_holder_name = security_crypto.decrypt_string(c.card_holder_name)
     return success_response(request, [DebitCardOut.model_validate(c).model_dump(by_alias=True) for c in cards])
 
 
@@ -1129,50 +1127,52 @@ def create_debit_card(
         user_id=user.id,
         bank_name=payload.bank_name,
         last_four_digits=payload.last_four_digits,
-        card_holder_name=payload.card_holder_name,
+        card_holder_name=security_crypto.encrypt_string(payload.card_holder_name),
         expiry_date=payload.expiry_date,
     )
     db.add(card)
     db.commit()
     db.refresh(card)
+    card.card_holder_name = security_crypto.decrypt_string(card.card_holder_name)
     return success_response(request, DebitCardOut.model_validate(card).model_dump(by_alias=True), message="Debit card created")
 
 
-@router.put("/debit-cards/{card_id}")
+@router.put("/debit-cards/{uid}")
 def update_debit_card(
     request: Request,
-    card_id: int,
+    uid: str,
     payload: DebitCardPayload,
     db: Session = Depends(get_db),
     user: UserContext = Depends(get_current_user),
 ):
-    card = db.query(DebitCard).filter(DebitCard.id == card_id, DebitCard.user_id == user.id).first()
+    card = db.query(DebitCard).filter(DebitCard.uid == uid, DebitCard.user_id == user.id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
     card.bank_name = payload.bank_name
     card.last_four_digits = payload.last_four_digits
-    card.card_holder_name = payload.card_holder_name
+    card.card_holder_name = security_crypto.encrypt_string(payload.card_holder_name)
     card.expiry_date = payload.expiry_date
 
     db.commit()
     db.refresh(card)
+    card.card_holder_name = security_crypto.decrypt_string(card.card_holder_name)
     return success_response(request, DebitCardOut.model_validate(card).model_dump(by_alias=True), message="Debit card updated")
 
 
-@router.delete("/debit-cards/{card_id}")
+@router.delete("/debit-cards/{uid}")
 def delete_debit_card(
     request: Request,
-    card_id: int,
+    uid: str,
     db: Session = Depends(get_db),
     user: UserContext = Depends(get_current_user),
 ):
-    card = db.query(DebitCard).filter(DebitCard.id == card_id, DebitCard.user_id == user.id).first()
+    card = db.query(DebitCard).filter(DebitCard.uid == uid, DebitCard.user_id == user.id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     db.delete(card)
     db.commit()
-    return success_response(request, {"id": card_id, "deleted": True}, message="Debit card deleted")
+    return success_response(request, {"id": uid, "deleted": True}, message="Debit card deleted")
 
 
 @router.get("/loans")
@@ -1276,6 +1276,8 @@ def create_statement_record(
         account_type=payload.account_type,
         tx_count=payload.tx_count,
         reconciliation_score=payload.reconciliation_score,
+        file_size=payload.file_size,
+        file_hash=payload.file_hash,
     )
     db.add(record)
     db.commit()

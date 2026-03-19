@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     google_api_key: str | None = None
 
     redis_url: str = "redis://redis:6379/0"
+    allowed_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+    ]
 
 
 settings = Settings()
