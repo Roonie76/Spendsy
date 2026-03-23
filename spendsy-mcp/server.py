@@ -4,10 +4,10 @@ import mimetypes
 import os
 import hashlib
 import uuid
+import httpx
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from urllib import parse, request
-from urllib.error import HTTPError, URLError
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 from mcp.server.fastmcp import FastMCP
 
 from config import settings
@@ -15,45 +15,47 @@ from config import settings
 # Initialize FastMCP server
 mcp = FastMCP("Spendsy Financial Assistant")
 
+def _is_retryable(e: Exception) -> bool:
+    if isinstance(e, (httpx.ConnectError, httpx.TimeoutException)):
+        return True
+    if isinstance(e, httpx.HTTPStatusError):
+        return e.response.status_code >= 500 or e.response.status_code == 429
+    return False
+
 # Helper to call finance-service internal APIs
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception(_is_retryable),
+)
 def call_finance_internal(endpoint: str, user_id: int, params: Dict | None = None):
-    url = f"{settings.finance_service_url}/internal/{endpoint}/{user_id}"
-    if params:
-        url = f"{url}?{parse.urlencode(params)}"
-    req = request.Request(url, headers={"X-Internal-API-Key": settings.internal_api_key}, method="GET")
-    with request.urlopen(req, timeout=10) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-    return payload.get("data", {})
+    url = f"{settings.finance_service_url.rstrip('/')}/internal/{endpoint}/{user_id}"
+    headers = {"X-Internal-API-Key": settings.internal_api_key}
+    
+    with httpx.Client(timeout=10.0) as client:
+        response = client.get(url, params=params, headers=headers)
+        if response.status_code >= 500 or response.status_code == 429:
+            response.raise_for_status()
+        return response.json().get("data", {})
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception(_is_retryable),
+)
 def _post_file(url: str, file_path: str) -> dict[str, Any]:
     filename = os.path.basename(file_path)
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-    boundary = f"----SpendsyBoundary{uuid.uuid4().hex}"
-
-    with open(file_path, "rb") as handle:
-        file_bytes = handle.read()
-
-    parts = [
-        f"--{boundary}\r\n".encode("utf-8"),
-        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode("utf-8"),
-        f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
-        file_bytes,
-        b"\r\n",
-        f"--{boundary}--\r\n".encode("utf-8"),
-    ]
-    body = b"".join(parts)
-    req = request.Request(
-        url,
-        data=body,
-        headers={
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "Content-Length": str(len(body)),
-        },
-        method="POST",
-    )
-    with request.urlopen(req, timeout=30) as response:
-        return json.loads(response.read().decode("utf-8"))
+    
+    with open(file_path, "rb") as f:
+        files = {"file": (filename, f, content_type)}
+        headers = {"X-Internal-API-Key": settings.internal_api_key}
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url, files=files, headers=headers)
+            if response.status_code >= 500 or response.status_code == 429:
+                response.raise_for_status()
+            return response.json()
 
 # --- SECTION 3: Core MCP Tools ---
 

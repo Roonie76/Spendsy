@@ -25,6 +25,28 @@ export default defineConfig({
     fs: {
       allow: ['..', '../../../packages'],
     },
+    proxy: {
+      '/api/auth': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/api/finance': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/finance/, '')
+      },
+      '/api/parser': {
+        target: 'http://localhost:8003',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/parser/, '')
+      },
+      '/api/ai': {
+        target: 'http://localhost:8004',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai/, '')
+      }
+    }
   },
   build: {
     commonjsOptions: {

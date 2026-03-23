@@ -22,6 +22,7 @@ const ACCESS_TOKEN_KEYS = ["access_token", "auth_token", "token"];
 const REFRESH_TOKEN_KEY = "refresh_token";
 
 let refreshPromise = null;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function storage() {
   return typeof window === "undefined" ? null : window.localStorage;
@@ -158,32 +159,50 @@ async function refreshAccessToken() {
 }
 
 /**
- * Core fetch wrapper — always sends cookies, always expects JSON back.
- * Throws on non-2xx so React Query / callers can handle errors uniformly.
+ * Core fetch wrapper with exponential backoff for network failures and 5xx errors.
+ * Also handles 401 refresh logic.
  */
-export async function apiFetch(url, options = {}) {
+export async function apiFetch(url, options = {}, retries = 3, backoff = 1000) {
   const headers = buildHeaders(options);
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
 
-  if (res.status === 401 && !options._retry && !isRefreshExcluded(url)) {
-    try {
-      await refreshAccessToken();
-      return apiFetch(url, { ...options, _retry: true });
-    } catch (_) {
-      clearStoredAuth();
+    // 1. Handle 401 Unauthorized (Token Refresh)
+    if (res.status === 401 && !options._retry && !isRefreshExcluded(url)) {
+      try {
+        await refreshAccessToken();
+        return apiFetch(url, { ...options, _retry: true });
+      } catch (_) {
+        clearStoredAuth();
+      }
     }
-  }
 
-  if (!res.ok) {
-    throw buildRequestError(res, await readJsonBody(res));
-  }
+    // 2. Handle 5xx / 429 / Network failures with retry
+    if ((res.status >= 500 || res.status === 429) && retries > 0) {
+      console.warn(`Retrying ${url} due to status ${res.status}. ${retries} attempts left.`);
+      await wait(backoff);
+      return apiFetch(url, options, retries - 1, backoff * 2);
+    }
 
-  return res.json();
+    if (!res.ok) {
+      throw buildRequestError(res, await readJsonBody(res));
+    }
+
+    return res.json();
+  } catch (err) {
+    // TypeError: Failed to fetch (Network Error)
+    if (retries > 0) {
+      console.warn(`Retrying ${url} due to network error: ${err.message}. ${retries} attempts left.`);
+      await wait(backoff);
+      return apiFetch(url, options, retries - 1, backoff * 2);
+    }
+    throw err;
+  }
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ _redis_client: redis_lib.Redis | None = None
 def get_redis() -> redis_lib.Redis:
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
+        _redis_client = redis_lib.Redis.from_url(settings.redis_connection_url, decode_responses=True)
     return _redis_client
 
 
@@ -44,8 +44,13 @@ def record_event(stream: str, payload: dict) -> None:
 
 def is_token_blacklisted(jti: str) -> bool:
     """Return True if the given JTI has been blacklisted (i.e. logged out)."""
-    client = get_redis()
-    return client.exists(f"bl:jti:{jti}") == 1
+    try:
+        client = get_redis()
+        return client.exists(f"bl:jti:{jti}") == 1
+    except Exception:
+        # Graceful failure: do not hard-fail authenticated requests if Redis is unavailable.
+        logger.warning("token_blacklist_redis_error: jti=%s", jti)
+        return False
 
 
 def is_rate_limited(scope: str, identity: str, limit: int, window_seconds: int) -> bool:

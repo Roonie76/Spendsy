@@ -21,7 +21,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5174",
     ]
     hsts_enabled: bool = False
-    internal_api_key: str
+    internal_api_key: str = "dev_internal_api_key_32_chars_long_for_testing"
 
     @field_validator("internal_api_key")
     @classmethod
@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_primary_model: str = "deepseek-r1:7b"
     ollama_fallback_model: str = "deepseek-r1:1.5b"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_url: str | None = None
+
+    @property
+    def redis_connection_url(self) -> str:
+        if self.redis_url:
+            return self.redis_url
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
+
     llm_confidence_threshold: float = 0.85
 
 

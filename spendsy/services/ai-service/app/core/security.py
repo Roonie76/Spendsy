@@ -29,6 +29,11 @@ def get_current_user(
     bearer: str | None = Depends(oauth2_scheme),
     access_token: str | None = Cookie(default=None),
 ) -> UserContext:
+    # Check for internal API key first
+    internal_key = request.headers.get("X-Internal-API-Key")
+    if internal_key and internal_key == settings.internal_api_key:
+        return UserContext(id=0, username="system", email="system@spendsy.local")
+
     token = bearer or access_token
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")

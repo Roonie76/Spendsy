@@ -21,14 +21,14 @@ def build_prompt(prompt: str, context: str | dict | list | None) -> str:
     return f"{prompt}\n\nCONTEXT:\n{context_str}"
 
 
-def generate_text(prompt: str, *, response_format: str = "text") -> str:
+def generate_text(prompt: str, *, response_format: str = "text", image: str | None = None, image_mime_type: str | None = None) -> str:
     api_key = settings.gemini_api_key or settings.google_api_key
     if not api_key:
         raise GeminiError("GEMINI_API_KEY is not configured")
 
     url = (
-        "https://generativelanguage.googleapis.com/v1/models/"
-        f"gemini-2.5-flash-lite:generateContent?key={api_key}"
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-2.5-flash-lite:generateContent?key={api_key}" # Switched back to 2.5-flash-lite on v1beta
     )
     # Security: Only log the start and end of the key for verification
     masked_key = f"{api_key[:4]}...{api_key[-4:]}" if api_key else "NONE"
@@ -41,10 +41,20 @@ def generate_text(prompt: str, *, response_format: str = "text") -> str:
         generation_config["temperature"] = 0.1
         effective_prompt = f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown backticks, no preamble."
 
+    parts = [{"text": effective_prompt}]
+    if image and image_mime_type:
+        parts.append({
+            "inline_data": {
+                "mime_type": image_mime_type,
+                "data": image
+            }
+        })
+
     payload = {
-        "contents": [{"parts": [{"text": effective_prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": generation_config,
     }
+
 
     from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
     @retry(

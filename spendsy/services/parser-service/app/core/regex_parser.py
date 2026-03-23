@@ -13,7 +13,10 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Iterator
+from typing import Iterator, Any
+
+from app.core.base_parser import BaseParser
+from app.core.schemas import ParsedTransaction, ParserResponse
 
 logger = logging.getLogger(__name__)
 
@@ -249,6 +252,89 @@ def _parse_row(line: str) -> StructuredTransaction | None:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+class RegexParser(BaseParser):
+    """
+    High-performance structured bank statement parser using regex.
+    """
+    @property
+    def name(self) -> str:
+        return "regex_structured"
+
+    @property
+    def version(self) -> str:
+        return "1.0.0"
+
+    @property
+    def priority(self) -> int:
+        return 20
+
+    def can_handle(self, content: bytes, text: str, **kwargs: Any) -> float:
+        """
+        RegexParser loves structured text with DR/CR markers.
+        """
+        if not text:
+            return 0.0
+            
+        # Check for common bank transaction headers
+        headers = ["date", "particulars", "description", "narration", "debit", "credit", "balance", "txn"]
+        text_lower = text.lower()
+        found_headers = sum(1 for h in headers if h in text_lower)
+        
+        # Check for many DR/CR markers
+        dr_cr_count = len(_TYPE_PAT.findall(text))
+        
+        # Sample rows check
+        lines = text.splitlines()[:100]
+        valid_rows = sum(1 for line in lines if _parse_row(line))
+        
+        score = 0.0
+        if found_headers >= 3:
+            score += 0.2
+        if dr_cr_count > 10:
+            score += 0.3
+        if valid_rows > 5:
+            score += 0.45
+            
+        return min(score, 0.95)
+
+    def parse(self, content: bytes, text: str, **kwargs: Any) -> ParserResponse:
+        """
+        Parse a block of structured bank statement text.
+        """
+        if not text:
+            return ParserResponse(status="empty_text", transactions=[], reconciliation_score=0.0)
+
+        raw_txns = parse_structured_text(text)
+        transactions = []
+        for t in raw_txns:
+            try:
+                tx_date = date.fromisoformat(t.date)
+                transactions.append(
+                    ParsedTransaction(
+                        date=tx_date,
+                        description=t.description,
+                        debit=t.debit,
+                        credit=t.credit,
+                        amount=t.debit if t.debit is not None else t.credit,
+                        type="expense" if t.debit is not None else "income",
+                        balance=t.balance,
+                        confidence=0.95,
+                    )
+                )
+            except ValueError:
+                continue
+
+        return ParserResponse(
+            status="success" if transactions else "no_transactions",
+            reconciliation_score=0.99,
+            transactions=transactions,
+            meta={
+                "parser_name": self.name,
+                "parser_version": self.version,
+                "count": len(transactions),
+            }
+        )
 
 def parse_structured_text(text: str) -> list[StructuredTransaction]:
     """

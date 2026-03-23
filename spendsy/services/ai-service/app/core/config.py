@@ -4,7 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file="/home/rohinvengatesh04/Smart-Spend-FYP/Smart-Spend-FYP/.env",
+        case_sensitive=False,
+        extra="ignore"
+    )
 
     app_name: str = "ai-service"
     environment: str = "development"
@@ -18,7 +22,15 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     google_api_key: str | None = None
 
-    redis_url: str = "redis://redis:6379/0"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_url: str | None = None
+
+    @property
+    def redis_connection_url(self) -> str:
+        if self.redis_url:
+            return self.redis_url
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
     allowed_origins: list[str] = [
         "http://localhost:5173",
         "http://localhost:5174",

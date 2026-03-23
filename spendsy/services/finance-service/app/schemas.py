@@ -262,6 +262,7 @@ class LoanPayload(BaseModel):
 
 
 class LoanOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     uid: str
     loan_type: str
@@ -366,3 +367,58 @@ class GoalOut(BaseModel):
     is_completed: bool
     created_at: datetime
     updated_at: datetime
+
+
+# ─── Product Layer ────────────────────────────────────────────────────────────
+
+class FinancialHealthOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    user_id: int
+    score: int
+    savings_rate: Decimal
+    stability_index: Decimal
+    debt_to_income: Decimal
+    explanation: str | None
+    updated_at: datetime
+
+
+class FinancialInsightOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    user_id: int
+    period: str
+    total_income: Decimal = Field(alias="totalIncome")
+    total_expense: Decimal = Field(alias="totalExpense")
+    category_summary: dict[str, float] = Field(alias="category_json")
+    merchant_summary: dict[str, float] = Field(alias="merchant_json")
+    updated_at: datetime
+
+
+class SmartRecommendationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    uid: str
+    type: str # 'overspending', 'debt', 'savings'
+    priority: str # 'low', 'medium', 'high', 'critical'
+    message: str
+    action_url: str | None = None
+    created_at: datetime
+
+
+class UserAlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    alert_type: str = Field(alias="type")
+    severity: str
+    title: str
+    description: str | None
+    is_read: bool
+    created_at: datetime
+
+
+class DashboardOverview(BaseModel):
+    health_score: int
+    monthly_income: Decimal
+    monthly_expense: Decimal
+    savings_rate: float
+    top_categories: list[dict[str, Any]]
+    recommendation_count: int
+    unread_alerts: int

@@ -1,23 +1,38 @@
-
 import json
+import logging
+import httpx
 from typing import Dict, List, Any
-from urllib import parse, request
-from urllib.error import HTTPError, URLError
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from config import settings
 
+logger = logging.getLogger(__name__)
+
+def _is_retryable(e: Exception) -> bool:
+    if isinstance(e, (httpx.ConnectError, httpx.TimeoutException)):
+        return True
+    if isinstance(e, httpx.HTTPStatusError):
+        return e.response.status_code >= 500 or e.response.status_code == 429
+    return False
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception(_is_retryable),
+)
 def call_finance_internal(endpoint: str, user_id: int, params: Dict | None = None):
     url = f"{settings.finance_service_url}/internal/{endpoint}/{user_id}"
-    if params:
-        url = f"{url}?{parse.urlencode(params)}"
-    req = request.Request(url, headers={"X-Internal-API-Key": settings.internal_api_key}, method="GET")
-    try:
-        with request.urlopen(req, timeout=5) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        return payload.get("data", {})
-    except (HTTPError, URLError, json.JSONDecodeError) as e:
-        print(f"Error calling finance service: {e}")
-        return None
+    headers = {"X-Internal-API-Key": settings.internal_api_key}
+    
+    with httpx.Client(timeout=10.0) as client:
+        response = client.get(url, params=params, headers=headers)
+        if response.status_code >= 500 or response.status_code == 429:
+            response.raise_for_status()
+        if not response.is_success:
+            logger.error(f"Error calling finance service: {response.status_code} {response.text}")
+            return None
+            
+        return response.json().get("data", {})
 
 def get_summary(user_id: int) -> str:
     """Get a financial summary (income, expenses, balance) for a user."""
@@ -87,6 +102,11 @@ def budget_recommendation(user_id: int) -> str:
         "advice": "50/30/20 rule: 50% Needs, 30% Wants, 20% Savings."
     }, indent=2)
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception(_is_retryable),
+)
 def create_plan(user_id: int, title: str, description: str, target_amount: float = 0, target_date: str | None = None) -> str:
     """Invoked by TORA to create a new financial goal/plan."""
     if not target_date:
@@ -94,7 +114,7 @@ def create_plan(user_id: int, title: str, description: str, target_amount: float
         target_date = (datetime.utcnow() + timedelta(days=365)).isoformat() + "Z"
         
     url = f"{settings.finance_service_url}/internal/goals/{user_id}"
-    payload = json.dumps({
+    payload = {
         "title": title, 
         "description": description, 
         "target_amount": target_amount, 
@@ -102,31 +122,33 @@ def create_plan(user_id: int, title: str, description: str, target_amount: float
         "target_date": target_date, 
         "category": "General", 
         "is_completed": False
-    }).encode("utf-8")
-    req = request.Request(
-        url,
-        data=payload,
-        headers={"Content-Type": "application/json", "X-Internal-API-Key": settings.internal_api_key},
-        method="POST"
-    )
-    try:
-        with request.urlopen(req, timeout=5) as response:
+    }
+    headers = {"X-Internal-API-Key": settings.internal_api_key}
+    
+    with httpx.Client(timeout=10.0) as client:
+        response = client.post(url, json=payload, headers=headers)
+        if response.status_code >= 500 or response.status_code == 429:
+            response.raise_for_status()
+        if response.is_success:
             return json.dumps({"status": "success", "message": "Plan created successfully"})
-    except Exception as e:
-        print(f"Error calling create_plan: {e}")
-        return json.dumps({"status": "error", "message": str(e)})
+        else:
+            return json.dumps({"status": "error", "message": f"Server error: {response.status_code}"})
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception(_is_retryable),
+)
 def delete_plan(user_id: int, plan_id: str) -> str:
     """Invoked by TORA to delete an existing financial goal/plan."""
     url = f"{settings.finance_service_url}/internal/goals/{user_id}/{plan_id}"
-    req = request.Request(
-        url,
-        headers={"X-Internal-API-Key": settings.internal_api_key},
-        method="DELETE"
-    )
-    try:
-        with request.urlopen(req, timeout=5) as response:
+    headers = {"X-Internal-API-Key": settings.internal_api_key}
+    
+    with httpx.Client(timeout=10.0) as client:
+        response = client.delete(url, headers=headers)
+        if response.status_code >= 500 or response.status_code == 429:
+            response.raise_for_status()
+        if response.is_success:
             return json.dumps({"status": "success", "message": f"Plan {plan_id} deleted successfully"})
-    except Exception as e:
-        print(f"Error calling delete_plan: {e}")
-        return json.dumps({"status": "error", "message": str(e)})
+        else:
+            return json.dumps({"status": "error", "message": f"Server error: {response.status_code}"})

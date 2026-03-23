@@ -19,7 +19,12 @@ def health():
 def _run_gemini(payload: AIRequest) -> AIResponse:
     prompt = build_prompt(payload.prompt, payload.context)
     try:
-        raw = generate_text(prompt, response_format=payload.response_format)
+        raw = generate_text(
+            prompt, 
+            response_format=payload.response_format,
+            image=payload.image,
+            image_mime_type=payload.image_mime_type
+        )
     except GeminiError as exc:
         print(f"ERROR: AI Request failed: {str(exc)}")
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc

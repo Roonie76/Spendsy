@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import time
+import logging
 
 import redis
 
 from app.core.config import settings
 
+logger = logging.getLogger("auth.redis")
 
 _redis_client: redis.Redis | None = None
 
@@ -13,7 +15,7 @@ _redis_client: redis.Redis | None = None
 def get_redis() -> redis.Redis:
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        _redis_client = redis.Redis.from_url(settings.redis_connection_url, decode_responses=True)
     return _redis_client
 
 
@@ -66,8 +68,13 @@ def blacklist_token(jti: str, ttl_seconds: int) -> None:
 
 def is_token_blacklisted(jti: str) -> bool:
     """Return True if the given JTI has been blacklisted (i.e. logged out)."""
-    client = get_redis()
-    return client.exists(f"bl:jti:{jti}") == 1
+    try:
+        client = get_redis()
+        return client.exists(f"bl:jti:{jti}") == 1
+    except Exception:
+        # Graceful failure: don't block auth flows if Redis is down/unreachable.
+        logger.warning("token_blacklist_redis_error: jti=%s", jti)
+        return False
 
 
 def increment_failed_login(identity: str) -> int:

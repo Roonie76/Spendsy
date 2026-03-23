@@ -19,9 +19,12 @@ class HealthResponse(BaseModel):
 
 
 class AIRequest(BaseModel):
-    prompt: str = Field(min_length=1, max_length=8000)
+    prompt: str = Field(min_length=1, max_length=15000)
     context: dict | list | str | None = None
     response_format: str = Field(default="text", pattern="^(text|json)$")
+    image: str | None = None
+    image_mime_type: str | None = None # e.g. "image/png", "application/pdf"
+
 
 
 class AIResponse(BaseModel):

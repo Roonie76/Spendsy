@@ -20,6 +20,7 @@ class UserProfile(Base):
     monthly_budget = Column("monthlyBudget", Numeric(15, 2), default=0)
     daily_budget = Column("dailyBudget", Numeric(15, 2), default=0)
     is_business = Column(Boolean, default=False)
+    tier = Column(String(20), default="free")  # 'free', 'pro', 'enterprise'
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -245,4 +246,65 @@ class Document(Base):
     file_hash = Column(String(64), nullable=True, index=True)
     storage_path = Column(String(512), nullable=True)  # Relative to storage root
     metadata_json = Column(JSONB, default=dict)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class FinancialHealth(Base):
+    """Stores computed financial health scores and high-level metrics."""
+    __tablename__ = "finance_health"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, unique=True, nullable=False, index=True)
+    score = Column(Integer, default=0)  # 0-100
+    savings_rate = Column(Numeric(5, 4), default=0.0)
+    stability_index = Column(Numeric(5, 4), default=0.0)
+    debt_to_income = Column(Numeric(5, 4), default=0.0)
+    explanation = Column(String(1000), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FinancialInsight(Base):
+    """Stores monthly aggregated financial snapshots for the dashboard."""
+    __tablename__ = "finance_insight"
+    __table_args__ = (
+        UniqueConstraint("user_id", "period", name="uq_user_period_insight"),
+    )
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
+    period = Column(String(7), nullable=False)  # YYYY-MM
+    total_income = Column(Numeric(15, 2), default=0.0)
+    total_expense = Column(Numeric(15, 2), default=0.0)
+    category_json = Column(JSONB, default=dict)  # {"Shopping": 1200, "Food": 800}
+    merchant_json = Column(JSONB, default=dict)  # {"Amazon": 500, "Uber": 200}
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SmartRecommendation(Base):
+    """Stores Tora Engine generated financial tips and recommendations."""
+    __tablename__ = "finance_recommendation"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    type = Column(String(32))  # 'overspending', 'debt', 'savings', 'income'
+    priority = Column(String(16))  # 'low', 'medium', 'high', 'critical'
+    message = Column(String(512), nullable=False)
+    action_url = Column(String(255), nullable=True)
+    is_dismissed = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class UserAlert(Base):
+    """Stores proactive financial alerts for the user."""
+    __tablename__ = "finance_useralert"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    alert_type = Column(String(32))  # 'spike', 'duplicate', 'low_balance', 'late_payment'
+    severity = Column(String(16))  # 'info', 'warning', 'danger'
+    title = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    data_json = Column(JSONB, default=dict)
+    is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

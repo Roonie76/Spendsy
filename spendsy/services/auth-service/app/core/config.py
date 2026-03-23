@@ -52,7 +52,16 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
 
-    redis_url: str = "redis://redis:6379/0"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_url: str | None = None
+
+    @property
+    def redis_connection_url(self) -> str:
+        if self.redis_url:
+            return self.redis_url
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
+
     auth_rate_limit_window_seconds: int = 300
     auth_rate_limit_login: int = 50
     auth_rate_limit_register: int = 20

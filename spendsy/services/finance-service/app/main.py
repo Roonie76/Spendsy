@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from app.api.routes_finance import router as finance_router
 from app.api.routes_internal import router as internal_router
 from app.api.routes_goals import router as goals_router
+from app.api.routes_product import router as product_router
 from app.core.config import settings
 from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 from sqlalchemy.exc import SQLAlchemyError
@@ -97,3 +98,4 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -
 app.include_router(finance_router)
 app.include_router(internal_router)
 app.include_router(goals_router)
+app.include_router(product_router, prefix="/product")

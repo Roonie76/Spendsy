@@ -33,10 +33,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_finance_debitcard_id'), 'finance_debitcard', ['id'], unique=False)
     op.create_index(op.f('ix_finance_debitcard_user_id'), 'finance_debitcard', ['user_id'], unique=False)
-    op.drop_index('ix_auth_user_username', table_name='auth_user')
-    op.drop_table('auth_user')
-    op.drop_table('alembic_version_auth')
-    op.drop_table('alembic_version')
+
     op.create_index(op.f('ix_finance_apiauditlog_id'), 'finance_apiauditlog', ['id'], unique=False)
     op.add_column('finance_creditcard', sa.Column('bank_name', sa.String(length=100), nullable=False))
     op.add_column('finance_creditcard', sa.Column('card_holder_name', sa.String(length=100), nullable=False))
@@ -76,30 +73,7 @@ def downgrade() -> None:
     op.drop_column('finance_creditcard', 'card_holder_name')
     op.drop_column('finance_creditcard', 'bank_name')
     op.drop_index(op.f('ix_finance_apiauditlog_id'), table_name='finance_apiauditlog')
-    op.create_table('alembic_version',
-    sa.Column('version_num', sa.VARCHAR(length=32), autoincrement=False, nullable=False),
-    sa.PrimaryKeyConstraint('version_num', name='alembic_version_pkc')
-    )
-    op.create_table('alembic_version_auth',
-    sa.Column('version_num', sa.VARCHAR(length=32), autoincrement=False, nullable=False),
-    sa.PrimaryKeyConstraint('version_num', name='alembic_version_auth_pkc')
-    )
-    op.create_table('auth_user',
-    sa.Column('id', sa.BIGINT(), autoincrement=True, nullable=False),
-    sa.Column('password', sa.VARCHAR(length=128), autoincrement=False, nullable=False),
-    sa.Column('last_login', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=True),
-    sa.Column('is_superuser', sa.BOOLEAN(), server_default=sa.text('false'), autoincrement=False, nullable=False),
-    sa.Column('username', sa.VARCHAR(length=150), autoincrement=False, nullable=False),
-    sa.Column('first_name', sa.VARCHAR(length=150), server_default=sa.text("''::character varying"), autoincrement=False, nullable=False),
-    sa.Column('last_name', sa.VARCHAR(length=150), server_default=sa.text("''::character varying"), autoincrement=False, nullable=False),
-    sa.Column('email', sa.VARCHAR(length=254), server_default=sa.text("''::character varying"), autoincrement=False, nullable=False),
-    sa.Column('is_staff', sa.BOOLEAN(), server_default=sa.text('false'), autoincrement=False, nullable=False),
-    sa.Column('is_active', sa.BOOLEAN(), server_default=sa.text('true'), autoincrement=False, nullable=False),
-    sa.Column('date_joined', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), autoincrement=False, nullable=False),
-    sa.PrimaryKeyConstraint('id', name='auth_user_pkey'),
-    sa.UniqueConstraint('username', name='auth_user_username_key')
-    )
-    op.create_index('ix_auth_user_username', 'auth_user', ['username'], unique=True)
+
     op.drop_index(op.f('ix_finance_debitcard_user_id'), table_name='finance_debitcard')
     op.drop_index(op.f('ix_finance_debitcard_id'), table_name='finance_debitcard')
     op.drop_table('finance_debitcard')

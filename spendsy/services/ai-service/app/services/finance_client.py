@@ -32,11 +32,11 @@ def fetch_finance_context(user_id: int) -> dict:
     headers = {"X-Internal-API-Key": settings.internal_api_key}
 
     # Internal helper to leverage tenacity for the HTTP request specifically
-    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+    from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_fixed(2),
-        retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError)),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(lambda e: isinstance(e, (httpx.ConnectError, httpx.TimeoutException)) or (isinstance(e, httpx.HTTPStatusError) and e.response.status_code >= 500)),
     )
     def _do_fetch():
         with httpx.Client(timeout=10.0) as http:

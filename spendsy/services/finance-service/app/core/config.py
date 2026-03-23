@@ -49,7 +49,16 @@ class Settings(BaseSettings):
 
     parser_service_url: str = "http://parser-service:8000"
 
-    redis_url: str = "redis://redis:6379/0"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_url: str | None = None
+
+    @property
+    def redis_connection_url(self) -> str:
+        if self.redis_url:
+            return self.redis_url
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
+
     internal_api_key: str
 
     @field_validator("internal_api_key")

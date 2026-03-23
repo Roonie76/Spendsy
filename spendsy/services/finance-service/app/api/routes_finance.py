@@ -896,6 +896,17 @@ def parse_statement_proxy(
     if is_rate_limited("finance:upload", identity, settings.finance_rate_limit_upload, settings.finance_rate_limit_window_seconds):
         return error_response(request, "Too many upload attempts", code=ErrorCode.RATE_LIMIT_EXCEEDED, http_status=429)
 
+    # Tier Enforcement: Check monthly upload limit
+    try:
+        from app.core.product_tiers import TierEnforcer
+    except ImportError:
+        # Fallback for dynamic test imports with prepended package names
+        import sys
+        tier_mod = next(m for n, m in sys.modules.items() if n.endswith(".core.product_tiers"))
+        TierEnforcer = tier_mod.TierEnforcer
+        
+    TierEnforcer.check_upload_limit(db, user.id)
+
     if file is None:
         return error_response(request, "Missing statement file upload", code=ErrorCode.MISSING_FILE)
 
@@ -912,13 +923,35 @@ def parse_statement_proxy(
 
     try:
         parsed = parse_statement(content, file.filename, file.content_type)
+        
+        if parsed.get("status") == "error":
+            error_msg = parsed.get("error", "Unknown parser error")
+            http_status = parsed.get("http_status", status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+            logger.error("parser_failed request_id=%s error=%s status=%d", request_id, error_msg, http_status)
+            _audit(
+                db,
+                request,
+                action="parser_failed",
+                resource_type="statement_parser",
+                status_code=http_status,
+                error_code=ErrorCode.PARSER_ERROR,
+                user=user,
+            )
+            return error_response(
+                request,
+                f"Statement parser failed: {error_msg}",
+                code=ErrorCode.PARSER_ERROR,
+                http_status=http_status,
+            )
+
         logger.info(f"parse_statement_proxy: parser returned {len(parsed.get('transactions', []))} transactions")
     except Exception as exc:
-        logger.error("parser_failed request_id=%s error=%s", request_id, str(exc))
+        logger.error("parser_client_exception request_id=%s error=%s", request_id, str(exc))
         _audit(
             db,
             request,
-            action="parser_failed",
+            action="parser_exception",
             resource_type="statement_parser",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             error_code=ErrorCode.PARSER_UNAVAILABLE,
@@ -926,7 +959,7 @@ def parse_statement_proxy(
         )
         return error_response(
             request,
-            f"Statement parser failed: {str(exc)}",
+            f"Could not reach parser service: {str(exc)}",
             code=ErrorCode.PARSER_UNAVAILABLE,
             http_status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
@@ -934,28 +967,46 @@ def parse_statement_proxy(
     transactions = []
     parsed_meta = parsed.get("meta", {})
     parsed_method = parsed_meta.get("method", "digital")
+    from app.utils.coercion import safe_float, safe_int_percent
+
     parsed_bank = parsed_meta.get("bank", "generic")
     for idx, tx in enumerate(parsed.get("transactions", [])):
+        raw_amount = tx.get("amount")
+        raw_conf = tx.get("confidence")
         balance_value = tx.get("balance")
+        
+        # Safe Coercion for Production Hardening
+        amount = safe_float(raw_amount, 0.0)
+        confidence = safe_float(
+            raw_conf, 
+            0.99 if parsed_method == "digital" else 0.8
+        )
+        
+        # Logging for observability
+        if raw_conf is None:
+            logger.warning("Missing confidence for txn %s -> using default", idx)
+        if raw_amount is None:
+            logger.warning("Missing amount for txn %s -> using 0.0", idx)
+
         row_hash = hashlib.sha256(
-            f"{statement_hash}|{idx}|{tx['date']}|{tx['description']}|{tx['amount']}|{tx['type']}|{balance_value}".encode("utf-8")
+            f"{statement_hash}|{idx}|{tx['date']}|{tx['description']}|{amount}|{tx['type']}|{balance_value}".encode("utf-8")
         ).hexdigest()
         tx_uuid = uuid.uuid5(
             uuid.NAMESPACE_DNS,
-            f"{tx['date']}|{tx['description'].lower()}|{tx['amount']:.2f}|{tx['type']}",
+            f"{tx['date']}|{tx['description'].lower()}|{amount:.2f}|{tx['type']}",
         )
         transactions.append(
             {
                 "id": tx_uuid.hex,
                 "date": tx["date"],
                 "description": tx["description"],
-                "amount": float(tx["amount"]),
+                "amount": amount,
                 "type": tx["type"],
                 "category": _infer_category(tx.get("description", ""), str(tx.get("type", ""))),
                 "source": tx.get("source", "statement"),
-                "confidence": int(round(float(tx.get("confidence", 0.99 if parsed_method == "digital" else 0.8)) * 100)),
+                "confidence": int(round(confidence * 100)),
                 "bank": parsed_bank,
-                "balance": balance_value,
+                "balance": safe_float(balance_value, 0.0),
                 "is_valid": tx.get("is_valid", True),
                 "statement_hash": statement_hash,
                 "statement_row_hash": row_hash,
@@ -965,14 +1016,14 @@ def parse_statement_proxy(
     parsed_payload = {
         "status": parsed.get("status", "success"),
         "request_id": request_id,
-        "reconciliation_score": float(parsed.get("reconciliation_score", 1.0)),
+        "reconciliation_score": safe_float(parsed.get("reconciliation_score"), 1.0),
         "transactions": transactions,
         "meta": {
             "count": len(transactions),
             "bank": parsed_bank,
             "method": parsed_method,
-            "avg_confidence": float(parsed_meta.get("avg_confidence", 0.99 if parsed_method == "digital" else 0.8)),
-            "min_confidence": float(parsed_meta.get("min_confidence", 0.99 if parsed_method == "digital" else 0.8)),
+            "avg_confidence": safe_float(parsed_meta.get("avg_confidence"), 0.9),
+            "min_confidence": safe_float(parsed_meta.get("min_confidence"), 0.8),
             "requires_review": bool(parsed_meta.get("requires_review", False)),
             "checksum_verified": bool(parsed_meta.get("checksum_verified", True)),
             "warnings": [],

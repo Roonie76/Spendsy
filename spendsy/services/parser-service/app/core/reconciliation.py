@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import List, Optional, Any, Dict
+from app.core.schemas import ParserResponse
 
 logger = logging.getLogger(__name__)
 
@@ -170,3 +170,120 @@ class ReconciliationEngine:
             return Decimal(str(val))
         except (ValueError, InvalidOperation):
             return None
+
+
+class CrossParserReconciler:
+    """
+    Compares multiple ParserResponses and selects the best one based on:
+    1. Highest reconciliation_score (balance check)
+    2. Highest transaction count (if reconciliation_scores are similar)
+    3. Lowest number of validation errors
+    """
+    def reconcile_multi(self, responses: List[ParserResponse]) -> ParserResponse:
+        if not responses:
+            return ParserResponse(status="error", transactions=[], reconciliation_score=0.0, meta={})
+            
+        # Filter out errors
+        valid_responses = [r for r in responses if r.status in ("success", "no_transactions")]
+        if not valid_responses:
+            return responses[0] # Return the first error if all failed
+            
+        def rank_key(res: ParserResponse):
+            has_txns = 1 if len(res.transactions) > 0 else 0
+            score = res.reconciliation_score or 0.0
+            count = len(res.transactions)
+            val_meta = res.meta.get("validation") or {}
+            validation_score = val_meta.get("overall_score") if isinstance(val_meta, dict) else 0.0
+            if validation_score is None: validation_score = 0.0
+            parser_bonus = 0.1 if "llm" not in str(res.meta.get("method", "")).lower() else 0.0
+            return (has_txns, score, validation_score + parser_bonus, count)
+            
+        valid_responses.sort(key=rank_key, reverse=True)
+        
+        # ENHANCEMENT: If we have multiple high-quality results, try to merge them
+        if len(valid_responses) >= 2:
+            top = valid_responses[0]
+            second = valid_responses[1]
+            
+            # If both are verified (score > 0.9) and have balanced results
+            if top.reconciliation_score > 0.9 and second.reconciliation_score > 0.9:
+                logger.info("SmartMerger: Attempting to merge top 2 parser results")
+                merger = TransactionMerger()
+                merged_txns = merger.merge(top.transactions, second.transactions)
+                
+                # Create a new response with merged transactions
+                merged_res = top.model_copy(update={
+                    "transactions": merged_txns,
+                    "meta": {**top.meta, "is_merged": True, "merged_with": second.meta.get("method", "unknown")}
+                })
+                # Re-calculate reconciliation score for merged result
+                recon = ReconciliationEngine().reconcile(merged_txns)
+                merged_res.reconciliation_score = recon.reconciliation_score
+                return merged_res
+
+        winner = valid_responses[0]
+        logger.info(
+            "cross_parser_reconciliation status=complete winner=%s score=%.4f txns=%d",
+            winner.meta.get("method") or winner.meta.get("parser_name"),
+            winner.reconciliation_score,
+            len(winner.transactions)
+        )
+        return winner
+
+
+class TransactionMerger:
+    """
+    Intelligently aligns and merges two lists of transactions.
+    Used to combine strengths of different parsers (e.g., Tabular + LLM).
+    """
+    def merge(self, base: List[Any], secondary: List[Any]) -> List[Any]:
+        if not secondary: return base
+        if not base: return secondary
+        
+        # 1. Simple heuristic: if one has significantly more transactions and is verified, prefer it
+        if len(base) > len(secondary) * 1.5: return base
+        if len(secondary) > len(base) * 1.5: return secondary
+        
+        # 2. Alignment based Merge (Advanced)
+        # For now, we perform a simple union based on Date + Amount + Desc similarity
+        merged = []
+        seen_keys = set()
+        
+        for tx in base:
+            key = self._gen_key(tx)
+            merged.append(tx)
+            seen_keys.add(key)
+            
+        for tx in secondary:
+            key = self._gen_key(tx)
+            if key not in seen_keys:
+                # Potential new transaction found by secondary parser
+                # Fuzzy check to avoid adding minor variations of same transaction
+                if not self._is_fuzzy_duplicate(tx, merged):
+                    merged.append(tx)
+        
+        # Re-sort by date
+        merged.sort(key=lambda x: str(x.date))
+        return merged
+
+    def _gen_key(self, tx: Any) -> tuple:
+        date_str = str(getattr(tx, "date", ""))
+        amt_cents = int(round(float(getattr(tx, "amount", 0) or 0) * 100))
+        # Use first 20 chars of desc to avoid multi-line variation issues
+        desc_start = str(getattr(tx, "description", ""))[:20].lower().strip()
+        return (date_str, amt_cents, desc_start)
+
+    def _is_fuzzy_duplicate(self, tx: Any, candidates: List[Any]) -> bool:
+        from fuzzywuzzy import fuzz
+        
+        tx_date = str(getattr(tx, "date", ""))
+        tx_amt = float(getattr(tx, "amount", 0) or 0)
+        tx_desc = str(getattr(tx, "description", "")).lower()
+        
+        for cand in candidates:
+            if str(cand.date) == tx_date and abs(float(cand.amount or 0) - tx_amt) < 0.01:
+                # Same date and amount, check description similarity
+                ratio = fuzz.partial_ratio(tx_desc, str(cand.description).lower())
+                if ratio > 80:
+                    return True
+        return False
