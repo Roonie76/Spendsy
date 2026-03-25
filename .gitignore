@@ -46,6 +46,7 @@ apps/web/backend/db.sqlite3
 # Test files
 test_*.py
 *_test.py
+tests/test.db
 
 # System & Agentic
 .gemini/

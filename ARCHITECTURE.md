@@ -45,13 +45,12 @@ The core domain service.
 - **Entities**: Transactions, Wealth Records, User Profiles, Bank Accounts (Debit/Credit).
 - **Accuracy**: Uses `Decimal` type for all financial calculations.
 
-## 🔍 Detailed Analysis
-For a deep-dive into the reverse-engineered system lifecycle, API catalog, and CRUD mappings, see [ARCHITECTURAL_ANALYSIS.md](./ARCHITECTURAL_ANALYSIS.md).
-
 ### 4. Parser Service (`spendsy/services/parser-service`)
 Specialized worker service for document processing.
 - **Tech**: FastAPI, PDF libraries.
 - **Role**: Extracts transaction data from bank statement PDFs.
+
+For a deep-dive into the reverse-engineered system lifecycle, API catalog, and CRUD mappings, see [ARCHITECTURAL_ANALYSIS.md](./docs/ARCHITECTURAL_ANALYSIS.md).
 
 ### 5. AI Service (`spendsy/services/ai-service`)
 Intelligence layer.

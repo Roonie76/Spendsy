@@ -42,14 +42,33 @@ class DocumentParserPipeline:
         # ── Stage 1: Extraction ────────────────────────────────────────
         try:
             extractor = get_extractor(content_type, filename)
-            text = extractor.extract(content)
+            loop = asyncio.get_event_loop()
+            text = await asyncio.wait_for(
+                loop.run_in_executor(None, functools.partial(extractor.extract, content)),
+                timeout=settings.extractor_timeout_seconds,
+            )
             is_scanned = len(text.strip()) < 50 if text else True
+        except asyncio.TimeoutError:
+            logger.error("pipeline_stage=extraction timeout=%.2fs", settings.extractor_timeout_seconds)
+            return ParserResponse(
+                status="error",
+                reconciliation_score=0.0,
+                transactions=[],
+                error=f"Extraction timed out after {settings.extractor_timeout_seconds:.1f}s",
+                meta={
+                    "filename": filename,
+                    "error_code": "EXTRACTION_TIMEOUT",
+                    "timeout_seconds": settings.extractor_timeout_seconds,
+                },
+            )
         except Exception as e:
             logger.error("pipeline_stage=extraction error=%s", str(e))
             return ParserResponse(
                 status="error",
                 error=f"Extraction failed: {str(e)}",
-                meta={"filename": filename}
+                reconciliation_score=0.0,
+                transactions=[],
+                meta={"filename": filename, "error_code": "EXTRACTION_FAILED"},
             )
 
         # ── Stage 2: Format Detection ───────────────────────────────

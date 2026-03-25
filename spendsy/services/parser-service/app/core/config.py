@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     ]
 
     # Parser execution guardrails
+    extractor_timeout_seconds: float = 10.0
     parser_execution_timeout_seconds: float = 15.0
     parser_parallelism: int = 3
 
