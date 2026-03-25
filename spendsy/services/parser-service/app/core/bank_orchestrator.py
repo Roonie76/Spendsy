@@ -101,6 +101,7 @@ class BankStatementOrchestrator:
 
     def parse(self, content: bytes, filename: str = "statement.pdf") -> StatementResult:
         t0 = time.time()
+        runtime_errors: list[str] = []
 
         # ── 1. Detect file type ──────────────────────────────────────────
         try:
@@ -123,14 +124,30 @@ class BankStatementOrchestrator:
             logger.info("BankOrchestrator: file=%s pdf_type=%s", filename, pdf_type)
 
             if probe == PDFType.SCANNED:
-                all_pages = OCRPipeline().run_bytes(content)
+                ocr_pipeline = OCRPipeline()
+                all_pages = ocr_pipeline.run_bytes(content)
+                if not all_pages and ocr_pipeline.last_error:
+                    runtime_errors.append(
+                        f"{ocr_pipeline.last_error['error_code']}: {ocr_pipeline.last_error['message']}"
+                    )
             elif probe == PDFType.MIXED:
                 # Run digital first; OCR for pages with no tables
                 digital_pages = DigitalPDFPipeline().run_bytes(content)
-                ocr_pages     = OCRPipeline().run_bytes(content)
+                ocr_pipeline = OCRPipeline()
+                ocr_pages = ocr_pipeline.run_bytes(content)
+                if not ocr_pages and ocr_pipeline.last_error:
+                    runtime_errors.append(
+                        f"{ocr_pipeline.last_error['error_code']}: {ocr_pipeline.last_error['message']}"
+                    )
                 all_pages = []
-                for d, o in zip(digital_pages, ocr_pages):
-                    all_pages.append(d if d.tables else o)
+                for idx, d in enumerate(digital_pages):
+                    if d.tables:
+                        all_pages.append(d)
+                        continue
+                    if idx < len(ocr_pages):
+                        all_pages.append(ocr_pages[idx])
+                        continue
+                    all_pages.append(d)
             else:
                 all_pages = DigitalPDFPipeline().run_bytes(content)
 
@@ -151,7 +168,7 @@ class BankStatementOrchestrator:
                 account_info=AccountInfo(), transactions=[],
                 summary=StatementSummary(), reconciliation=ReconciliationReport(),
                 bank_id="GENERIC", pdf_type=pdf_type,
-                errors=["No pages extracted"],
+                errors=runtime_errors + ["NO_PAGES_EXTRACTED: No pages could be extracted from the statement."],
             )
 
         # ── 3. Identify bank ─────────────────────────────────────────────
@@ -185,4 +202,5 @@ class BankStatementOrchestrator:
             pdf_type          = pdf_type,
             transaction_count = len(transactions),
             parse_time_ms     = elapsed_ms,
+            errors            = runtime_errors,
         )

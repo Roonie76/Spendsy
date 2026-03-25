@@ -309,6 +309,8 @@ class TypeCParser(BaseParser):
             method = "ocr_type_b"
         else:
             # Heuristic fallback using raw functions
+            from app.parsers.type_b_parser import parse_type_b
+            from app.parsers.type_a_parser import parse_type_a
             raw_txns_b = parse_type_b(ocr_text)
             raw_txns_a = parse_type_a(ocr_text)
             raw_txns = raw_txns_b if len(raw_txns_b) >= len(raw_txns_a) else raw_txns_a
@@ -328,14 +330,14 @@ class TypeCParser(BaseParser):
             ]
             method = "ocr_heuristic"
 
-        # Step 3: LLM fallback
-        llm_threshold = kwargs.get("llm_confidence_threshold", 0.60)
-        if ocr_conf < llm_threshold or not transactions:
-            from app.parsers.llm_parser import LLMParser
-            llm_res = LLMParser().parse(content, ocr_text, filename="scanned_ocr")
-            if llm_res.transactions and len(llm_res.transactions) >= len(transactions):
-                transactions = llm_res.transactions
-                method = "llm"
+        # Step 3: LLM fallback (DISABLED)
+        # llm_threshold = kwargs.get("llm_confidence_threshold", 0.60)
+        # if ocr_conf < llm_threshold or not transactions:
+        #     from app.parsers.llm_parser import LLMParser
+        #     llm_res = LLMParser().parse(content, ocr_text, filename="scanned_ocr")
+        #     if llm_res.transactions and len(llm_res.transactions) >= len(transactions):
+        #         transactions = llm_res.transactions
+        #         method = "llm"
 
         return ParserResponse(
             status="success" if transactions else "no_transactions",

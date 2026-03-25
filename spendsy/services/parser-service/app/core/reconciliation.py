@@ -195,7 +195,8 @@ class CrossParserReconciler:
             val_meta = res.meta.get("validation") or {}
             validation_score = val_meta.get("overall_score") if isinstance(val_meta, dict) else 0.0
             if validation_score is None: validation_score = 0.0
-            parser_bonus = 0.1 if "llm" not in str(res.meta.get("method", "")).lower() else 0.0
+            # Bias towards higher precision deterministic parsers if needed
+            parser_bonus = 0.0 
             return (has_txns, score, validation_score + parser_bonus, count)
             
         valid_responses.sort(key=rank_key, reverse=True)
@@ -222,6 +223,10 @@ class CrossParserReconciler:
                 return merged_res
 
         winner = valid_responses[0]
+        # Backward compatibility: Ensure bank is in meta
+        if "bank" not in winner.meta and winner.statement_metadata.bank_name:
+            winner.meta["bank"] = winner.statement_metadata.bank_name
+            
         logger.info(
             "cross_parser_reconciliation status=complete winner=%s score=%.4f txns=%d",
             winner.meta.get("method") or winner.meta.get("parser_name"),
@@ -234,7 +239,7 @@ class CrossParserReconciler:
 class TransactionMerger:
     """
     Intelligently aligns and merges two lists of transactions.
-    Used to combine strengths of different parsers (e.g., Tabular + LLM).
+    Used to combine strengths of different parsers (e.g., Tabular + Regex).
     """
     def merge(self, base: List[Any], secondary: List[Any]) -> List[Any]:
         if not secondary: return base

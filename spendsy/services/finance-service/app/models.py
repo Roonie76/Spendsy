@@ -47,6 +47,7 @@ class Transaction(Base):
     statement_row_hash = Column(String(64), nullable=True, index=True)
     fingerprint = Column(String(64), nullable=True)
     is_recurring = Column(Boolean, default=False)
+    confidence = Column(Integer, default=100, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 

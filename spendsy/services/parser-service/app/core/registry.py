@@ -7,6 +7,14 @@ if TYPE_CHECKING:
     from app.core.base_parser import BaseParser
     from app.core.format_detector import BankStatementFormat
 
+from app.parsers.type_a_parser import TypeAParser
+from app.parsers.type_b_parser import TypeBParser
+from app.parsers.type_c_parser import TypeCParser
+from app.parsers.tabular_parser import TabularParser
+from app.parsers.citibank_parser import CitibankParser
+from app.parsers.hdfc_parser import HDFCParser
+from app.core.regex_parser import RegexParser
+
 logger = logging.getLogger(__name__)
 
 class ParserRegistry:
@@ -103,20 +111,16 @@ class ParserRegistry:
         return [r["instance"] for r in results]
 
 def initialize_registry():
-    from app.parsers.type_a_parser import TypeAParser
-    from app.parsers.type_b_parser import TypeBParser
-    from app.parsers.type_c_parser import TypeCParser
-    from app.parsers.tabular_parser import TabularParser
-    from app.parsers.llm_parser import LLMParser
-    from app.parsers.cloud_parser import CloudParser
-    from app.parsers.citibank_parser import CitibankParser
-    from app.core.regex_parser import RegexParser
+    # LLM and Cloud parsers disabled as per user request
+    # from app.parsers.llm_parser import LLMParser
+    # from app.parsers.cloud_parser import CloudParser
 
     ParserRegistry.register("TYPE_A", TypeAParser)
+    ParserRegistry.register("hdfc", HDFCParser)
     ParserRegistry.register("TYPE_B", TypeBParser)
     ParserRegistry.register("TYPE_C", TypeCParser)
     ParserRegistry.register("tabular", TabularParser)
-    ParserRegistry.register("llm", LLMParser)
-    ParserRegistry.register("cloud", CloudParser)
+    # ParserRegistry.register("llm", LLMParser)
+    # ParserRegistry.register("cloud", CloudParser)
     ParserRegistry.register("citibank", CitibankParser)
     ParserRegistry.register("regex", RegexParser)

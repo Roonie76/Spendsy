@@ -42,12 +42,11 @@ class Settings(BaseSettings):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ]
 
-    ai_service_url: str = "http://localhost:8004"
+    # Parser execution guardrails
+    parser_execution_timeout_seconds: float = 15.0
+    parser_parallelism: int = 3
 
-    # Local LLM (Ollama) settings
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_primary_model: str = "deepseek-r1:7b"
-    ollama_fallback_model: str = "deepseek-r1:1.5b"
+    # Redis settings
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_url: str | None = None
@@ -57,8 +56,6 @@ class Settings(BaseSettings):
         if self.redis_url:
             return self.redis_url
         return f"redis://{self.redis_host}:{self.redis_port}/0"
-
-    llm_confidence_threshold: float = 0.85
 
 
 settings = Settings()

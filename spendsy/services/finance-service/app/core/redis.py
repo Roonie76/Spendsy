@@ -71,3 +71,16 @@ def is_rate_limited(scope: str, identity: str, limit: int, window_seconds: int) 
         # Graceful failure: don't block requests if Redis is down
         logger.warning(f"rate_limit_redis_error: scope={scope} identity={identity}")
         return False
+
+
+def clear_user_financial_cache(user_id: int | str) -> None:
+    """Clear all finance-related caches for a user (summary, wealth, net-worth, etc.)."""
+    try:
+        client = get_redis()
+        # Common patterns: finance:summary:{user_id}, finance:wealth:{user_id}, finance:insights:{user_id}
+        keys = client.keys(f"finance:*:{user_id}")
+        if keys:
+            client.delete(*keys)
+            logger.info(f"Cleared {len(keys)} financial cache keys for user {user_id}")
+    except Exception as e:
+        logger.warning(f"cache_clear_error: user_id={user_id} error={e}")

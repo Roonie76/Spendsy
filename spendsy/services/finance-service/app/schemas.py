@@ -191,16 +191,31 @@ class ParsedTransaction(BaseModel):
 class ParserMeta(BaseModel):
     count: int
     method: str
-    checksum_verified: bool
-    warnings: list[str]
-    errors: list[str]
+    bank: str | None = None
+    checksum_verified: bool = True
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    avg_confidence: float | None = None
+    min_confidence: float | None = None
+    requires_review: bool = False
+
+class StatementMetadata(BaseModel):
+    account_no: str | None = None
+    account_name: str | None = None
+    ifsc: str | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+    bank_name: str | None = None
+    branch: str | None = None
+    cif_no: str | None = None
 
 
 class ParseStatementResponse(BaseModel):
     status: str
     request_id: str
-    reconciliation_score: Decimal
+    reconciliation_score: float
     transactions: list[ParsedTransaction]
+    statement_metadata: StatementMetadata = Field(default_factory=StatementMetadata)
     meta: ParserMeta
     saved_count: int
     financial_summary: dict

@@ -18,7 +18,7 @@ class UserTier(str, Enum):
 class TierConfig:
     # Upload limits per month
     MAX_UPLOADS = {
-        UserTier.FREE: 5,
+        UserTier.FREE: 100,
         UserTier.PRO: 50,
         UserTier.ENTERPRISE: 1000
     }

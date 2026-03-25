@@ -11,10 +11,14 @@ from __future__ import annotations
 
 import io
 import logging
+import os
+import shutil
 from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 
 try:
     import numpy as np
@@ -37,17 +41,15 @@ except ImportError:
     convert_from_bytes = None  # type: ignore
     _PDF2IMAGE_AVAILABLE = False
 
+_POPPLER_AVAILABLE = shutil.which("pdftoppm") is not None
+
 try:
     from paddleocr import PaddleOCR
-    _PADDLE_INSTANCE: PaddleOCR | None = PaddleOCR(
-        use_angle_cls=True, lang="en", use_gpu=False,
-        det_db_thresh=0.3, rec_batch_num=6,
-        show_log=False,
-    )
     _PADDLE_AVAILABLE = True
 except Exception:
-    _PADDLE_INSTANCE = None
     _PADDLE_AVAILABLE = False
+
+_PADDLE_INSTANCE: 'PaddleOCR' | None = None
 
 ROW_GAP_THRESHOLD = 8   # px — Y gap above which a new row starts
 COLUMN_GAP        = 20  # px — X gap for column boundary clustering
@@ -73,18 +75,45 @@ class PageData:
 
 
 class OCRPipeline:
+    def __init__(self) -> None:
+        self.last_error: dict[str, Any] | None = None
+
+    @staticmethod
+    def dependency_issue() -> dict[str, Any] | None:
+        if not _PDF2IMAGE_AVAILABLE:
+            return {
+                "error_code": "MISSING_OCR_DEP",
+                "message": "pdf2image is not installed in the parser runtime.",
+                "details": {"missing": "pdf2image"},
+            }
+        if not _POPPLER_AVAILABLE:
+            return {
+                "error_code": "MISSING_OCR_DEP",
+                "message": "Poppler is not installed or `pdftoppm` is unavailable in PATH.",
+                "details": {"missing": "poppler-utils"},
+            }
+        return None
+
     def run(self, file_path: str) -> list[PageData]:
         with open(file_path, "rb") as f:
             return self.run_bytes(f.read())
 
     def run_bytes(self, content: bytes) -> list[PageData]:
-        if not _PDF2IMAGE_AVAILABLE:
-            logger.error("OCRPipeline: pdf2image not installed — cannot process scanned PDFs")
+        self.last_error = None
+        dependency_issue = self.dependency_issue()
+        if dependency_issue:
+            self.last_error = dependency_issue
+            logger.error("OCRPipeline: %s", dependency_issue["message"])
             return []
 
         try:
             images = convert_from_bytes(content, dpi=300, fmt="PNG")
         except Exception as e:
+            self.last_error = {
+                "error_code": "OCR_CONVERSION_FAILED",
+                "message": "Failed to rasterize PDF for OCR.",
+                "details": {"exception": str(e)},
+            }
             logger.error("OCRPipeline: pdf2image failed: %s", e)
             return []
 
@@ -164,9 +193,22 @@ class ImagePreprocessor:
 class PaddleOCREngine:
     @staticmethod
     def run(image: Any) -> list[OCRBox]:
-        if not _PADDLE_AVAILABLE or _PADDLE_INSTANCE is None:
+        global _PADDLE_INSTANCE
+        if not _PADDLE_AVAILABLE:
             logger.warning("PaddleOCR not available — returning empty OCR result")
             return []
+            
+        if _PADDLE_INSTANCE is None:
+            logger.info("Initializing PaddleOCR for the first time... (may download models)")
+            import os
+            os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+            from paddleocr import PaddleOCR
+            _PADDLE_INSTANCE = PaddleOCR(
+                use_angle_cls=True, lang="en", use_gpu=False,
+                det_db_thresh=0.3, rec_batch_num=6,
+                show_log=False,
+            )
+
         try:
             raw = _PADDLE_INSTANCE.ocr(image, cls=True)
             boxes: list[OCRBox] = []

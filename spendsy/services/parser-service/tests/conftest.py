@@ -11,7 +11,41 @@ Provides:
 from __future__ import annotations
 
 import pytest
+from unittest.mock import MagicMock, patch
 from datetime import date
+from app.core.registry import initialize_registry
+
+# Initialize registry once for all tests
+initialize_registry()
+
+@pytest.fixture(autouse=True, scope="session")
+def mock_redis_global():
+    """Mock Redis globally for all tests to avoid DB dependency."""
+    with patch("app.core.redis.get_redis") as mock_get_redis:
+        mock_instance = MagicMock()
+        def hget_side_effect(name, key):
+            if name == "parser:user_costs": return "0.0"
+            if name == "parser:sla_violations": return "0"
+            return None
+        mock_instance.hget.side_effect = hget_side_effect
+        mock_instance.hincrby.return_value = 1
+        mock_instance.hincrbyfloat.return_value = 1.0
+        mock_instance.set.return_value = True
+        mock_instance.get.return_value = None
+        mock_get_redis.return_value = mock_instance
+        yield mock_get_redis
+
+@pytest.fixture(autouse=True, scope="session")
+def mock_httpx_global():
+    """Mock httpx globally to avoid external network calls."""
+    with patch("httpx.Client") as mock_client:
+        mock_instance = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"output": "Other"}
+        mock_instance.post.return_value = mock_response
+        mock_instance.__enter__.return_value = mock_instance
+        yield mock_client
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +116,7 @@ def low_quality_text() -> str:
 @pytest.fixture
 def sample_transactions():
     """Build a list of minimal ParsedTransaction-like dicts for tests."""
-    from app.parser import ParsedTransaction
+    from app.core.schemas import ParsedTransaction
     return [
         ParsedTransaction(
             date=date(2025, 11, 3),

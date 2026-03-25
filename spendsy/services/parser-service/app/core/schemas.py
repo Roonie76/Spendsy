@@ -22,6 +22,17 @@ class ParsedTransaction(BaseModel):
     # Spending category assigned by the categorizer (e.g. "Food & Dining")
     category: str | None = None
 
+class StatementMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    account_no: str | None = None
+    account_name: str | None = None
+    ifsc: str | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+    bank_name: str | None = None
+    branch: str | None = None
+    cif_no: str | None = None
+
 class ParserResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -29,6 +40,7 @@ class ParserResponse(BaseModel):
     reconciliation_score: float
     transactions: list[ParsedTransaction]
     error: str | None = None
+    statement_metadata: StatementMetadata = Field(default_factory=StatementMetadata)
     meta: dict[str, Any] = Field(default_factory=dict)
 
 

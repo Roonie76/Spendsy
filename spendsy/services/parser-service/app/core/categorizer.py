@@ -37,27 +37,24 @@ class CorrectionStore:
         return " ".join(d.split())
 
 _CATEGORY_RULES: list[tuple[str, list[str]]] = [
-    ("Income/Salary", [r"\bsalary\b", r"\bpayroll\b", r"\bstipend\b", r"\brefund\b", r"\bcashback\b", r"\bdividend\b", r"\binterest\s+credit\b", r"\breward[s]?\b"]),
-    ("Food & Dining", [r"\bswiggy\b", r"\bzomato\b", r"\bubereats\b", r"\brestaurant\b", r"\bcafe\b", r"\bdiner\b", r"\bdominos?\b", r"\bpizza\b", r"\bmcdonald\b", r"\bkfc\b", r"\bsubway\b", r"\bbiryani\b", r"\bfood\b", r"\bgocery\b", r"\bsupermark\b", r"\bbigbasket\b", r"\bgrofers?\b", r"\bblinkc?it\b", r"\bzepto\b"]),
-    ("Transport", [r"\buber\b", r"\bola\b", r"\brapido\b", r"\bfuel\b", r"\bpetrol\b", r"\bdiesel\b", r"\bparking\b", r"\bmetro\b", r"\bbus\b", r"\bauto\b", r"\birctc\b", r"\brailway\b", r"\btrain\b", r"\bcab\b", r"\btaxi\b"]),
-    ("Utilities", [r"\belectricity\b", r"\bbescom\b", r"\bmsedcl\b", r"\btata\s*power\b", r"\bgas\b", r"\bindane\b", r"\bhp\s*gas\b", r"\bbharat\s*gas\b", r"\bwater\b", r"\brecharge\b", r"\bmobile\b", r"\bbroadband\b", r"\binternet\b", r"\bwifi\b", r"\bjio\b", r"\bairtel\b", r"\bbsnl\b", r"\bvi\b"]),
-    ("Entertainment", [r"\bnetflix\b", r"\bamazon\s*prime\b", r"\bprime\s*video\b", r"\bhotstar\b", r"\bdisney\b", r"\bspotify\b", r"\byt\s*premium\b", r"\byoutube\s*premium\b", r"\bcinema\b", r"\bpvr\b", r"\binox\b", r"\bgaming\b", r"\bsteam\b", r"\bplaystation\b", r"\bxbox\b"]),
-    ("Healthcare", [r"\bpharmacy\b", r"\bmedical\b", r"\blab\b", r"\bhospital\b", r"\bclinic\b", r"\bdoctor\b", r"\bapollo\b", r"\bfortis\b", r"\bmanipal\b", r"\bnetmeds\b", r"\b1mg\b", r"\bpharmeasy\b"]),
-    ("Shopping", [r"\bamazon\b", r"\bflipkart\b", r"\bmeesho\b", r"\bshopping\b", r"\bajio\b", r"\bmyntra\b", r"\bnykaa\b", r"\breliance\s*retail\b", r"\bd[\s-]?mart\b", r"\bmart\b", r"\bstore\b"]),
-    ("Travel", [r"\bflight\b", r"\bairline[s]?\b", r"\bindigo\b", r"\bair\s*india\b", r"\bspicejet\b", r"\bhotel\b", r"\bresort\b", r"\bgoibibo\b", r"\bmakemytrip\b", r"\bcleartri?p\b"]),
-    ("Education", [r"\bschool\b", r"\bcollege\b", r"\buniversity\b", r"\btuition\b", r"\bcourse\b", r"\budemy\b", r"\bcoursera\b", r"\bbooks?\b", r"\bstationery\b"]),
-    ("Finance", [r"\bemi\b", r"\bloan\b", r"\binsurance\b", r"\bpremium\b", r"\bcharge[s]?\b", r"\bfee[s]?\b", r"\bpenalty\b", r"\binterest\b", r"\bmutual\s*fund\b", r"\bsip\b", r"\bstock[s]?\b", r"\bdemat\b", r"\bnse\b", r"\bbse\b"]),
-    ("Transfer", [r"\bneft\b", r"\brtgs\b", r"\bimps\b", r"\bupi\b", r"\btransfer\b", r"\bpay\s*to\b", r"\bsent\s*to\b", r"\bpayment\s*to\b"]),
+    ("salary", [r"\bsalary\b", r"\bpayroll\b", r"\bstipend\b", r"\brefund\b", r"\bcashback\b", r"\bdividend\b", r"\binterest\s+credit\b", r"\breward[s]?\b"]),
+    ("food", [r"\bswiggy\b", r"\bzomato\b", r"\bubereats\b", r"\brestaurant\b", r"\bcafe\b", r"\bdiner\b", r"\bdominos?\b", r"\bpizza\b", r"\bmcdonald\b", r"\bkfc\b", r"\bsubway\b", r"\bbiryani\b", r"\bfood\b", r"\bgocery\b", r"\bsupermark\b", r"\bbigbasket\b", r"\bgrofers?\b", r"\bblinkc?it\b", r"\bzepto\b"]),
+    ("transport", [r"\buber\b", r"\bola\b", r"\brapido\b", r"\bfuel\b", r"\bpetrol\b", r"\bdiesel\b", r"\bparking\b", r"\bmetro\b", r"\bbus\b", r"\bauto\b", r"\birctc\b", r"\brailway\b", r"\btrain\b", r"\bcab\b", r"\btaxi\b"]),
+    ("utilities", [r"\belectricity\b", r"\bbescom\b", r"\bmsedcl\b", r"\btata\s*power\b", r"\bgas\b", r"\bindane\b", r"\bhp\s*gas\b", r"\bbharat\s*gas\b", r"\bwater\b", r"\brecharge\b", r"\bmobile\b", r"\bbroadband\b", r"\binternet\b", r"\bwifi\b", r"\bjio\b", r"\bairtel\b", r"\bbsnl\b", r"\bvi\b"]),
+    ("entertainment", [r"\bnetflix\b", r"\bamazon\s*prime\b", r"\bprime\s*video\b", r"\bhotstar\b", r"\bdisney\b", r"\bspotify\b", r"\byt\s*premium\b", r"\byoutube\s*premium\b", r"\bcinema\b", r"\bpvr\b", r"\binox\b", r"\bgaming\b", r"\bsteam\b", r"\bplaystation\b", r"\bxbox\b"]),
+    ("shopping", [r"\bamazon\b", r"\bflipkart\b", r"\bmeesho\b", r"\bshopping\b", r"\bajio\b", r"\bmyntra\b", r"\bnykaa\b", r"\breliance\s*retail\b", r"\bd[\s-]?mart\b", r"\bmart\b", r"\bstore\b"]),
+    ("travel", [r"\bflight\b", r"\bairline[s]?\b", r"\bindigo\b", r"\bair\s*india\b", r"\bspicejet\b", r"\bhotel\b", r"\bresort\b", r"\bgoibibo\b", r"\bmakemytrip\b", r"\bcleartri?p\b"]),
+    ("housing", [r"\blandlord\b", r"\brent\b", r"\bhousing\b"]),
+    ("investment", [r"\bemi\b", r"\bloan\b", r"\binsurance\b", r"\bpremium\b", r"\bcharge[s]?\b", r"\bfee[s]?\b", r"\bpenalty\b", r"\binterest\b", r"\bmutual\s*fund\b", r"\bsip\b", r"\bstock[s]?\b", r"\bdemat\b", r"\bnse\b", r"\bbse\b"]),
 ]
 
 _COMPILED_RULES = [(cat, [re.compile(pat, re.IGNORECASE) for pat in patterns]) for cat, patterns in _CATEGORY_RULES]
 
-import httpx
 from fuzzywuzzy import process, fuzz
 from app.core.config import settings
 
 class TransactionCategorizer:
-    DEFAULT_CATEGORY = "Other"
+    DEFAULT_CATEGORY = "other"
 
     def categorize(self, description: str) -> str:
         """
@@ -97,27 +94,11 @@ class TransactionCategorizer:
                     logger.info(f"FuzzyCategorizer: matched '{description}' to '{best_match}' -> {cat} (score={score})")
                     return cat
 
-        # 4. AI FALLBACK: If local rules fail, ask the AI service
-        try:
-            # We don't want to block the pipeline for too long, so use a tight timeout
-            with httpx.Client(timeout=2.0) as client:
-                resp = client.post(
-                    f"{settings.ai_service_url}/insights",
-                    headers={"X-Internal-API-Key": settings.internal_api_key},
-                    json={
-                        "prompt": f"Categorize this bank transaction description: '{description}'. Return ONLY the category name from this list: {', '.join([c[0] for c in _CATEGORY_RULES])}.",
-                        "response_format": "text"
-                    }
-                )
-                if resp.status_code == 200:
-                    ai_cat = resp.json().get("output", "").strip()
-                    # Validate that AI returned a valid category
-                    valid_cats = [c[0] for c in _CATEGORY_RULES]
-                    if ai_cat in valid_cats:
-                        logger.info(f"AICategorizer: matched '{description}' -> {ai_cat}")
-                        return ai_cat
-        except Exception as e:
-            logger.debug(f"AICategorizer failed: {e}")
+        # 4. AI FALLBACK: (DISABLED as per user request)
+        # try:
+        #     ... [AI service call]
+        # except Exception as e:
+        #     logger.debug(f"AICategorizer failed: {e}")
 
         return self.DEFAULT_CATEGORY
 

@@ -5,6 +5,7 @@ import { Search, X, Trash2, Filter, SlidersHorizontal, Download } from 'lucide-r
 import TransactionItem from '../components/domain/TransactionItem';
 import FilterModal from '../components/ui/FilterModal';
 import EditTransactionModal from '../components/ui/EditTransactionModal';
+import CustomDeletePanel from '../components/ui/CustomDeletePanel';
 import { TABS } from '../../../../../packages/shared/config/constants';
 import { normalizeDate } from '../../../../../packages/shared/utils/helpers';
 import { downloadCSV } from "../../../../../packages/shared/utils/exportUtils";
@@ -14,6 +15,7 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
     const [page, setPage] = useState(1);
     const PER_PAGE = 20;
     const [searchTerm, setSearchTerm] = useState('');
+    const [showCustomDelete, setShowCustomDelete] = useState(false);
     
     // Modal States
     const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -110,6 +112,18 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
             <div className="flex justify-between items-center mb-2">
                 <h2 className="text-2xl font-bold text-white">All Transactions</h2>
                 <div className="flex gap-2">
+                    {/* Custom Delete Button */}
+                    <button
+                        onClick={() => setShowCustomDelete((p) => !p)}
+                        className={`p-2 rounded-full transition-colors ${
+                            showCustomDelete
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                              : 'bg-white/10 hover:bg-white/20 text-slate-400'
+                        }`}
+                        title="Custom Delete"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
                     {/* Export Button */}
                     <button 
                         onClick={() => downloadCSV(filtered)} 
@@ -124,6 +138,15 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
                     </button>
                 </div>
             </div>
+
+            {/* Custom Delete Panel */}
+            {showCustomDelete && (
+                <CustomDeletePanel
+                    transactions={transactions}
+                    onBulkDelete={onBulkDelete}
+                    onClose={() => setShowCustomDelete(false)}
+                />
+            )}
             
             {/* --- Search and Filter Bar --- */}
             <div className="space-y-3 sticky top-4 z-30 bg-slate-950/90 backdrop-blur-xl py-3 -mx-2 px-2 rounded-2xl border-b border-white/5 shadow-lg">

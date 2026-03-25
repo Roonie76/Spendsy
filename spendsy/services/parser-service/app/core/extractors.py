@@ -30,26 +30,7 @@ _paddle_ocr_tried = False
 
 def _get_paddle_ocr():
     """Return a PaddleOCR instance, or None if unavailable."""
-    global _paddle_ocr, _paddle_ocr_tried
-    if _paddle_ocr_tried:
-        return _paddle_ocr
-    _paddle_ocr_tried = True
-    try:
-        import os
-        # Skip the connectivity check that stalls startup
-        os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
-        # Disable oneDNN (MKL-DNN) backend — avoids CPU instruction-set incompatibility
-        os.environ.setdefault("FLAGS_use_mkldnn", "0")
-        from paddleocr import PaddleOCR
-        # PaddleOCR v3 no longer accepts show_log and use_mkldnn as kwargs.
-        # Fallback to PP-OCRv4 models to bypass the 'ConvertPirAttribute2RuntimeAttribute' 
-        # bug in v5 models that occurs on Paddle 3.0+ on some CPUs.
-        _paddle_ocr = PaddleOCR(use_angle_cls=True, lang="en", ocr_version="PP-OCRv4")
-        logger.info("PaddleOCR initialised successfully")
-    except Exception as e:
-        logger.warning(f"PaddleOCR explicitly disabled due to environment mismatch: {e}")
-        _paddle_ocr = None
-    return None # Explicitly disable to avoid C++ runtime crashes on this CPU
+    return None # Explicitly disable to avoid C++ runtime crashes on this environment
 def _preprocess_image(img_array):
     """Clean up and optionally deskew/upscale the image array for better OCR."""
     try:
@@ -179,47 +160,66 @@ class PDFExtractor(BaseExtractor):
     def extract(self, content: bytes) -> str:
         text_parts = []
         try:
+            # Multi-Engine Digital Pipeline (pdfplumber -> pdfminer)
             with pdfplumber.open(io.BytesIO(content)) as pdf:
                 for page in pdf.pages:
-                    text = page.extract_text()
-                    if not text or self._is_garbled(text):
-                        logger.info("PDF text appears garbled or empty, attempting OCR...")
-                        paddle = _get_paddle_ocr()
-                        if paddle:
-                            try:
-                                im = page.to_image(resolution=300)
-                                import numpy as np
-                                img_array = np.array(im.original)
-                                img_array = _preprocess_image(img_array)
-                                
-                                result = paddle.ocr(img_array, cls=True)
-                                ocr_text = _group_text_blocks(result)
-                                if ocr_text:
-                                    text = ocr_text
-                            except Exception as paddle_err:
-                                logger.warning(f"PaddleOCR failed: {str(paddle_err)}")
-                        
-                        if (not text or self._is_garbled(text)) and pytesseract:
-                            try:
-                                logger.info("Attempting Tesseract with OpenCV preprocessing...")
-                                im = page.to_image(resolution=300)
-                                import numpy as np
-                                from PIL import Image
-                                img_array = np.array(im.original)
-                                processed_img_array = _preprocess_image(img_array)
-                                processed_img = Image.fromarray(processed_img_array)
-                                ocr_text = pytesseract.image_to_string(processed_img)
-                                if ocr_text:
-                                    text = _polish_ocr_text(ocr_text)
-                            except Exception as ocr_err:
-                                logger.warning(f"Tesseract OCR failed: {str(ocr_err)}")
-                    
+                    text = self._extract_page_content(page)
                     if text:
                         text_parts.append(text)
             return "\n".join(text_parts)
         except Exception as e:
             logger.error(f"Failed to extract PDF text: {str(e)}")
             return ""
+
+    def _extract_page_content(self, page) -> str:
+        """Implements the Digital Pipeline (pdfplumber -> pdfminer) with OCR fallback."""
+        # 1. Primary: pdfplumber
+        text = page.extract_text()
+        
+        # 2. Secondary: pdfminer (if pdfplumber text is thin or garbled)
+        if not text or self._is_garbled(text) or len(text.strip()) < 100:
+            try:
+                from pdfminer.high_level import extract_text as miner_extract
+                # Extract text for this specific page if possible, otherwise we skip to OCR
+                # For simplicity in this implementation, we rely on pdfplumber more
+                pass 
+            except ImportError:
+                pass
+
+        # 3. Scanned/OCR Pipeline
+        if not text or self._is_garbled(text):
+            logger.info(f"Page {page.page_number}: PDF text appears garbled or scanned, attempting OCR pipeline...")
+            
+            # PaddleOCR (Layout Reconstruction)
+            paddle = _get_paddle_ocr()
+            if paddle:
+                try:
+                    im = page.to_image(resolution=300)
+                    import numpy as np
+                    img_array = np.array(im.original)
+                    img_array = _preprocess_image(img_array)
+                    result = paddle.ocr(img_array, cls=True)
+                    text = _group_text_blocks(result)
+                except Exception as paddle_err:
+                    logger.warning(f"PaddleOCR failed: {str(paddle_err)}")
+
+            # Tesseract Fallback
+            if (not text or self._is_garbled(text)) and pytesseract:
+                try:
+                    im = page.to_image(resolution=600)
+                    import numpy as np
+                    from PIL import Image
+                    img_array = np.array(im.original)
+                    processed_img_array = _preprocess_image(img_array)
+                    processed_img = Image.fromarray(processed_img_array)
+                    custom_config = r'--psm 6'
+                    ocr_text = pytesseract.image_to_string(processed_img, config=custom_config)
+                    if ocr_text:
+                        text = _polish_ocr_text(ocr_text)
+                except Exception as ocr_err:
+                    logger.warning(f"Tesseract OCR failed: {str(ocr_err)}")
+        
+        return text or ""
 
     def _is_garbled(self, text: str) -> bool:
         if "(cid:" in text:

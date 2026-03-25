@@ -160,24 +160,50 @@ class TabularParser(BaseParser):
         return transactions
 
     def _extract_csv(self, file_bytes: bytes, bank: str = "generic") -> list[ParsedTransaction]:
-        rows: list[dict[str, str]] = []
-        if pl is not None:
-            try:
-                df = pl.read_csv(io.BytesIO(file_bytes), ignore_errors=True, infer_schema_length=5000)
-                rows = [{k: str(v or "") for k, v in row.items()} for row in df.iter_rows(named=True)]
-            except Exception:
-                rows = []
-        if not rows:
-            text = self._decode_text(file_bytes)
-            if text:
-                reader = csv.DictReader(io.StringIO(text))
-                rows = [{str(k or ""): str(v or "") for k, v in row.items()} for row in reader]
+        rows_list: list[list[str]] = []
+        text = self._decode_text(file_bytes)
+        if not text: return []
 
-        parsed: list[ParsedTransaction] = []
-        for row in rows:
-            tx = self._parse_csv_row(row, bank=bank)
-            if tx:
-                parsed.append(tx)
+        # If it's a multi-space separated file, we need to normalize it
+        if "," not in text and re.search(r"\s{2,}", text):
+            # Convert multi-space to tab or comma to help the reader?
+            # Actually, let's just split manually
+            lines = text.splitlines()
+            for line in lines:
+                tokens = [t.strip() for t in re.split(r"\s{2,}", line) if t.strip()]
+                if tokens: rows_list.append(tokens)
+        else:
+            # Standard CSV
+            reader = csv.reader(io.StringIO(text))
+            rows_list = [row for row in reader if any(row)]
+
+        if not rows_list: return []
+
+        # Try structured table parsing (handles headers intelligently)
+        parsed = self._parse_structured_table(rows_list, bank=bank)
+        
+        # If no transactions found (maybe no headers?), try heuristic parse on each row
+        if not parsed:
+            for row in rows_list:
+                # Heuristic: 1st token as date, last as amount?
+                if len(row) >= 2:
+                    tx_date = self._parse_date(row[0])
+                    if tx_date:
+                        # Try to find amount
+                        amt = None
+                        for cell in reversed(row[1:]):
+                            amt = self._parse_amount(cell)
+                            if amt: break
+                        if amt:
+                            desc = " ".join([c for c in row[1:] if self._parse_amount(c) is None]).strip()
+                            parsed.append(ParsedTransaction(
+                                date=tx_date,
+                                description=desc or "Transaction",
+                                amount=float(abs(amt)),
+                                type="expense" if amt < 0 else "income",
+                                debit=float(abs(amt)) if amt < 0 else None,
+                                credit=float(abs(amt)) if amt > 0 else None,
+                            ))
         return parsed
 
     def _parse_structured_table(self, table: list[list[str | None]], bank: str = "generic") -> list[ParsedTransaction]:
@@ -376,7 +402,15 @@ class TabularParser(BaseParser):
     def _is_csv_input(self, b: bytes, fn: str | None, ct: str | None) -> bool:
         if fn and fn.lower().endswith(".csv"): return True
         if ct and "csv" in ct.lower(): return True
-        return "," in self._decode_text(b[:1024])
+        text = self._decode_text(b[:1024])
+        if "," in text: return True
+        # Heuristic: Many lines matching Date + Amount with 2+ spaces between them
+        lines = text.splitlines()
+        hits = 0
+        for line in lines[:20]:
+            if DATE_CANDIDATE.search(line) and AMOUNT_CANDIDATE.search(line) and re.search(r"\s{2,}", line):
+                hits += 1
+        return hits >= 2
 
     def _is_xlsx_input(self, b: bytes, fn: str | None, ct: str | None) -> bool:
         if fn and fn.lower().endswith(".xlsx"): return True

@@ -11,8 +11,6 @@ class SafetyManager:
     _instance = None
     _global_enabled: bool = True
     _parser_flags: Dict[str, bool] = {
-        "llm": True,
-        "cloud": True,
         "regex": True,
         "tabular": True,
     }

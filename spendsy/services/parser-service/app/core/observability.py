@@ -4,57 +4,7 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-class CircuitBreaker:
-    """
-    Simple Circuit Breaker to prevent cascading failures for external API calls (LLM, Cloud).
-    """
-    def __init__(self, name: str, threshold: int = 3, reset_timeout: int = 60):
-        self.name = name
-        self.threshold = threshold
-        self.reset_timeout = reset_timeout
-        self.failure_count = 0
-        self.last_failure_time = 0
-        self.is_open = False
-
-    def can_execute(self) -> bool:
-        if self.is_open:
-            if time.time() - self.last_failure_time > self.reset_timeout:
-                logger.info(f"CircuitBreaker {self.name} resetting to HALF-OPEN")
-                return True
-            return False
-        return True
-
-    def record_failure(self):
-        self.failure_count += 1
-        self.last_failure_time = time.time()
-        if self.failure_count >= self.threshold:
-            self.is_open = True
-            logger.warning(f"CircuitBreaker {self.name} OPEN")
-
-    def record_success(self):
-        self.failure_count = 0
-        self.is_open = False
-
-
-from app.core.redis import get_redis
-
-class CostTracker:
-    RATES = {
-        "llm_token_input_mio": 0.15,
-        "llm_token_output_mio": 0.60,
-        "ocr_page": 0.0015,
-        "cloud_api_call": 0.01
-    }
-
-    @classmethod
-    def estimate_llm_cost(cls, input_tokens: int, output_tokens: int) -> float:
-        in_cost = (input_tokens / 1_000_000) * cls.RATES["llm_token_input_mio"]
-        out_cost = (output_tokens / 1_000_000) * cls.RATES["llm_token_output_mio"]
-        return in_cost + out_cost
-
-    @classmethod
-    def estimate_ocr_cost(cls, pages: int = 1) -> float:
-        return pages * cls.RATES["ocr_page"]
+# CostTracker removed (AI-only)
 
 
 class UserCostGuard:
@@ -148,8 +98,8 @@ class MetricsCollector:
             return {"total_cost": 0.0}
 
 metrics = MetricsCollector()
-llm_breaker = CircuitBreaker("LLM_Local")
-cloud_breaker = CircuitBreaker("Cloud_Gemini")
-cost_tracker = CostTracker()
+# llm_breaker = CircuitBreaker("LLM_Local")
+# cloud_breaker = CircuitBreaker("Cloud_Gemini")
+# cost_tracker = CostTracker()
 sla_tracker = SLATracker()
 cost_guard = UserCostGuard()

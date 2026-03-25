@@ -151,13 +151,13 @@ for i in "${!SERVICES[@]}"; do
         # Run Service
         if [ "$SERVICE" == "spendsy-ai" ]; then
             export FINANCE_SERVICE_URL="http://127.0.0.1:8002"
-            exec uvicorn main:app --host 0.0.0.0 --port $PORT --log-level warning
+            exec uvicorn main:app --host 0.0.0.0 --port $PORT --log-level warning --reload
         elif [ "$SERVICE" == "spendsy-mcp" ]; then
             # MCP servers usually run as stdio or sse servers. 
             # If running as a standalone service in run-local, we execute it directly.
             exec python server.py
         else
-            exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level warning
+            exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level warning --reload
         fi
     ) &
 done

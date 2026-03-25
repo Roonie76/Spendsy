@@ -35,6 +35,12 @@ class BankStatementFormat(str, Enum):
     TYPE_B = "TYPE_B"   # DR/CR indicator (SBI / PNB / PSU banks)
     TYPE_C = "TYPE_C"   # Scanned / unstructured PDF
 
+class PageClassification(str, Enum):
+    DIGITAL = "DIGITAL"
+    SCANNED = "SCANNED"
+    MIXED = "MIXED"
+    UNKNOWN = "UNKNOWN"
+
 
 # ---------------------------------------------------------------------------
 # Compiled patterns for detection
@@ -154,21 +160,61 @@ class FormatDetector:
         )
         return BankStatementFormat.TYPE_C
 
+    def probe_file_type(self, text: str) -> PageClassification:
+        """Determines if the file is digital or scanned at a document level."""
+        if not text or not text.strip():
+            return PageClassification.SCANNED
+        
+        lines = text.splitlines()
+        page_checks = []
+        
+        # Heuristic: split text into 'pages' by formfeed or large gaps (naive)
+        pages = text.split('\f')
+        for p in pages:
+            if len(p.strip()) < 100:
+                page_checks.append(PageClassification.SCANNED)
+            elif "(cid:" in p:
+                page_checks.append(PageClassification.SCANNED) # Likely garbled
+            else:
+                # Check for printable ratio
+                printable = sum(1 for c in p if c.isalnum() or c.isspace() or c in ".,/-():;")
+                if (printable / len(p)) < 0.6:
+                    page_checks.append(PageClassification.SCANNED)
+                else:
+                    page_checks.append(PageClassification.DIGITAL)
+        
+        scanned_count = page_checks.count(PageClassification.SCANNED)
+        digital_count = page_checks.count(PageClassification.DIGITAL)
+        
+        if scanned_count > 0 and digital_count > 0:
+            return PageClassification.MIXED
+        if scanned_count > 0:
+            return PageClassification.SCANNED
+        return PageClassification.DIGITAL
+
     def detect_bank(self, text: str) -> str:
-        """Identify the bank name from the statement text."""
+        """Identify the bank name from the statement text using keyword fingerprinting."""
         t = text.upper()
-        if "HDFC" in t: return "HDFC"
-        if "ICICI" in t: return "ICICI"
-        if "AXIS" in t: return "Axis"
-        if "STATE BANK OF INDIA" in t or "SBI" in t: return "SBI"
-        if "KOTAK" in t: return "Kotak"
-        if "CITI" in t: return "Citibank"
-        if "PUNJAB NATIONAL BANK" in t or "PNB" in t: return "PNB"
-        if "BANK OF BARODA" in t or "BOB" in t: return "BOB"
-        if "CANARA" in t: return "Canara"
-        if "YES BANK" in t: return "Yes Bank"
-        if "INDUSIND" in t: return "IndusInd"
-        if "IDFC" in t: return "IDFC First"
+        
+        # Bank Fingerprints
+        fingerprints = {
+            "HDFC": ["HDFC BANK", "HDFC STATEMENT", "HDFC LTD"],
+            "SBI": ["STATE BANK OF INDIA", "SBI STATEMENT", "ONLINESBI"],
+            "ICICI": ["ICICI BANK", "ICICI STATEMENT"],
+            "Axis": ["AXIS BANK", "AXIS STATEMENT"],
+            "Kotak": ["KOTAK MAHINDRA", "KOTAK BANK"],
+            "Yes Bank": ["YES BANK", "YESBANK"],
+            "IDFC": ["IDFC FIRST", "IDFC BANK"],
+            "IndusInd": ["INDUSIND BANK"],
+            "Citibank": ["CITIBANK", "CITI BANK"],
+            "Standard Chartered": ["STANDARD CHARTERED", "SC BANK"],
+            "HSBC": ["HSBC BANK", "HSBC STATEMENT"],
+        }
+        
+        for bank, keywords in fingerprints.items():
+            if any(kw in t for kw in keywords):
+                return bank
+                
         return "Unknown"
 
     def is_scanned_pdf(self, text: str) -> bool:

@@ -490,26 +490,27 @@ export default function App() {
     if (!Array.isArray(items) || items.length === 0) return;
 
     const idsToDelete = items.map((item) => item.id).filter(Boolean);
-    const deleteCalls = idsToDelete.map((id) =>
-      apiFetch(`${API_BASE_URL}/transactions/${id}`, { method: "DELETE" }),
-    );
-    const results = await Promise.allSettled(deleteCalls);
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/transactions/bulk`, {
+        method: "DELETE",
+        body: JSON.stringify({ ids: idsToDelete }),
+      });
 
-    const successCount = results.filter(
-      (r) => r.status === "fulfilled" && r.value?.ok,
-    ).length;
-    const failedCount = idsToDelete.length - successCount;
-
-    await fetchHistory();
-    await fetchSummary();
-
-    if (failedCount === 0) {
-      showToast(`Deleted ${successCount} transactions`, "success");
-    } else {
-      showToast(
-        `Deleted ${successCount} transactions, ${failedCount} failed`,
-        "warning",
-      );
+      if (response?.ok || response?.deleted_count !== undefined) {
+        const deletedCount = response.deleted_count ?? idsToDelete.length;
+        showToast(`Deleted ${deletedCount} transactions`, "success");
+        await fetchHistory();
+        await fetchSummary();
+      } else {
+        throw new Error(response?.message || "Bulk delete failed");
+      }
+    } catch (error) {
+      if (error.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      console.error("Bulk delete failed:", error);
+      showToast("Bulk delete failed", "error");
     }
   };
 
