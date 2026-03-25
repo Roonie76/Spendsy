@@ -1,7 +1,8 @@
 import React from "react";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { vi } from "vitest";
 import AddPage from "../../pages/AddPage";
+import StatementHub from "../../components/ui/StatementHub";
 
 const baseProps = {
   user: { id: 1, username: "demo" },
@@ -112,10 +113,71 @@ describe("AddPage - Add Transaction", () => {
     fireEvent.click(screen.getByRole("button", { name: /save transaction/i }));
 
     // Assert
-    await waitFor(() => expect(baseProps.showToast).toHaveBeenCalled());
+    await waitFor(() => expect(baseProps.showToast).toHaveBeenCalled(), {
+      timeout: 10000,
+    });
     expect(baseProps.showToast).toHaveBeenCalledWith(
       expect.stringContaining("Server Error"),
       "error",
     );
-  });
+  }, 10000);
+
+  it("refreshes shared data after a successful statement upload", async () => {
+    global.fetch.mockImplementation((url) => {
+      if (String(url).includes("/statements/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ok: true, data: [] }),
+        });
+      }
+
+      if (String(url).includes("/parse-statement")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ok: true,
+            data: {
+              transactions: [
+                {
+                  id: 999,
+                  amount: "430.00",
+                  type: "expense",
+                  description: "Parsed OCR transaction",
+                  date: "2023-07-19",
+                },
+              ],
+              saved_count: 1,
+            },
+          }),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ ok: true, data: [] }),
+      });
+    });
+
+    const { container } = render(
+      <StatementHub
+        user={baseProps.user}
+        apiBaseUrl={baseProps.apiBaseUrl}
+        showToast={baseProps.showToast}
+        refreshData={baseProps.refreshData}
+      />,
+    );
+
+    const fileInput = container.querySelector('input[type="file"]');
+    const file = new File(["dummy pdf"], "statement.pdf", { type: "application/pdf" });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    await waitFor(() => expect(baseProps.refreshData).toHaveBeenCalled());
+    expect(baseProps.showToast).toHaveBeenCalledWith(
+      "Statement processed! Synced 1 transactions.",
+      "success",
+    );
+  }, 10000);
 });

@@ -315,7 +315,8 @@ const AddPage = ({
              <StatementHub 
               user={user} 
               apiBaseUrl={apiBaseUrl} 
-              showToast={showToast} 
+              showToast={showToast}
+              refreshData={refreshData}
             />
           </motion.div>
         )}
