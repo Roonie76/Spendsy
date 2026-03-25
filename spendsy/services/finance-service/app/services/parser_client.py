@@ -30,14 +30,15 @@ def _is_retryable(e: Exception) -> bool:
     wait=wait_exponential(multiplier=1, min=2, max=10),
     retry=retry_if_exception(_is_retryable),
 )
-def parse_statement(file_bytes: bytes, filename: str, content_type: str | None = None) -> dict:
+def parse_statement(file_bytes: bytes, filename: str, content_type: str | None = None, user_id: int | str = "anonymous") -> dict:
     url = f"{settings.parser_service_url.rstrip('/')}/parse"
+    params = {"user_id": str(user_id)}
     mime_type = _guess_content_type(filename, content_type)
     files = {"file": (filename, file_bytes, mime_type)}
     headers = {"X-Internal-API-Key": settings.internal_api_key}
     try:
         with httpx.Client(timeout=300.0) as client:
-            response = client.post(url, files=files, headers=headers)
+            response = client.post(url, params=params, files=files, headers=headers)
             
         if response.status_code >= 400:
             # For 5xx errors, we still want to raise so tenacity can retry if applicable

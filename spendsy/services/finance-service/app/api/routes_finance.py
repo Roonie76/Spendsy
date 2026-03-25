@@ -18,9 +18,11 @@ from app.core import cryptography as security_crypto
 from app.core.audit import record_audit as _audit
 from app.core.config import settings
 from app.core.database import check_database_connection, get_db
-from app.core.redis import enqueue_task, get_identity_from_request, is_rate_limited, record_event
+from app.core.redis import enqueue_task, get_identity_from_request, is_rate_limited, record_event, clear_user_financial_cache
 from app.core.security import UserContext, get_current_user
 from app.models import ApiAuditLog, CreditCard, DebitCard, ITRData, Loan, NetWorthSnapshot, StatementRecord, TaxProfile, Transaction, UserProfile, WealthItem
+from pydantic import BaseModel
+from typing import List
 from app.schemas import (
     CreditCardOut,
     CreditCardPayload,
@@ -283,6 +285,13 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
         if legacy_semantic_exists:
             continue
 
+        raw_confidence = item.get("confidence")
+        try:
+            confidence_val = int(round(float(raw_confidence) * 100)) if raw_confidence is not None else 100
+            confidence_val = max(0, min(100, confidence_val))
+        except (TypeError, ValueError):
+            confidence_val = 100
+
         tx = Transaction(
             user_id=user_id,
             title=title,
@@ -297,6 +306,7 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
             statement_hash=statement_hash,
             statement_row_hash=statement_row_hash,
             fingerprint=fingerprint,
+            confidence=confidence_val,
         )
         db.add(tx)
         saved += 1
@@ -572,6 +582,48 @@ def get_transaction_history(
         )
 
 
+class BulkDeletePayload(BaseModel):
+    ids: List[int]
+
+
+@router.delete("/transactions/bulk", responses={200: {"model": dict}})
+def bulk_delete_transactions(
+    request: Request,
+    payload: BulkDeletePayload,
+    user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete multiple transactions in a single atomic database transaction."""
+    if not payload.ids:
+        return success_response(request, {"deleted_count": 0}, message="No transactions to delete")
+
+    try:
+        # Perform bulk delete within a single transaction, filtering by integer ID
+        deleted_count = db.query(Transaction).filter(
+            Transaction.user_id == user.id,
+            Transaction.id.in_(payload.ids)
+        ).delete(synchronize_session=False)
+        
+        db.commit()
+        # Invalidate cache after bulk deletion
+        clear_user_financial_cache(user.id)
+        
+        _audit(
+            db, 
+            request, 
+            action="bulk_transactions_deleted", 
+            resource_type="transaction", 
+            details={"count": deleted_count, "ids": payload.ids},
+            status_code=200, 
+            user=user
+        )
+        return success_response(request, {"deleted_count": deleted_count}, message=f"Deleted {deleted_count} transactions")
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"bulk_delete_error user_id={user.id}: {e}")
+        return error_response(request, "Failed to delete transactions", code=ErrorCode.INTERNAL_ERROR, http_status=500)
+
+
 @router.delete("/transactions/{uid}", responses={404: {"model": dict}, 200: {"model": dict}})
 def delete_transaction(
     request: Request,
@@ -586,6 +638,7 @@ def delete_transaction(
     db.delete(txn)
     try:
         db.commit()
+        clear_user_financial_cache(user.id)
     except SQLAlchemyError:
         db.rollback()
         raise
@@ -921,13 +974,27 @@ def parse_statement_proxy(
     statement_hash = file_hash
     request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
 
+    record = StatementRecord(
+        user_id=user.id,
+        filename=file.filename,
+        status="processing",
+        file_size=file_size,
+        file_hash=file_hash,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
     try:
-        parsed = parse_statement(content, file.filename, file.content_type)
+        parsed = parse_statement(content, file.filename, file.content_type, user_id=user.id)
         
         if parsed.get("status") == "error":
             error_msg = parsed.get("error", "Unknown parser error")
             http_status = parsed.get("http_status", status.HTTP_503_SERVICE_UNAVAILABLE)
             
+            record.status = "failed"
+            db.commit()
+
             logger.error("parser_failed request_id=%s error=%s status=%d", request_id, error_msg, http_status)
             _audit(
                 db,
@@ -998,13 +1065,13 @@ def parse_statement_proxy(
         transactions.append(
             {
                 "id": tx_uuid.hex,
-                "date": tx["date"],
-                "description": tx["description"],
+                "date": tx.get("date") or tx.get("Date"),
+                "description": tx.get("description") or tx.get("narration") or "Unnamed",
                 "amount": amount,
-                "type": tx["type"],
+                "type": _safe_type(tx.get("type") or tx.get("transaction_type")),
                 "category": _infer_category(tx.get("description", ""), str(tx.get("type", ""))),
                 "source": tx.get("source", "statement"),
-                "confidence": int(round(confidence * 100)),
+                "confidence": int(max(0, min(100, round((confidence or 0.8) * 100)))),
                 "bank": parsed_bank,
                 "balance": safe_float(balance_value, 0.0),
                 "is_valid": tx.get("is_valid", True),
@@ -1018,6 +1085,7 @@ def parse_statement_proxy(
         "request_id": request_id,
         "reconciliation_score": safe_float(parsed.get("reconciliation_score"), 1.0),
         "transactions": transactions,
+        "statement_metadata": parsed.get("statement_metadata", {}),
         "meta": {
             "count": len(transactions),
             "bank": parsed_bank,
@@ -1045,6 +1113,17 @@ def parse_statement_proxy(
     parsed_payload["saved_count"] = persisted_count
     parsed_payload["preview_mode"] = effective_preview_mode
     parsed_payload["financial_summary"] = summary
+
+    # Update StatementRecord
+    try:
+        record.status = "success"
+        record.tx_count = len(transactions)
+        record.reconciliation_score = Decimal(str(parsed_payload["reconciliation_score"]))
+        record.account_type = parsed_payload["meta"].get("bank", "generic")
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to update statement record: {e}")
+        db.rollback()
 
     _audit(
         db,

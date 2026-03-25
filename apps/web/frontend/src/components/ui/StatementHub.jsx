@@ -59,46 +59,10 @@ const StatementHub = ({ user, apiBaseUrl, showToast }) => {
         return;
       }
 
-      // 2. Persist to actual database
-      showToast(`Found ${txs.length} transactions. Syncing to ledger...`, "info");
+      // 2. Report status to user
+      const savedCount = parsedPayload.saved_count !== undefined ? parsedPayload.saved_count : txs.length;
+      showToast(`Statement processed! Synced ${savedCount} transactions.`, "success");
       
-      const syncPromises = txs.map((t) => {
-        const normalizedType =
-          t.type?.toLowerCase().includes("income") || t.type?.toLowerCase() === "cr"
-            ? "income"
-            : "expense";
-
-        return apiFetch(`${apiBaseUrl}/transactions`, {
-          method: "POST",
-          body: JSON.stringify({
-            title: t.description || t.title || "Scanned Transaction",
-            amount: parseFloat(t.amount || 0),
-            type: normalizedType,
-            category: t.category?.toLowerCase() || "other",
-            is_recurring: false,
-          }),
-        }).then(res => ({ ok: true })).catch(err => ({ ok: false }));
-      });
-
-      const results = await Promise.all(syncPromises);
-      const failed = results.filter((r) => !r.ok);
-
-      // 3. Create a Statement Record representing the result
-      const score = Math.round(((txs.length - failed.length) / txs.length) * 100);
-      const status = failed.length === 0 ? "success" : failed.length === txs.length ? "failed" : "partial";
-
-      await apiFetch(`${apiBaseUrl}/statements/record`, {
-        method: "POST",
-        body: JSON.stringify({
-          filename: file.name,
-          status,
-          account_type: "Bank Account",
-          tx_count: txs.length,
-          reconciliation_score: score
-        }),
-      });
-
-      showToast(`Statement processed! Synced ${txs.length - failed.length} transactions.`, "success");
       fetchHistory();
 
     } catch (err) {
