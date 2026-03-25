@@ -983,7 +983,7 @@ def parse_statement_proxy(
     )
     db.add(record)
     db.commit()
-    db.refresh(record)
+    # db.refresh(record)  # Removing to prevent holding a DB connection during the HTTP request
 
     try:
         parsed = parse_statement(content, file.filename, file.content_type, user_id=user.id)

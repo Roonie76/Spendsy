@@ -12,7 +12,7 @@ import {
 import { formatIndianCompact } from "../../../../../../packages/shared/utils/helpers";
 import { apiFetch } from "../../api";
 
-const StatementHub = ({ user, apiBaseUrl, showToast }) => {
+const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
   const [history, setHistory] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -46,7 +46,7 @@ const StatementHub = ({ user, apiBaseUrl, showToast }) => {
       formData.append("file", file);
 
       showToast("Uploading and parsing statement...", "info");
-      const parseResponse = await apiFetch(`${apiBaseUrl}/parse-statement`, {
+      const parseResponse = await apiFetch(`${apiBaseUrl}/parse-statement?confirm_persist=true`, {
         method: "POST",
         body: formData,
       });
@@ -63,7 +63,10 @@ const StatementHub = ({ user, apiBaseUrl, showToast }) => {
       const savedCount = parsedPayload.saved_count !== undefined ? parsedPayload.saved_count : txs.length;
       showToast(`Statement processed! Synced ${savedCount} transactions.`, "success");
       
-      fetchHistory();
+      await Promise.all([
+        fetchHistory(),
+        refreshData?.(),
+      ]);
 
     } catch (err) {
       console.error("Upload error:", err);
@@ -81,7 +84,7 @@ const StatementHub = ({ user, apiBaseUrl, showToast }) => {
         }),
       }).catch(e => console.error("Could not log failed statement", e));
       
-      fetchHistory();
+      await fetchHistory();
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
