@@ -3,7 +3,6 @@ argon2-cffi==23.1.0
 cryptography==42.0.5
 email-validator==2.1.1
 fastapi==0.129.0
-google-genai
 httpx==0.28.1
 mcp
 numpy==2.4.0
@@ -16,7 +15,6 @@ polars==1.35.2
 psycopg2-binary==2.9.11
 pydantic
 pydantic-settings==2.13.0
-pytesseract==0.3.13
 pytest
 python-dotenv
 python-jose[cryptography]==3.5.0
@@ -29,12 +27,8 @@ tenacity==8.5.0
 starlette>=0.40.0
 uvicorn[standard]==0.27.0
 uvloop==0.22.1
-
-# --- Bank Statement Parser (new) ---
-camelot-py[cv]
 pdf2image
-opencv-python-headless
-paddleocr
-paddlepaddle
-pikepdf
-chardet
+google-genai
+pypdf==4.1.0
+pytesseract==0.3.13
+python-dateutil==2.8.2

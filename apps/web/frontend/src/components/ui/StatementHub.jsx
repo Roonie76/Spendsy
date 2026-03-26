@@ -61,7 +61,16 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
 
       // 2. Report status to user
       const savedCount = parsedPayload.saved_count !== undefined ? parsedPayload.saved_count : txs.length;
-      showToast(`Statement processed! Synced ${savedCount} transactions.`, "success");
+      const requiresReview = parsedPayload.meta?.requires_review;
+      const warnings = parsedPayload.meta?.warnings || [];
+
+      if (requiresReview) {
+        showToast(warnings[0] || `Statement processed! However, reconciliation failed. ${savedCount} transactions require review.`, "error");
+      } else if (warnings.length > 0) {
+        showToast(warnings[0] || `Statement processed! Synced ${savedCount} transactions with warnings.`, "info");
+      } else {
+        showToast(`Statement processed! Synced ${savedCount} transactions.`, "success");
+      }
       
       await Promise.all([
         fetchHistory(),
@@ -203,7 +212,7 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
                     {record.status}
                   </div>
                   {record.status === 'success' || record.status === 'partial' ? (
-                     <span className="text-[10px] font-mono text-slate-400">Score: <span className="text-white">{record.reconciliation_score}%</span></span>
+                     <span className="text-[10px] font-mono text-slate-400">Score: <span className="text-white">{(record.reconciliation_score * 100).toFixed(0)}%</span></span>
                   ) : null}
                 </div>
               </motion.div>

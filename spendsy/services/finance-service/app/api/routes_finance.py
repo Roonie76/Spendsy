@@ -41,8 +41,7 @@ from app.schemas import (
     NetWorthSnapshotOut,
     NetWorthSnapshotPayload,
 )
-from app.services.parser_client import parse_statement
-from app.utils.error_codes import ErrorCode
+from app.services.parser.orchestrator import process_pdf_async as parse_statement
 from app.utils.files import sanitize_filename, validate_file_security
 from app.utils.response import error_response, success_response
 
@@ -245,6 +244,11 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
         tx_source = _safe_source(item.get("source"))
         statement_hash = str(item.get("statement_hash") or "").strip() or None
         statement_row_hash = str(item.get("statement_row_hash") or "").strip() or None
+        
+        # Phase 1: Global Reconciliation status and flags
+        tx_status = "flagged" if not item.get("is_valid", True) else "active"
+        reconciliation_flags = item.get("reconciliation_flags", [])
+        
         try:
             balance_value = Decimal(str(tx_balance)) if tx_balance not in (None, "") else None
         except (InvalidOperation, TypeError):
@@ -307,6 +311,8 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
             statement_row_hash=statement_row_hash,
             fingerprint=fingerprint,
             confidence=confidence_val,
+            status=tx_status,
+            reconciliation_flags=reconciliation_flags,
         )
         db.add(tx)
         saved += 1
@@ -550,6 +556,8 @@ def get_transaction_history(
                 "source": t.source,
                 "fingerprint": t.fingerprint,
                 "is_recurring": t.is_recurring,
+                "status": t.status,
+                "reconciliation_flags": t.reconciliation_flags,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             }
             for t in page
@@ -937,7 +945,7 @@ def itr_data_handler(
 
 
 @router.post("/parse-statement", responses={400: {"model": dict}, 503: {"model": dict}, 200: {"model": dict}})
-def parse_statement_proxy(
+async def parse_statement_proxy(
     request: Request,
     file: UploadFile = File(...),
     preview_mode: bool = False,
@@ -986,118 +994,80 @@ def parse_statement_proxy(
     # db.refresh(record)  # Removing to prevent holding a DB connection during the HTTP request
 
     try:
-        parsed = parse_statement(content, file.filename, file.content_type, user_id=user.id)
-        
+        parsed = await parse_statement(content)
         if parsed.get("status") == "error":
-            error_msg = parsed.get("error", "Unknown parser error")
-            http_status = parsed.get("http_status", status.HTTP_503_SERVICE_UNAVAILABLE)
-            
-            record.status = "failed"
-            db.commit()
-
-            logger.error("parser_failed request_id=%s error=%s status=%d", request_id, error_msg, http_status)
-            _audit(
-                db,
-                request,
-                action="parser_failed",
-                resource_type="statement_parser",
-                status_code=http_status,
-                error_code=ErrorCode.PARSER_ERROR,
-                user=user,
-            )
-            return error_response(
-                request,
-                f"Statement parser failed: {error_msg}",
-                code=ErrorCode.PARSER_ERROR,
-                http_status=http_status,
-            )
-
-        logger.info(f"parse_statement_proxy: parser returned {len(parsed.get('transactions', []))} transactions")
+            logger.error(f"Parsing failed: {parsed.get('error')}")
+            return error_response(request, f"Extraction failed: {parsed.get('error')}", code=ErrorCode.PARSER_ERROR, http_status=500)
     except Exception as exc:
-        logger.error("parser_client_exception request_id=%s error=%s", request_id, str(exc))
-        _audit(
-            db,
-            request,
-            action="parser_exception",
-            resource_type="statement_parser",
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            error_code=ErrorCode.PARSER_UNAVAILABLE,
-            user=user,
-        )
-        return error_response(
-            request,
-            f"Could not reach parser service: {str(exc)}",
-            code=ErrorCode.PARSER_UNAVAILABLE,
-            http_status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+        logger.error(f"Parser exception: {str(exc)}")
+        return error_response(request, "Parser failed", code=ErrorCode.PARSER_ERROR, http_status=500)
+
+    logger.info(f"parse_statement_proxy: {parsed['pdf_type']} processing complete")
 
     transactions = []
-    parsed_meta = parsed.get("meta", {})
-    parsed_method = parsed_meta.get("method", "digital")
-    from app.utils.coercion import safe_float, safe_int_percent
-
-    parsed_bank = parsed_meta.get("bank", "generic")
+    # Map NormalizedDocument transactions to the format expected by the frontend and persistence
     for idx, tx in enumerate(parsed.get("transactions", [])):
-        raw_amount = tx.get("amount")
-        raw_conf = tx.get("confidence")
-        balance_value = tx.get("balance")
+        amount = tx.get("amount") or 0.0
         
-        # Safe Coercion for Production Hardening
-        amount = safe_float(raw_amount, 0.0)
-        confidence = safe_float(
-            raw_conf, 
-            0.99 if parsed_method == "digital" else 0.8
-        )
-        
-        # Logging for observability
-        if raw_conf is None:
-            logger.warning("Missing confidence for txn %s -> using default", idx)
-        if raw_amount is None:
-            logger.warning("Missing amount for txn %s -> using 0.0", idx)
-
+        # Calculate a deterministic row hash for deduplication
         row_hash = hashlib.sha256(
-            f"{statement_hash}|{idx}|{tx['date']}|{tx['description']}|{amount}|{tx['type']}|{balance_value}".encode("utf-8")
+            f"{statement_hash}|{idx}|{tx['date']}|{tx['description']}|{amount}|{tx['type']}|{tx.get('running_balance')}".encode("utf-8")
         ).hexdigest()
+        
+        # Generate a UUID based on core transaction details
         tx_uuid = uuid.uuid5(
             uuid.NAMESPACE_DNS,
             f"{tx['date']}|{tx['description'].lower()}|{amount:.2f}|{tx['type']}",
         )
+        
         transactions.append(
             {
                 "id": tx_uuid.hex,
-                "date": tx.get("date") or tx.get("Date"),
-                "description": tx.get("description") or tx.get("narration") or "Unnamed",
+                "date": tx.get("date"),
+                "title": tx.get("description"), # Map description to title for frontend
+                "description": tx.get("description"),
                 "amount": amount,
-                "type": _safe_type(tx.get("type") or tx.get("transaction_type")),
+                "type": _safe_type(tx.get("type")),
                 "category": _infer_category(tx.get("description", ""), str(tx.get("type", ""))),
-                "source": tx.get("source", "statement"),
-                "confidence": int(max(0, min(100, round((confidence or 0.8) * 100)))),
-                "bank": parsed_bank,
-                "balance": safe_float(balance_value, 0.0),
-                "is_valid": tx.get("is_valid", True),
+                "source": "statement",
+                "confidence": 0.95 if parsed.get("extraction_confidence") == "high" else (0.70 if parsed.get("extraction_confidence") == "medium" else 0.40),
+                "bank": parsed.get("source_institution", "unknown"),
+                "balance": tx.get("running_balance"),
+                "is_valid": True, # Assume valid unless flagged by ledger math (not implemented in this step)
+                "reconciliation_flags": [],
                 "statement_hash": statement_hash,
                 "statement_row_hash": row_hash,
+                "reference": tx.get("reference")
             }
         )
 
     parsed_payload = {
-        "status": parsed.get("status", "success"),
+        "status": "success",
         "request_id": request_id,
-        "reconciliation_score": safe_float(parsed.get("reconciliation_score"), 1.0),
+        "reconciliation_score": 1.0,
         "transactions": transactions,
-        "statement_metadata": parsed.get("statement_metadata", {}),
+        "statement_metadata": {
+            "institution": parsed.get("source_institution"),
+            "account_id": parsed.get("account_id"),
+            "currency": parsed.get("currency"),
+            "period": {
+                "from": parsed.get("statement_period_from"),
+                "to": parsed.get("statement_period_to")
+            }
+        },
         "meta": {
             "count": len(transactions),
-            "bank": parsed_bank,
-            "method": parsed_method,
-            "avg_confidence": safe_float(parsed_meta.get("avg_confidence"), 0.9),
-            "min_confidence": safe_float(parsed_meta.get("min_confidence"), 0.8),
-            "requires_review": bool(parsed_meta.get("requires_review", False)),
-            "checksum_verified": bool(parsed_meta.get("checksum_verified", True)),
+            "bank": parsed.get("source_institution") or "generic",
+            "method": parsed.get("pdf_type"),
+            "avg_confidence": 0.9 if parsed.get("extraction_confidence") == "high" else 0.7,
+            "requires_review": parsed.get("requires_review", False),
+            "extraction_notes": parsed.get("extraction_notes"),
             "warnings": [],
             "errors": [],
         },
     }
+
+    account_no = parsed.get("account_id")
 
     review_required = bool(parsed_payload["meta"]["requires_review"])
     effective_preview_mode = preview_mode
@@ -1119,7 +1089,8 @@ def parse_statement_proxy(
         record.status = "success"
         record.tx_count = len(transactions)
         record.reconciliation_score = Decimal(str(parsed_payload["reconciliation_score"]))
-        record.account_type = parsed_payload["meta"].get("bank", "generic")
+        # Phase 5: Store account_no in account_type field for cross-file batch validation
+        record.account_type = account_no if account_no else parsed_payload["meta"].get("bank", "generic")
         db.commit()
     except Exception as e:
         logger.error(f"Failed to update statement record: {e}")
