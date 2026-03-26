@@ -99,7 +99,6 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-smartpass}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       JWT_ALGORITHM: HS256
-      PARSER_SERVICE_URL: http://parser-service:8000
       REDIS_URL: redis://redis:6379/0
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
       ENVIRONMENT: ${ENVIRONMENT:-production}
@@ -111,8 +110,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      parser-service:
-        condition: service_healthy
     ports:
       - "8002:8000" # Host port 8002 -> Finance Service
     healthcheck:
@@ -120,35 +117,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: "1.00"
-          memory: 1024M
-
-  parser-service:
-    build:
-      context: ../../
-      dockerfile: spendsy/services/parser-service/Dockerfile
-    container_name: spendsy_parser
-    restart: always
-    environment:
-      PYTHONPATH: /app
-      REDIS_URL: redis://redis:6379/0
-    volumes:
-      - ../../spendsy/services/parser-service:/app
-    working_dir: /app
-    depends_on:
-      redis:
-        condition: service_healthy
-    ports:
-      - "8003:8000" # Host port 8003 -> Parser Service
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 5s
     deploy:
       resources:
         limits:
@@ -198,8 +166,6 @@ services:
       auth-service:
         condition: service_healthy
       finance-service:
-        condition: service_healthy
-      parser-service:
         condition: service_healthy
       ai-service:
         condition: service_healthy

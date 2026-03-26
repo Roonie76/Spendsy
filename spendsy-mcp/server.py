@@ -38,25 +38,6 @@ def call_finance_internal(endpoint: str, user_id: int, params: Dict | None = Non
             response.raise_for_status()
         return response.json().get("data", {})
 
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception(_is_retryable),
-)
-def _post_file(url: str, file_path: str) -> dict[str, Any]:
-    filename = os.path.basename(file_path)
-    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-    
-    with open(file_path, "rb") as f:
-        files = {"file": (filename, f, content_type)}
-        headers = {"X-Internal-API-Key": settings.internal_api_key}
-        with httpx.Client(timeout=30.0) as client:
-            response = client.post(url, files=files, headers=headers)
-            if response.status_code >= 500 or response.status_code == 429:
-                response.raise_for_status()
-            return response.json()
-
 # --- SECTION 3: Core MCP Tools ---
 
 @mcp.tool()
@@ -185,20 +166,6 @@ def detect_duplicate_transactions(user_id: int) -> str:
         return json.dumps({"duplicate_count": len(duplicates), "duplicates": duplicates}, indent=2)
     except Exception as e:
         return f"Error detecting duplicates: {str(e)}"
-
-# --- SECTION 5: File Parsing ---
-
-@mcp.tool()
-def parse_statement(file_path: str) -> str:
-    """Parse a financial statement file through the parser service."""
-    try:
-        if not os.path.exists(file_path):
-            return f"File not found: {file_path}"
-            
-        url = f"{settings.parser_service_url}/parser/parse"
-        return json.dumps(_post_file(url, file_path), indent=2)
-    except (HTTPError, URLError, json.JSONDecodeError, OSError) as e:
-        return f"Error parsing statement: {str(e)}"
 
 # --- SECTION 6: Database Query Tool ---
 

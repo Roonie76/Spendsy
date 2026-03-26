@@ -48,6 +48,8 @@ class Transaction(Base):
     fingerprint = Column(String(64), nullable=True)
     is_recurring = Column(Boolean, default=False)
     confidence = Column(Integer, default=100, nullable=False)
+    status = Column(String(20), default="active", nullable=False)  # 'active', 'flagged'
+    reconciliation_flags = Column(JSONB, default=list, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 

@@ -7,8 +7,8 @@ set -e
 
 PROJECT_ROOT=$(cd "$(dirname "$0")" && pwd)
 SERVICES_ROOT="$PROJECT_ROOT/spendsy/services"
-SERVICES=("auth-service" "finance-service" "ai-service" "parser-service" "spendsy-ai" "spendsy-mcp")
-PORTS=(8001 8002 8004 8003 8005 8006)
+SERVICES=("auth-service" "finance-service" "ai-service" "spendsy-ai" "spendsy-mcp")
+PORTS=(8001 8002 8004 8005 8006)
 
 if [ -f "$PROJECT_ROOT/.venv/bin/activate" ]; then
     VENV_ROOT="$PROJECT_ROOT/.venv"

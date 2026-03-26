@@ -19,7 +19,6 @@ To use the Spendsy Financial Assistant in Claude Desktop, add the following to y
       ],
       "env": {
         "FINANCE_SERVICE_URL": "http://localhost:8002",
-        "PARSER_SERVICE_URL": "http://localhost:8003",
         "INTERNAL_API_KEY": "internal-dev-key"
       }
     }

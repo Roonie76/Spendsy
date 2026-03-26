@@ -47,8 +47,10 @@ The core domain service.
 
 ### 4. Parser Service (`spendsy/services/parser-service`)
 Specialized worker service for document processing.
-- **Tech**: FastAPI, PDF libraries.
+- **Tech**: FastAPI, PDF libraries, PaddleOCR.
 - **Role**: Extracts transaction data from bank statement PDFs.
+- **Reliability**: Uses a `ProcessPoolExecutor` with the `spawn` start method to isolate heavy OCR/extraction tasks.
+- **Critical Restriction**: ⚠️ **Do NOT** run this service with `uvicorn --reload` when subprocess workers are enabled. The reload mechanism can cause deadlocks with the `spawn` context. Use `--workers 1` or run without reload for development.
 
 For a deep-dive into the reverse-engineered system lifecycle, API catalog, and CRUD mappings, see [ARCHITECTURAL_ANALYSIS.md](./docs/ARCHITECTURAL_ANALYSIS.md).
 

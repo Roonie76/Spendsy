@@ -12,7 +12,10 @@ Before you begin, ensure you have the following installed:
 - **Docker & Docker Compose**: To run the database, cache, and poolers.
 - **Node.js (v18+)**: To run the frontend developer server.
 - **Python (3.11+)**: To run the backend microservices.
-- **Ollama**: (Optional but Recommended) To run local LLMs for parsing unstructured statements.
+- **Poppler & Tesseract**: (New) Required for local PDF-to-Image OCR.
+    - **Linux**: `sudo apt install poppler-utils tesseract-ocr`
+    - **macOS**: `brew install poppler tesseract`
+- **Ollama**: (Optional) To run local LLMs.
 - **Bash**: (Standard on Linux/macOS; use Git Bash or WSL2 on Windows).
 
 ---

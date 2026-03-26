@@ -104,6 +104,8 @@ class TransactionOut(BaseModel):
     balance: Decimal | None = None
     source: str
     is_recurring: bool
+    status: str = "active"
+    reconciliation_flags: list[str] = Field(default_factory=list)
     created_at: datetime
 
 

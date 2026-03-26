@@ -20,10 +20,12 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
     displayDate = d.toLocaleDateString();
   } catch (e) {}
 
+  const isFlagged = item.status === "flagged" || (item.reconciliation_flags && item.reconciliation_flags.length > 0);
+
   return (
     <div
       onClick={() => onEdit && onEdit(item)}
-      className="group flex items-center p-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl mb-3 transition-all hover:bg-white/10 relative overflow-hidden cursor-pointer"
+      className={`group flex items-center p-4 bg-white/5 backdrop-blur-md border ${isFlagged ? "border-rose-500/50 bg-rose-500/5" : "border-white/10"} rounded-3xl mb-3 transition-all hover:bg-white/10 relative overflow-hidden cursor-pointer`}
     >
       <div className={`p-3.5 rounded-2xl mr-4 ${category.color} shrink-0`}>
         <Icon className="w-5 h-5" />
@@ -42,6 +44,9 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
               title="Manual User Entry"
             />
           )}
+          {isFlagged && (
+            <AlertTriangle className="w-4 h-4 text-rose-500" title="Reconciliation Failed - Review Required" />
+          )}
           <h4 className="font-semibold text-blue-50 truncate text-base">
             {item.title}
           </h4>
@@ -51,7 +56,14 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
           <span className="capitalize">{category.name}</span>
           <span className="mx-1.5 opacity-50">•</span>
           <span>{displayDate}</span>
-          {item.confidence && item.confidence < 80 && (
+          
+          {isFlagged && item.reconciliation_flags && item.reconciliation_flags.length > 0 && (
+            <span className="ml-2 text-[10px] text-rose-400 flex items-center gap-0.5 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+              {item.reconciliation_flags.join(", ")}
+            </span>
+          )}
+          
+          {item.confidence && item.confidence < 80 && !isFlagged && (
             <span className="ml-2 text-[10px] text-yellow-500 flex items-center gap-0.5 bg-yellow-500/10 px-2 py-0.5 rounded">
               <AlertTriangle className="w-3 h-3 mr-1" /> Verify
             </span>
