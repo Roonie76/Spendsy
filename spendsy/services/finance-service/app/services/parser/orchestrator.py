@@ -1,4 +1,5 @@
 import io
+import re
 import logging
 import json
 import hashlib
@@ -18,8 +19,8 @@ logger = logging.getLogger("finance.parser.orchestrator")
 
 # Initialize Gemini Client
 client = None
-if settings.gemini_api_key:
-    client = genai.Client(api_key=settings.gemini_api_key)
+if settings.google_api_key:
+    client = genai.Client(api_key=settings.google_api_key)
 
 def extract_text_for_type(content: bytes, pdf_type: str) -> str:
     """

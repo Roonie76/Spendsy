@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     finance_rate_limit_window_seconds: int = 60
     finance_rate_limit_default: int = 20
     finance_rate_limit_upload: int = 5
+    # External APIs
+    google_api_key: str | None = None
 
     # File Upload Security
     max_upload_size_mb: int = 10
