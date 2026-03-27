@@ -9,7 +9,7 @@ import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile, status
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -41,9 +41,10 @@ from app.schemas import (
     NetWorthSnapshotOut,
     NetWorthSnapshotPayload,
 )
-from app.services.parser.orchestrator import process_pdf_async as parse_statement
+from app.services.parser.digital_deterministic_parser import parse_transactions
 from app.utils.files import sanitize_filename, validate_file_security
 from app.utils.response import error_response, success_response
+from app.utils.error_codes import ErrorCode
 
 router = APIRouter(tags=["finance"])
 logger = logging.getLogger("finance.routes")
@@ -90,12 +91,27 @@ def _safe_category(raw: str | None) -> str:
 
 def _safe_type(raw: str | None) -> str:
     value = str(raw or "expense").strip().lower()
-    return value if value in {"income", "expense"} else "expense"
+    if value in {"income", "credit", "cr", "deposit"}:
+        return "income"
+    if value in {"expense", "debit", "dr", "withdrawal", "paid"}:
+        return "expense"
+    return "expense"
 
 
 def _safe_source(raw: str | None) -> str:
     value = str(raw or "manual").strip().lower()
     return value if value in {"manual", "statement"} else "manual"
+
+
+def _safe_confidence(raw: float | str | None) -> float:
+    if isinstance(raw, str):
+        mapping = {"high": 1.0, "medium": 0.7, "low": 0.4}
+        return mapping.get(raw.strip().lower(), 0.0)
+    try:
+        value = float(raw or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, min(1.0, value))
 
 
 def _safe_date(raw: str | None) -> date | None:
@@ -944,189 +960,6 @@ def itr_data_handler(
     )
 
 
-@router.post("/parse-statement", responses={400: {"model": dict}, 503: {"model": dict}, 200: {"model": dict}})
-async def parse_statement_proxy(
-    request: Request,
-    file: UploadFile = File(...),
-    preview_mode: bool = False,
-    confirm_persist: bool = False,
-    user: UserContext = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    identity = get_identity_from_request(request)
-    if is_rate_limited("finance:upload", identity, settings.finance_rate_limit_upload, settings.finance_rate_limit_window_seconds):
-        return error_response(request, "Too many upload attempts", code=ErrorCode.RATE_LIMIT_EXCEEDED, http_status=429)
-
-    # Tier Enforcement: Check monthly upload limit
-    try:
-        from app.core.product_tiers import TierEnforcer
-    except ImportError:
-        # Fallback for dynamic test imports with prepended package names
-        import sys
-        tier_mod = next(m for n, m in sys.modules.items() if n.endswith(".core.product_tiers"))
-        TierEnforcer = tier_mod.TierEnforcer
-        
-    TierEnforcer.check_upload_limit(db, user.id)
-
-    if file is None:
-        return error_response(request, "Missing statement file upload", code=ErrorCode.MISSING_FILE)
-
-    # File Security Validation (Size, MIME, Extension)
-    validate_file_security(file)
-    file.filename = sanitize_filename(file.filename or "statement.pdf")
-
-    logger.info(f"parse_statement_proxy: file={file.filename}, size={getattr(file, 'size', 'unknown')}, content_type={file.content_type}, user={user.id}")
-    content = file.file.read()
-    file_size = len(content)
-    file_hash = hashlib.sha256(content).hexdigest()
-    statement_hash = file_hash
-    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
-
-    record = StatementRecord(
-        user_id=user.id,
-        filename=file.filename,
-        status="processing",
-        file_size=file_size,
-        file_hash=file_hash,
-    )
-    db.add(record)
-    db.commit()
-    # db.refresh(record)  # Removing to prevent holding a DB connection during the HTTP request
-
-    try:
-        parsed = await parse_statement(content)
-        if parsed.get("status") == "error":
-            logger.error(f"Parsing failed: {parsed.get('error')}")
-            return error_response(request, f"Extraction failed: {parsed.get('error')}", code=ErrorCode.PARSER_ERROR, http_status=500)
-    except Exception as exc:
-        logger.error(f"Parser exception: {str(exc)}")
-        return error_response(request, "Parser failed", code=ErrorCode.PARSER_ERROR, http_status=500)
-
-    logger.info(f"parse_statement_proxy: {parsed['pdf_type']} processing complete")
-
-    transactions = []
-    # Map NormalizedDocument transactions to the format expected by the frontend and persistence
-    for idx, tx in enumerate(parsed.get("transactions", [])):
-        amount = tx.get("amount") or 0.0
-        
-        # Calculate a deterministic row hash for deduplication
-        row_hash = hashlib.sha256(
-            f"{statement_hash}|{idx}|{tx['date']}|{tx['description']}|{amount}|{tx['type']}|{tx.get('running_balance')}".encode("utf-8")
-        ).hexdigest()
-        
-        # Generate a UUID based on core transaction details
-        tx_uuid = uuid.uuid5(
-            uuid.NAMESPACE_DNS,
-            f"{tx['date']}|{tx['description'].lower()}|{amount:.2f}|{tx['type']}",
-        )
-        
-        transactions.append(
-            {
-                "id": tx_uuid.hex,
-                "date": tx.get("date"),
-                "title": tx.get("description"), # Map description to title for frontend
-                "description": tx.get("description"),
-                "amount": amount,
-                "type": _safe_type(tx.get("type")),
-                "category": _infer_category(tx.get("description", ""), str(tx.get("type", ""))),
-                "source": "statement",
-                "confidence": 0.95 if parsed.get("extraction_confidence") == "high" else (0.70 if parsed.get("extraction_confidence") == "medium" else 0.40),
-                "bank": parsed.get("source_institution", "unknown"),
-                "balance": tx.get("running_balance"),
-                "is_valid": True, # Assume valid unless flagged by ledger math (not implemented in this step)
-                "reconciliation_flags": [],
-                "statement_hash": statement_hash,
-                "statement_row_hash": row_hash,
-                "reference": tx.get("reference")
-            }
-        )
-
-    parsed_payload = {
-        "status": "success",
-        "request_id": request_id,
-        "reconciliation_score": 1.0,
-        "transactions": transactions,
-        "statement_metadata": {
-            "institution": parsed.get("source_institution"),
-            "account_id": parsed.get("account_id"),
-            "currency": parsed.get("currency"),
-            "period": {
-                "from": parsed.get("statement_period_from"),
-                "to": parsed.get("statement_period_to")
-            }
-        },
-        "meta": {
-            "count": len(transactions),
-            "bank": parsed.get("source_institution") or "generic",
-            "method": parsed.get("pdf_type"),
-            "avg_confidence": 0.9 if parsed.get("extraction_confidence") == "high" else 0.7,
-            "requires_review": parsed.get("requires_review", False),
-            "extraction_notes": parsed.get("extraction_notes"),
-            "warnings": [],
-            "errors": [],
-        },
-    }
-
-    account_no = parsed.get("account_id")
-
-    review_required = bool(parsed_payload["meta"]["requires_review"])
-    effective_preview_mode = preview_mode
-    if review_required and not confirm_persist:
-        effective_preview_mode = True
-        parsed_payload["meta"]["warnings"].append(
-            "OCR-derived transactions require review before saving. Re-submit with confirm_persist=true after verification."
-        )
-
-    persisted_count = 0 if effective_preview_mode else _persist_parsed_transactions(db, user.id, transactions)
-    summary = _build_financial_summary(db, user.id)
-
-    parsed_payload["saved_count"] = persisted_count
-    parsed_payload["preview_mode"] = effective_preview_mode
-    parsed_payload["financial_summary"] = summary
-
-    # Update StatementRecord
-    try:
-        record.status = "success"
-        record.tx_count = len(transactions)
-        record.reconciliation_score = Decimal(str(parsed_payload["reconciliation_score"]))
-        # Phase 5: Store account_no in account_type field for cross-file batch validation
-        record.account_type = account_no if account_no else parsed_payload["meta"].get("bank", "generic")
-        db.commit()
-    except Exception as e:
-        logger.error(f"Failed to update statement record: {e}")
-        db.rollback()
-
-    _audit(
-        db,
-        request,
-        action="statement_parsed",
-        resource_type="statement_parser",
-        status_code=status.HTTP_200_OK,
-        user=user,
-        details={
-            "parsed_transactions": len(transactions),
-            "persisted_transactions": persisted_count,
-            "source": parsed_payload["meta"]["method"],
-            "reconciliation_score": parsed_payload["reconciliation_score"],
-            "preview_mode": effective_preview_mode,
-            "requires_review": review_required,
-            "confirm_persist": confirm_persist,
-            "file_size": file_size,
-            "file_hash": file_hash,
-        },
-    )
-
-    try:
-        enqueue_task("app.tasks.post_parse_notification", {"user_id": user.id, "count": len(transactions)})
-    except Exception as exc:
-        logger.error(
-            "enqueue_task failed for post_parse_notification user_id=%s request_id=%s error=%s",
-            user.id, request_id, str(exc),
-        )
-        # Non-fatal: notification is best-effort; continue returning parsed data.
-
-    return success_response(request, parsed_payload, message="Statement parsed", http_status=status.HTTP_200_OK)
-
 
 @router.get("/credit-cards")
 def list_credit_cards(
@@ -1384,3 +1217,135 @@ def create_statement_record(
     db.commit()
     db.refresh(record)
     return success_response(request, StatementRecordOut.model_validate(record).model_dump(), message="Statement record created")
+
+
+@router.post("/parse-digital-pdf", responses={400: {"model": dict}, 422: {"model": dict}, 503: {"model": dict}, 200: {"model": dict}})
+async def parse_digital_pdf_route(
+    request: Request,
+    file: UploadFile = File(...),
+    user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if file is None:
+        return error_response(request, "Missing statement file upload", code=ErrorCode.MISSING_FILE)
+
+    validate_file_security(file)
+    file.filename = sanitize_filename(file.filename or "statement.pdf")
+    if not (file.content_type == "application/pdf" or file.filename.lower().endswith(".pdf")):
+        return error_response(request, "Only PDF uploads are supported for statement parsing.", code=ErrorCode.BAD_REQUEST, http_status=400)
+
+    content = await file.read()
+    file_size = len(content)
+    file_hash = hashlib.sha256(content).hexdigest()
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
+
+    record = StatementRecord(
+        user_id=user.id,
+        filename=file.filename,
+        status="processing",
+        file_size=file_size,
+        file_hash=file_hash,
+    )
+    db.add(record)
+    db.commit()
+
+    try:
+        parsed_result = parse_transactions(content)
+        tx_list = parsed_result.get("transactions", [])
+        meta = parsed_result.get("meta", {})
+    except Exception as exc:
+        record.status = "failed"
+        db.commit()
+        logger.error("Deterministic parser exception: %s", str(exc))
+        return error_response(request, str(exc), code=ErrorCode.PARSER_ERROR, http_status=422)
+
+    transactions = []
+    for idx, tx in enumerate(tx_list):
+        amount = tx.get("amount") or 0.0
+        row_hash = hashlib.sha256(
+            f"{file_hash}|{idx}|{tx['date']}|{tx['description']}|{amount}|{tx['type']}".encode("utf-8")
+        ).hexdigest()
+        
+        tx_uuid = uuid.uuid5(
+            uuid.NAMESPACE_DNS,
+            f"{tx['date']}|{tx['description'].lower()}|{amount:.2f}|{tx['type']}",
+        )
+        
+        tx_type_safe = _safe_type(tx.get("type"))
+        transactions.append(
+            {
+                "id": tx_uuid.hex,
+                "date": tx.get("date"),
+                "title": tx.get("description"),
+                "description": tx.get("description"),
+                "amount": amount,
+                "type": tx_type_safe,
+                "category": _infer_category(tx.get("description", ""), tx_type_safe),
+                "source": "statement",
+                "confidence": 100,
+                "reconciliation_flags": [],
+                "bank": "unknown",
+                "balance": None,
+                "is_valid": True,
+                "statement_hash": file_hash,
+                "statement_row_hash": row_hash,
+                "reference": None
+            }
+        )
+
+    parsed_payload = {
+        "status": "success",
+        "request_id": request_id,
+        "reconciliation_score": 1.0,
+        "transactions": transactions,
+        "statement_metadata": {
+            "institution": "unknown",
+            "account_id": "unknown",
+            "currency": "INR",
+            "period": {"from": None, "to": None}
+        },
+        "meta": {
+            "count": len(transactions),
+            "bank": "generic",
+            "method": "digital_pdf",
+            "avg_confidence": 1.0,
+            "requires_review": False,
+            "extraction_notes": None,
+            "warnings": [],
+            "errors": [],
+            "parsing_time_seconds": meta.get("parsing_time_seconds", 0)
+        },
+    }
+
+    persisted_count = _persist_parsed_transactions(db, user.id, transactions)
+    summary = _build_financial_summary(db, user.id)
+
+    parsed_payload["saved_count"] = persisted_count
+    parsed_payload["financial_summary"] = summary
+
+    try:
+        record.status = "success"
+        record.tx_count = len(transactions)
+        record.reconciliation_score = Decimal("1.0")
+        record.account_type = "generic"
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to update statement record: {e}")
+        db.rollback()
+
+    _audit(
+        db,
+        request,
+        action="statement_parsed",
+        resource_type="digital_pdf_parser",
+        status_code=status.HTTP_200_OK,
+        user=user,
+        details={
+            "parsed_transactions": len(transactions),
+            "persisted_transactions": persisted_count,
+            "file_size": file_size,
+            "file_hash": file_hash,
+        },
+    )
+
+    return success_response(request, parsed_payload, message="Digital PDF parsed", http_status=status.HTTP_200_OK)

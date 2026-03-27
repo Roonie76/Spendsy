@@ -579,26 +579,6 @@ export default function App() {
     if (success) setShowWizard(false);
   };
 
-  useEffect(() => {
-    const loadPdfWorker = async () => {
-      const src =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-      if (!document.querySelector(`script[src="${src}"]`)) {
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = true;
-        script.onload = () => {
-          if (window.pdfjsLib) {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-              "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-          }
-        };
-        document.head.appendChild(script);
-      }
-    };
-    loadPdfWorker();
-  }, []);
-
   if (!currentUser) {
     return <LoginScreen onAuthSuccess={handleAuthSuccess} showToast={showToast} />;
   }

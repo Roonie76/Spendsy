@@ -33,7 +33,7 @@ def validate_file_security(file: UploadFile) -> None:
     """
     # 1. Size Check
     # Note: file.size is available in modern FastAPI versions (starlette 0.21+)
-    file_size = getattr(file, "size", 0)
+    file_size = getattr(file, "size", 0) or 0
     max_size = settings.max_upload_size_mb * 1024 * 1024
     if file_size > max_size:
         raise HTTPException(

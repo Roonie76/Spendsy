@@ -1,8 +1,14 @@
 import React from "react";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { vi } from "vitest";
+import { detectPdfType } from "../../utils/pdf/detectPdfType";
 import AddPage from "../../pages/AddPage";
 import StatementHub from "../../components/ui/StatementHub";
+import { OCR_CONVERTER_URL } from "../../components/upload/OcrUnsupportedModal";
+
+vi.mock("../../utils/pdf/detectPdfType", () => ({
+  detectPdfType: vi.fn(),
+}));
 
 const baseProps = {
   user: { id: 1, username: "demo" },
@@ -30,11 +36,19 @@ describe("AddPage - Add Transaction", () => {
   beforeEach(() => {
     vi.useRealTimers();
     vi.stubGlobal("fetch", vi.fn());
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, data: [] }),
+    });
+    detectPdfType.mockReset();
+    detectPdfType.mockResolvedValue("digital");
     baseProps.showToast.mockClear();
     baseProps.refreshData.mockClear();
+    vi.spyOn(window, "open").mockImplementation(() => null);
   });
 
   afterEach(() => {
+    window.open.mockRestore();
     vi.unstubAllGlobals();
   });
 
@@ -62,10 +76,12 @@ describe("AddPage - Add Transaction", () => {
     const { amountInput, descInput } = fillTransactionForm();
 
     // Act
-    fireEvent.click(screen.getByRole("button", { name: /save transaction/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /save transaction/i }));
+      await Promise.resolve();
+    });
 
     // Assert
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     expect(global.fetch).toHaveBeenCalledWith(
       "http://localhost:8000/api/finance/transactions",
       expect.objectContaining({ method: "POST" }),
@@ -80,10 +96,18 @@ describe("AddPage - Add Transaction", () => {
     // Arrange
     let resolveFetch;
     global.fetch.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveFetch = resolve;
-        }),
+      (url) => {
+        if (String(url).includes("/transactions")) {
+          return new Promise((resolve) => {
+            resolveFetch = resolve;
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ok: true, data: [] }),
+        });
+      },
     );
 
     render(<AddPage {...baseProps} />);
@@ -96,11 +120,20 @@ describe("AddPage - Add Transaction", () => {
     expect(screen.getByText(/processing/i)).toBeInTheDocument();
 
     // Cleanup
-    resolveFetch({ ok: true, json: async () => ({ ok: true }) });
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    await act(async () => {
+      resolveFetch({ ok: true, json: async () => ({ ok: true }) });
+      await Promise.resolve();
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/finance/transactions",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("shows an error state when the API fails", async () => {
+    vi.useFakeTimers();
+
     // Arrange
     global.fetch.mockResolvedValue({
       ok: false,
@@ -113,14 +146,18 @@ describe("AddPage - Add Transaction", () => {
     fireEvent.click(screen.getByRole("button", { name: /save transaction/i }));
 
     // Assert
-    await waitFor(() => expect(baseProps.showToast).toHaveBeenCalled(), {
-      timeout: 10000,
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8000);
     });
+
+    expect(baseProps.showToast).toHaveBeenCalled();
     expect(baseProps.showToast).toHaveBeenCalledWith(
       expect.stringContaining("Server Error"),
       "error",
     );
-  }, 10000);
+
+    vi.useRealTimers();
+  });
 
   it("refreshes shared data after a successful statement upload", async () => {
     global.fetch.mockImplementation((url) => {
@@ -131,7 +168,7 @@ describe("AddPage - Add Transaction", () => {
         });
       }
 
-      if (String(url).includes("/parse-statement")) {
+      if (String(url).includes("/parse-digital-pdf")) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -142,7 +179,7 @@ describe("AddPage - Add Transaction", () => {
                   id: 999,
                   amount: "430.00",
                   type: "expense",
-                  description: "Parsed OCR transaction",
+                  description: "Parsed digital PDF transaction",
                   date: "2023-07-19",
                 },
               ],
@@ -176,8 +213,62 @@ describe("AddPage - Add Transaction", () => {
 
     await waitFor(() => expect(baseProps.refreshData).toHaveBeenCalled());
     expect(baseProps.showToast).toHaveBeenCalledWith(
-      "Statement processed! Synced 1 transactions.",
+      "Digital PDF processed! Synced 1 transactions.",
       "success",
     );
   }, 10000);
+
+  it("blocks OCR PDFs and shows the unsupported-format modal", async () => {
+    detectPdfType.mockResolvedValue("ocr");
+
+    const { container } = render(
+      <StatementHub
+        user={baseProps.user}
+        apiBaseUrl={baseProps.apiBaseUrl}
+        showToast={baseProps.showToast}
+        refreshData={baseProps.refreshData}
+      />,
+    );
+
+    const fileInput = container.querySelector('input[type="file"]');
+    const file = new File(["scanned pdf"], "scan.pdf", { type: "application/pdf" });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    expect(await screen.findByText(/OCR format not supported/i)).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/parse-digital-pdf"),
+      expect.anything(),
+    );
+    expect(baseProps.refreshData).not.toHaveBeenCalled();
+  });
+
+  it("opens the converter from the OCR modal", async () => {
+    detectPdfType.mockResolvedValue("ocr");
+
+    const { container } = render(
+      <StatementHub
+        user={baseProps.user}
+        apiBaseUrl={baseProps.apiBaseUrl}
+        showToast={baseProps.showToast}
+        refreshData={baseProps.refreshData}
+      />,
+    );
+
+    const fileInput = container.querySelector('input[type="file"]');
+    const file = new File(["scanned pdf"], "scan.pdf", { type: "application/pdf" });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /open converter/i }));
+    expect(window.open).toHaveBeenCalledWith(
+      OCR_CONVERTER_URL,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
 });

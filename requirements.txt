@@ -27,8 +27,8 @@ tenacity==8.5.0
 starlette>=0.40.0
 uvicorn[standard]==0.27.0
 uvloop==0.22.1
-pdf2image
 google-genai
-pypdf==4.1.0
-pytesseract==0.3.13
 python-dateutil==2.8.2
+camelot-py[cv]
+opencv-python-headless
+pytesseract

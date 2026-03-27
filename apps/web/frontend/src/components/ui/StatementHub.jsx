@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Loader2,
   UploadCloud,
@@ -7,15 +7,18 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  ExternalLink,
 } from "lucide-react";
 import { formatIndianCompact } from "../../../../../../packages/shared/utils/helpers";
 import { apiFetch } from "../../api";
+import { detectPdfType } from "../../utils/pdf/detectPdfType";
+import OcrUnsupportedModal from "../upload/OcrUnsupportedModal";
+import { parseDigitalPdfUpload } from "../../services/parser";
 
 const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
   const [history, setHistory] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [showUnsupportedPdfModal, setShowUnsupportedPdfModal] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -39,37 +42,47 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      showToast("Only PDF statements are supported in this upload flow.", "error");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
+    try {
+      const pdfType = await detectPdfType(file);
+      if (pdfType === "ocr") {
+        setShowUnsupportedPdfModal(true);
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+    } catch (error) {
+      console.error("PDF inspection error:", error);
+      showToast("Could not inspect this PDF. Please try another file.", "error");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
     try {
-      // 1. Upload file and parse transactions
-      const formData = new FormData();
-      formData.append("file", file);
-
-      showToast("Uploading and parsing statement...", "info");
-      const parseResponse = await apiFetch(`${apiBaseUrl}/parse-statement?confirm_persist=true`, {
-        method: "POST",
-        body: formData,
-      });
+      showToast("Uploading and parsing digital PDF...", "info");
+      const parseResponse = await parseDigitalPdfUpload(apiBaseUrl, file);
 
       const parsedPayload = parseResponse?.data || parseResponse;
       const txs = parsedPayload.transactions || [];
 
       if (txs.length === 0) {
-        showToast("No transactions could be extracted from this file.", "error");
+        setShowUnsupportedPdfModal(true);
         return;
       }
 
-      // 2. Report status to user
       const savedCount = parsedPayload.saved_count !== undefined ? parsedPayload.saved_count : txs.length;
-      const requiresReview = parsedPayload.meta?.requires_review;
       const warnings = parsedPayload.meta?.warnings || [];
 
-      if (requiresReview) {
-        showToast(warnings[0] || `Statement processed! However, reconciliation failed. ${savedCount} transactions require review.`, "error");
-      } else if (warnings.length > 0) {
+      if (warnings.length > 0) {
         showToast(warnings[0] || `Statement processed! Synced ${savedCount} transactions with warnings.`, "info");
       } else {
-        showToast(`Statement processed! Synced ${savedCount} transactions.`, "success");
+        showToast(`Digital PDF processed! Synced ${savedCount} transactions.`, "success");
       }
       
       await Promise.all([
@@ -79,9 +92,8 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
 
     } catch (err) {
       console.error("Upload error:", err);
-      showToast("Error processing statement. Please try again.", "error");
+      showToast(err.message || "Error processing digital PDF. Please try again.", "error");
       
-      // Log failed attempt if it was a parsing failure
       await apiFetch(`${apiBaseUrl}/statements/record`, {
         method: "POST",
         body: JSON.stringify({
@@ -128,26 +140,34 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
         }`}
       >
         {uploading ? (
-          <div className="relative z-10 flex flex-col items-center">
-            <Loader2 className="w-12 h-12 text-blue-400 mb-4 animate-spin" />
-            <h3 className="font-bold text-white text-lg">Analyzing Statement...</h3>
-            <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest">
-              Extracting transactions & reconciling
-            </p>
-          </div>
-        ) : (
+            <div className="relative z-10 flex flex-col items-center">
+              <Loader2 className="w-12 h-12 text-blue-400 mb-4 animate-spin" />
+              <h3 className="font-bold text-white text-lg">Parsing Digital PDF...</h3>
+              <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest">
+                Extracting searchable text
+              </p>
+            </div>
+          ) : (
           <div className="relative z-10">
             <div className="w-16 h-16 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
               <UploadCloud className="w-8 h-8 text-blue-400" />
             </div>
-            <h3 className="font-bold text-white text-xl">Upload Bank Statement</h3>
-            <p className="text-sm text-slate-400 mt-2 max-w-xs mx-auto">
-              Auto-extract and sync transactions from SBI, HDFC, ICICI, or Axis bank statements
+            <h3 className="font-bold text-white text-xl">Upload Digital PDF Statement</h3>
+            <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
+              Upload a searchable bank statement. 
             </p>
-            <div className="mt-6 flex justify-center gap-3">
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
               <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">PDF</span>
-              <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">CSV</span>
-              <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">XLSX</span>
+              <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">Digital</span>
+              <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">Searchable</span>
+              <button 
+                type="button" 
+                onClick={(e) => { e.stopPropagation(); setShowUnsupportedPdfModal(true); }} 
+                className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded-full text-xs font-medium text-amber-400 border border-amber-500/20 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                OCR / Scanned Help
+              </button>
             </div>
           </div>
         )}
@@ -156,7 +176,7 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
           ref={fileRef}
           onChange={handleFileUpload}
           className="hidden"
-          accept=".pdf,.csv,.xlsx"
+          accept=".pdf,application/pdf"
           disabled={uploading}
         />
       </motion.div>
@@ -220,6 +240,11 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
           </div>
         )}
       </div>
+
+      <OcrUnsupportedModal
+        open={showUnsupportedPdfModal}
+        onClose={() => setShowUnsupportedPdfModal(false)}
+      />
     </div>
   );
 };

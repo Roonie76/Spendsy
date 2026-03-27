@@ -36,11 +36,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/finance/, '')
       },
-      '/api/parser': {
-        target: 'http://localhost:8003',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/parser/, '')
-      },
       '/api/ai': {
         target: 'http://localhost:8004',
         changeOrigin: true,

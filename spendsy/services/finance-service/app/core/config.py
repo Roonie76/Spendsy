@@ -47,8 +47,6 @@ class Settings(BaseSettings):
             raise ValueError("JWT_SECRET must be at least 32 characters")
         return v
 
-    parser_service_url: str = "http://parser-service:8000"
-
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_url: str | None = None
@@ -81,9 +79,6 @@ class Settings(BaseSettings):
     finance_rate_limit_window_seconds: int = 60
     finance_rate_limit_default: int = 20
     finance_rate_limit_upload: int = 5
-    # External APIs
-    google_api_key: str | None = None
-
     # File Upload Security
     max_upload_size_mb: int = 10
     allowed_extensions: list[str] = ["pdf", "jpg", "jpeg", "png", "csv", "xls", "xlsx"]

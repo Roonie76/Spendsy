@@ -27,7 +27,6 @@ if [ ! -f "$PROJECT_ROOT/.env" ]; then
     echo "📄 Creating .env from .env.example..."
     cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
 fi
-
 # 1. Install Dependencies
 echo "🐍 Installing Python dependencies..."
 source "$VENV_ROOT/bin/activate"

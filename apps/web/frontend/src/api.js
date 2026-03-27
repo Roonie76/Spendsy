@@ -282,10 +282,10 @@ export const financeApi = {
       body: JSON.stringify(body),
     }),
 
-  parseStatement: (file) => {
+  parseDigitalPdf: (file) => {
     const fd = new FormData();
     fd.append("file", file);
-    return apiFetch(`${API_BASE}/parse-statement`, { method: "POST", body: fd });
+    return apiFetch(`${API_BASE}/parse-digital-pdf`, { method: "POST", body: fd });
   },
 };
 
