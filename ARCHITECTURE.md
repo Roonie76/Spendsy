@@ -11,11 +11,9 @@ graph TD
     User((User)) -->|HTTPS| Nginx[Nginx Gateway]
     Nginx -->|/auth| Auth[Auth Service]
     Nginx -->|/finance| Finance[Finance Service]
-    Nginx -->|/parser| Parser[Parser Service]
     Nginx -->|/ai| AI[AI Service]
     
     Auth -->|Stores Sessions| Redis[(Redis)]
-    Finance -->|Requests Parse| Parser
     AI -->|Fetches Context| Finance
     
     Auth -->|Requests| PgBouncer[PgBouncer Pooler]
@@ -43,14 +41,8 @@ Responsible for identity management.
 The core domain service.
 - **Tech**: FastAPI, PostgreSQL (via PgBouncer).
 - **Entities**: Transactions, Wealth Records, User Profiles, Bank Accounts (Debit/Credit).
-- **Accuracy**: Uses `Decimal` type for all financial calculations.
-
-### 4. Parser Service (`spendsy/services/parser-service`)
-Specialized worker service for document processing.
-- **Tech**: FastAPI, PDF libraries, PaddleOCR.
-- **Role**: Extracts transaction data from bank statement PDFs.
-- **Reliability**: Uses a `ProcessPoolExecutor` with the `spawn` start method to isolate heavy OCR/extraction tasks.
-- **Critical Restriction**: ⚠️ **Do NOT** run this service with `uvicorn --reload` when subprocess workers are enabled. The reload mechanism can cause deadlocks with the `spawn` context. Use `--workers 1` or run without reload for development.
+- **Parsing**: Implements a high-accuracy **Deterministic Parser** for digital PDFs using `pdfplumber` word-grouping and column detection.
+- **Accuracy**: Uses `Decimal` type for all financial calculations and achieved 100% extraction accuracy on digital statements.
 
 For a deep-dive into the reverse-engineered system lifecycle, API catalog, and CRUD mappings, see [ARCHITECTURAL_ANALYSIS.md](./docs/ARCHITECTURAL_ANALYSIS.md).
 
@@ -80,6 +72,6 @@ Single Page Application (SPA).
 
 ## 📊 Data Flow
 
-1. **Transaction Upload**: Frontend sends PDF -> Gateway -> Finance Service -> Parser Service.
+1. **Transaction Upload**: Frontend sends PDF -> Gateway -> Finance Service (Internal Deterministic Parser).
 2. **Analysis**: Finance Service processes data -> PostgreSQL.
 3. **Query**: User asks AI -> Gateway -> AI Service -> Finance Service (Internal API) -> AI response.

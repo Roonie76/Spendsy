@@ -10,7 +10,7 @@ Spendsy is a high-performance, open-source fintech platform designed for persona
 
 ## ✨ Key Features
 
-- **🛡️ Microservices Architecture**: Decoupled, high-performance services for Auth, Finance, Document Parsing, and AI.
+- **🛡️ Microservices Architecture**: Decoupled, high-performance services for Auth, Finance, and AI.
 - **🔒 Secure by Design**: HttpOnly cookie-based JWT authentication, robust rate-limiting, and IDOR prevention.
 - **📊 Financial Intelligence**: Deep transaction tracking, wealth management, and category-based spend analysis.
 - **💳 Bank Account Portal**: NEW dedicated management for debit and credit cards with automated limit tracking.
@@ -19,7 +19,7 @@ Spendsy is a high-performance, open-source fintech platform designed for persona
     - **Finance Copilot**: Real-time insights and chat-based financial queries.
     - **Spendsy AI Agent**: An autonomous agent (Tora) for complex reasoning and tool-calling.
     - **MCP Support**: Native [Model Context Protocol](https://modelcontextprotocol.io/) server for external AI integration.
-- **📑 Automated Statement Parsing**: High-fidelity extraction of data from PDF bank statements.
+- **📑 Automated Statement Parsing**: High-fidelity deterministic extraction from digital PDF bank statements.
 - **🚀 Developer Experience**: Docker-first development with the unified `run-local.sh` orchestrator.
 
 ---
@@ -30,8 +30,7 @@ The Spendsy ecosystem is built on a resilient service-mesh architecture:
 
 ### 🧩 Core Services
 - **`auth-service`**: (Port 8001) Identity & Access Management using FastAPI and Redis.
-- **`finance-service`**: (Port 8002) Core financial ledger, wealth tracking, and transaction management.
-- **`parser-service`**: (Port 8003) Document extraction engine for bank statements.
+- **`finance-service`**: (Port 8002) Core financial ledger, wealth tracking, and deterministic transaction parsing.
 - **`ai-service`**: (Port 8004) NLP & LLM orchestration for chat-based insights.
 
 ### 🔬 Advanced Components
@@ -92,8 +91,7 @@ docker compose -f infra/docker/docker-compose.dev.yml up --build
 ├── spendsy/services/        # Python Microservices
 │   ├── ai-service/          # LLM Orchestration
 │   ├── auth-service/        # Identity Management
-│   ├── finance-service/     # Core Business Logic
-│   └── parser-service/      # Document Extraction
+│   └── finance-service/     # Core Business Logic & Parsing
 ├── spendsy-mcp/             # Model Context Protocol Server
 ├── spendsy-ai/              # Standalone AI Agent
 ├── infra/docker/            # Orchestration & Gateway configurations

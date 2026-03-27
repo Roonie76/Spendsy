@@ -28,7 +28,6 @@ graph TD
     subgraph Service Layer
         Auth[Auth Service: 8001]
         Finance[Finance Service: 8002]
-        Parser[Parser Service: 8003]
         AIService[AI Service: 8004]
         Tora[Tora Agent: 8005]
         MCP[MCP Server: 8006]
@@ -45,7 +44,6 @@ graph TD
     Nginx --> Finance
     Nginx --> AIService
     
-    Finance -->|Extract Data| Parser
     AIService -->|Context Request| Finance
     Tora -->|Chat Processing| AIService
     MCP -->|Direct Database| Finance
@@ -75,7 +73,7 @@ Spendsy leverages cutting-edge technologies to ensure performance, accuracy, and
 - **Utility Libraries**:
     - `Decimal`: For high-precision financial arithmetic.
     - `Tenacity`: For resilient exponential backoff on retries.
-    - `PyPDFPlumber` & `Tesseract`: For heavy-duty document parsing.
+    - `pdfplumber`: For high-accuracy deterministic document parsing.
 
 ### 3.3 Intelligence (AI Layer)
 - **Core Models**: Google Gemini 1.5 Pro / 2.0 Flash
@@ -94,7 +92,7 @@ Spendsy leverages cutting-edge technologies to ensure performance, accuracy, and
 ## 4. Key Features
 
 ### 4.1 Automated Financial Tracking
-- **Smart Parsing**: Automated extraction of transactions from bank statements (PDF/CSV) using AI-assisted regex and parsing engines.
+- **Smart Parsing**: High-accuracy deterministic extraction of transactions from digital bank statements (PDF) using word-level coordinate analysis and column detection.
 - **Fingerprinting**: SHA-256 based deduplication to prevent double-counting when re-uploading overlapping statements.
 - **Real-time Ledger**: Transaction categorization with manual and AI-suggested refinements.
 

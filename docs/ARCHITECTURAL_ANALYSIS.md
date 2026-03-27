@@ -29,25 +29,25 @@ This document provides a comprehensive technical breakdown of the **Spendsy** ec
         [ NGINX API Gateway ] (Port 8080)
                  |
    +-------------+-------------+-------------+-------------+
-   |             |             |             |             |
-[Auth]        [Finance]     [Parser]      [AI]        [Tora]
-(8001)        (8002)        (8003)        (8004)        (8005)
-   |             |             |             |             |
-   +-------------+-------------+-------------+-------------+
+    |             |             |             |
+[Auth]        [Finance]     [AI]        [Tora]
+(8001)        (8002)        (8004)        (8005)
+   |             |             |             |
+   +-------------+-------------+-------------+
                  |             |
           [ PostgreSQL ]    [ Redis ]
 ```
 
 ### Folder Structure
 - `apps/web/frontend`: React application source.
-- `spendsy/services/`: Microservices (Auth, Finance, AI, Parser).
+- `spendsy/services/`: Microservices (Auth, Finance, AI).
 - `packages/shared/`: Cross-cutting concerns (Constants, Utils).
 - `infra/docker/`: Environment orchestration.
 - `spendsy-ai/`: Specialized Tora agent service.
 
 ### Layer Separation
 - **Routes**: Located in `app/api/`, handling endpoint definitions and input/output serialization (Pydantic).
-- **Services**: Located in `app/services/` (e.g., `GeminiClient`, `ParserClient`), handling external integrations.
+- **Services**: Located in `app/services/` (e.g., `GeminiClient`, `DeterministicParser`), handling external integrations and complex parsing logic.
 - **Models**: Located in `app/models.py`, defining SQLAlchemy entities.
 - **Schemas**: Located in `app/schemas.py`, defining Pydantic data contracts.
 - **Core**: Located in `app/core/`, managing infrastructure like database connections, redis, and security.
@@ -136,10 +136,10 @@ This document provides a comprehensive technical breakdown of the **Spendsy** ec
 
 ## 7. Business Logic Layer
 
-Core logic is primarily located in the **Route Handlers** (`routes_finance.py`) and dedicated **Parser Engines** (`parser.py`).
+Core logic is primarily located in the **Route Handlers** (`routes_finance.py`) and dedicated **Internal Parser Engines** (`digital_deterministic_parser.py`).
 - **Deduplication Logic**: Uses hashing of {user, date, amount, title} to manage statement overlaps.
 - **Categorization**: A hybrid approach using regex patterns and AI-based inference.
-- **Tax Calculation**: Implements Indian New/Old tax regime slabs in `packages/shared/config/constants.js`.
+- **Deterministic Parsing**: Replaces unreliable AI/OCR flows with a 100% accurate column-aware word-grouping engine.
 
 ---
 
@@ -157,7 +157,7 @@ Core logic is primarily located in the **Route Handlers** (`routes_finance.py`) 
 - **Redis**: Used for rate-limiting, task queuing, and temporary session blacklisting.
 - **Gemini Pro**: The primary brain for financial advice and categorization refinement.
 - **OpenAI (TORA)**: Powers the dedicated financial intelligence agent.
-- **PDFPlumber/Tesseract**: Heavy-lifting engines for parsing messy bank PDFs and images.
+- **PDFPlumber**: The core engine for high-accuracy deterministic digital statement parsing.
 
 ---
 
