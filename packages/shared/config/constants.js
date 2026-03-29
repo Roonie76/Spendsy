@@ -253,7 +253,31 @@ export const TABS = {
   SETTINGS: "settings",
   BANK_ACCOUNTS: "bank_accounts",
   GOALS: "goals",
+  PLANNER: "planner",
 };
+
+export const BANKS = [
+  "SBI",
+  "HDFC Bank",
+  "ICICI Bank",
+  "Axis Bank",
+  "Kotak Mahindra Bank",
+  "IndusInd Bank",
+  "Bank of Baroda",
+  "Punjab National Bank",
+  "Union Bank of India",
+  "Canara Bank",
+  "IDFC First Bank",
+  "Yes Bank",
+  "Federal Bank",
+  "Standard Chartered",
+  "Citi Bank",
+  "HSBC",
+  "DBS Bank",
+  "Bandhan Bank",
+  "South Indian Bank",
+  "Karnataka Bank",
+];
 
 export const UNITS = [
   { label: "₹", value: 1 },

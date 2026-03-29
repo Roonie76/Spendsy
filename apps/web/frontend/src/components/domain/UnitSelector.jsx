@@ -1,6 +1,6 @@
 // No database needed
 import React from 'react';
-import { UNITS } from '../../../../../../packages/shared/config/constants';
+import { UNITS } from '@shared/config/constants';
 
 const UnitSelector = ({ currentUnit, onSelect, className = "" }) => (
     <div className={`flex bg-black/40 rounded-xl border border-white/10 p-1 ${className}`}>

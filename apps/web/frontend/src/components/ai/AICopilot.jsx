@@ -15,6 +15,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [model, setModel] = useState("tora");
 
   const authHeader = useMemo(() => buildAuthHeader(authToken || ""), [authToken]);
   const authMissing = !authHeader;
@@ -37,7 +38,8 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         method: "POST",
         body: JSON.stringify({
           question: trimmed,
-          user_id: userId || 1
+          user_id: userId || 1,
+          model: model
         }),
       });
 
@@ -89,6 +91,8 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         onSend={handleSend}
         isLoading={isLoading}
         authMissing={authMissing}
+        model={model}
+        setModel={setModel}
       />
     </>
   );

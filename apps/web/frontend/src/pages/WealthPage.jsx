@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
 // import { db } from "../../../../../packages/shared/config/constants";
-import { formatIndianCompact, buildAuthHeader } from "../../../../../packages/shared/utils/helpers";
+import { formatIndianCompact, buildAuthHeader } from "@shared/utils/helpers";
+import { BANKS } from "@shared/config/constants";
 import UnitSelector from "../components/domain/UnitSelector";
 import WealthItem from "../components/domain/WealthItem";
 import { apiFetch } from "../api";
@@ -22,14 +23,22 @@ const WealthPage = ({
   const [wealthAmount, setWealthAmount] = useState("");
   const [wealthType, setWealthType] = useState("asset");
   const [wealthUnit, setWealthUnit] = useState(1);
+  const [isLoan, setIsLoan] = useState(false);
+  const [loanData, setLoanData] = useState({
+    bankName: "",
+    principal: "",
+    roi: "",
+    tenure: "",
+    loanType: "personal",
+  });
 
   // --- 1. Calculate Live Net Worth ---
   const totalAssets = wealthItems
     .filter((i) => i.type === "asset")
-    .reduce((acc, i) => acc + parseFloat(i.amount || i.value || 0), 0);
+    .reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
   const totalLiabilities = wealthItems
     .filter((i) => i.type === "liability")
-    .reduce((acc, i) => acc + parseFloat(i.amount || i.value || 0), 0);
+    .reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
   const netWorth = totalAssets - totalLiabilities;
 
   // --- 2. Mock History Data ---
@@ -44,20 +53,44 @@ const WealthPage = ({
   // --- 3. Handlers ---
   const executeAddWealth = async (data) => {
     try {
-      const response = await apiFetch(`${apiBaseUrl}/wealth`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: data.title, // Correctly mapped
-          amount: parseFloat(data.amount) * parseFloat(data.unit),
-          type: data.type,
-          category: "General",
-        }),
-      });
+      if (data.isLoan) {
+        // Calculate EMI and Remaining Balance for initial entry
+        // EMI = [P x R x (1+R)^N]/[(1+R)^N-1]
+        const p = parseFloat(data.loan.principal);
+        const r = parseFloat(data.loan.roi) / 12 / 100;
+        const n = parseInt(data.loan.tenure);
+        const emi = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+
+        await apiFetch(`${apiBaseUrl}/loans`, {
+          method: "POST",
+          body: JSON.stringify({
+            loan_type: data.loan.loanType,
+            bank_name: data.loan.bankName,
+            principal_amount: p,
+            interest_rate: parseFloat(data.loan.roi),
+            tenure_months: n,
+            emi_amount: emi.toFixed(2),
+            remaining_balance: p.toFixed(2), // Initial balance is principal
+          }),
+        });
+        setLoanData({ bankName: "", principal: "", roi: "", tenure: "", loanType: "personal" });
+        setIsLoan(false);
+      } else {
+        await apiFetch(`${apiBaseUrl}/wealth`, {
+          method: "POST",
+          body: JSON.stringify({
+            title: data.title,
+            amount: parseFloat(data.amount) * parseFloat(data.unit),
+            type: data.type,
+            category: "General",
+          }),
+        });
+      }
 
       setWealthName("");
       setWealthAmount("");
       showToast("Item added successfully!", "success");
-      onSuccess(); // <--- CRITICAL: Refetches data from Django
+      onSuccess(); 
     } catch (error) {
       showToast("Server error", "error");
     }
@@ -65,57 +98,77 @@ const WealthPage = ({
 
   const requestAddWealth = (e) => {
     e.preventDefault();
-    if (!wealthName || !wealthAmount || !user) return;
-
-    // Create the data object HERE to pass to the trigger
-    const newItem = {
-      title: wealthName,
-      amount: wealthAmount,
-      type: wealthType,
-      unit: wealthUnit,
-    };
-
-    triggerConfirm("Confirm adding this asset/liability?", () =>
-      executeAddWealth(newItem),
-    );
+    if (isLoan) {
+      if (!loanData.bankName || !loanData.principal || !loanData.roi || !loanData.tenure) return;
+      const loanTypeDisplay = loanData.loanType.charAt(0).toUpperCase() + loanData.loanType.slice(1);
+      triggerConfirm(`Add ${loanTypeDisplay} loan from ${loanData.bankName}?`, () =>
+        executeAddWealth({ isLoan: true, loan: loanData }),
+      );
+    } else {
+      if (!wealthName || !wealthAmount || !user) return;
+      const newItem = {
+        title: wealthName,
+        amount: wealthAmount,
+        type: wealthType,
+        unit: wealthUnit,
+        isLoan: false
+      };
+      triggerConfirm("Confirm adding this asset/liability?", () =>
+        executeAddWealth(newItem),
+      );
+    }
   };
 
-  const executeDeleteWealth = async (id) => {
+  const executeDeleteWealth = async (item) => {
     try {
-      // Correct URL format matching your Django urls.py
-      await apiFetch(`${apiBaseUrl}/wealth/${id}`, {
+      const endpoint = item.is_loan ? "loans" : "wealth";
+      await apiFetch(`${apiBaseUrl}/${endpoint}/${item.uid}`, {
         method: "DELETE",
       });
 
       showToast("Item removed", "success");
-      onSuccess(); // <--- CRITICAL: Refetches data from Django
+      onSuccess(); 
     } catch (e) {
       showToast("Failed to remove", "error");
     }
   };
 
-  const requestDeleteWealth = (id) =>
-    triggerConfirm("Remove this item?", () => executeDeleteWealth(id));
+  const requestDeleteWealth = (item) =>
+    triggerConfirm(`Remove ${item.title}?`, () => executeDeleteWealth(item));
 
-  // --- 3. Handlers ---
-
-  // ADD THIS NEW HANDLER HERE
   const executeUpdateWealth = async (id, updatedData) => {
+    // Determine if it's a loan or regular item based on the ID prefix or data
+    const isLoanItem = id.startsWith("loan_");
+    const item = wealthItems.find(i => i.id === id);
+    if (!item) {
+        showToast("Item not found", "error");
+        return;
+    }
+
     try {
-      await apiFetch(`${apiBaseUrl}/wealth/${id}`, {
-        method: "PUT", // or "PATCH"
-        body: JSON.stringify({
-          title: updatedData.title,
-          amount: updatedData.amount,
-        }),
+      const endpoint = isLoanItem ? "loans" : "wealth";
+      const payload = isLoanItem ? {
+        bank_name: updatedData.title,
+        remaining_balance: updatedData.amount,
+        interest_rate: updatedData.interest_rate,
+        tenure_months: updatedData.tenure
+      } : {
+        title: updatedData.title,
+        amount: updatedData.amount
+      };
+
+      await apiFetch(`${apiBaseUrl}/${endpoint}/${item.uid}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
       });
 
-      showToast("Item updated", "success");
-      onSuccess(); // Refetch data to refresh the UI
+      showToast(`${isLoanItem ? 'Loan' : 'Item'} updated`, "success");
+      onSuccess(); 
     } catch (error) {
       showToast("Server connection error", "error");
     }
   };
+  
   return (
     <div className="space-y-6 pb-28 animate-in slide-in-from-bottom-8">
       {/* NEW: Net Worth Graph Card */}
@@ -176,22 +229,18 @@ const WealthPage = ({
           </ResponsiveContainer>
         </div>
       </div>
-
+      
       {/* Add New Item Form */}
       <div className="bg-white/5 backdrop-blur-xl p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10">
         <h3 className="text-base sm:text-lg font-bold text-white mb-4 sm:mb-6">
-          Add Asset / Liability
+          Add {wealthType === 'liability' && isLoan ? 'Loan Details' : 'Asset / Liability'}
         </h3>
 
-        <form
-          onSubmit={requestAddWealth}
-          className="flex flex-col gap-3 sm:gap-4"
-        >
-          {/* 1. Toggle Buttons */}
+        <form onSubmit={requestAddWealth} className="flex flex-col gap-3 sm:gap-4">
           <div className="flex bg-black/30 p-1 rounded-xl border border-white/5">
             <button
               type="button"
-              onClick={() => setWealthType("asset")}
+              onClick={() => { setWealthType("asset"); setIsLoan(false); }}
               className={`flex-1 py-2 sm:py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${wealthType === "asset" ? "bg-emerald-500/20 text-emerald-300" : "text-slate-500"}`}
             >
               Asset
@@ -205,47 +254,129 @@ const WealthPage = ({
             </button>
           </div>
 
-          {/* 2. Amount Row (Stacked) */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={wealthAmount}
-              onChange={(e) => {
-                const val = e.target.value;
-                // Allow only valid decimal numbers
-                if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
-                  setWealthAmount(val);
-                }
-              }}
-              className="w-full flex-1 px-4 py-3 sm:py-4 bg-black/20 border border-white/10 rounded-2xl text-base text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50 transition-colors"
-              placeholder="Amount (e.g. 1.5)"
-              required
-            />
-            <div className="shrink-0">
-              <UnitSelector currentUnit={wealthUnit} onSelect={setWealthUnit} />
+          {wealthType === "liability" && (
+            <div className="flex items-center gap-2 mb-2 px-2">
+              <input 
+                type="checkbox" 
+                id="isLoan" 
+                checked={isLoan} 
+                onChange={e => setIsLoan(e.target.checked)}
+                className="w-4 h-4 rounded border-white/10 bg-black/20 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="isLoan" className="text-xs font-bold text-slate-400 cursor-pointer">
+                Structured Loan (Tenure, ROI, Bank)
+              </label>
             </div>
-          </div>
+          )}
 
-          {/* 3. Name Row (Stacked) */}
-          <input
-            type="text"
-            value={wealthName}
-            onChange={(e) => setWealthName(e.target.value)}
-            className="w-full px-4 py-3 sm:py-4 bg-black/20 border border-white/10 rounded-2xl text-base text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50 transition-colors"
-            placeholder="Name (e.g. House, Car Loan)"
-            required
-          />
+          {wealthType === "liability" && isLoan ? (
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <select
+                value={loanData.bankName}
+                onChange={e => setLoanData({...loanData, bankName: e.target.value})}
+                className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-2xl text-sm text-white outline-none focus:border-rose-500/50 appearance-none"
+                required
+              >
+                <option value="" disabled>Select Bank</option>
+                {BANKS.map(bank => (
+                  <option key={bank} value={bank}>{bank}</option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
 
-          {/* 4. Submit Button */}
+              <div className="space-y-1">
+                <div className="flex justify-between px-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Principal Amount</label>
+                  <span className="text-[10px] font-bold text-rose-300">₹{formatIndianCompact(loanData.principal || 0)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="10000"
+                  max="10000000"
+                  step="10000"
+                  value={loanData.principal || 10000}
+                  onChange={e => setLoanData({...loanData, principal: e.target.value})}
+                  className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <select 
+                  value={loanData.loanType}
+                  onChange={e => setLoanData({...loanData, loanType: e.target.value})}
+                  className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-2xl text-sm text-white outline-none focus:border-rose-500/50"
+                >
+                  <option value="personal">Personal Loan</option>
+                  <option value="home">Home Loan</option>
+                  <option value="car">Car Loan</option>
+                  <option value="student">Student Loan</option>
+                </select>
+                <input
+                  type="number"
+                  value={loanData.tenure}
+                  onChange={e => setLoanData({...loanData, tenure: e.target.value})}
+                  className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-2xl text-sm text-white outline-none placeholder:text-slate-600 focus:border-rose-500/50"
+                  placeholder="Tenure (Months)"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between px-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Interest Rate (%)</label>
+                  <span className="text-[10px] font-bold text-rose-300">{loanData.roi || 10}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  step="0.1"
+                  value={loanData.roi || 10}
+                  onChange={e => setLoanData({...loanData, roi: e.target.value})}
+                  className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={wealthAmount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) setWealthAmount(val);
+                  }}
+                  className="w-full flex-1 px-4 py-3 sm:py-4 bg-black/20 border border-white/10 rounded-2xl text-base text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50 transition-colors"
+                  placeholder="Amount (e.g. 1.5)"
+                  required
+                />
+                <div className="shrink-0">
+                  <UnitSelector currentUnit={wealthUnit} onSelect={setWealthUnit} />
+                </div>
+              </div>
+
+              <input
+                type="text"
+                value={wealthName}
+                onChange={(e) => setWealthName(e.target.value)}
+                className="w-full px-4 py-3 sm:py-4 bg-black/20 border border-white/10 rounded-2xl text-base text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50 transition-colors"
+                placeholder={wealthType === 'asset' ? "Name (e.g. House, Gold)" : "Name (e.g. Credit Card, Friend)"}
+                required
+              />
+            </>
+          )}
+
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 sm:py-4 rounded-2xl font-bold shadow-lg shadow-blue-900/20 active:scale-95 transition-all mt-2"
           >
-            Add Item
+            Add {isLoan ? `${loanData.loanType.charAt(0).toUpperCase() + loanData.loanType.slice(1)} Loan` : 'Item'}
           </button>
         </form>
       </div>
+
 
       {/* List */}
       <div>
@@ -262,7 +393,7 @@ const WealthPage = ({
               <WealthItem
                 key={item.id}
                 item={item}
-                onDelete={() => requestDeleteWealth(item.id)}
+                onDelete={() => requestDeleteWealth(item)}
                 onUpdate={executeUpdateWealth} // <--- ADD THIS LINE
               />
             ))}

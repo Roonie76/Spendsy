@@ -55,6 +55,8 @@ class TransactionPayload(BaseModel):
     balance: Decimal | None = None
     source: str | None = None
     is_recurring: bool | None = None
+    account_type: str | None = None
+
 
     @field_validator("amount")
     @classmethod
@@ -104,7 +106,9 @@ class TransactionOut(BaseModel):
     balance: Decimal | None = None
     source: str
     is_recurring: bool
+    account_type: str | None = None
     status: str = "active"
+
     reconciliation_flags: list[str] = Field(default_factory=list)
     created_at: datetime
 
@@ -270,6 +274,18 @@ class CreditCardOut(BaseModel):
 
 class LoanPayload(BaseModel):
     loan_type: str | None = Field(default=None, max_length=20)
+    bank_name: str | None = Field(default=None, max_length=100)
+    principal_amount: Decimal | None = Field(default=None, ge=0)
+    interest_rate: Decimal | None = Field(default=None, ge=0)
+    tenure_months: int | None = Field(default=None, ge=1)
+    start_date: date | None = None
+    emi_amount: Decimal | None = Field(default=None, ge=0)
+    remaining_balance: Decimal | None = Field(default=None, ge=0)
+
+
+class LoanUpdatePayload(BaseModel):
+    loan_type: str | None = Field(default=None, max_length=20)
+    bank_name: str | None = Field(default=None, max_length=100)
     principal_amount: Decimal | None = Field(default=None, ge=0)
     interest_rate: Decimal | None = Field(default=None, ge=0)
     tenure_months: int | None = Field(default=None, ge=1)
@@ -283,6 +299,7 @@ class LoanOut(BaseModel):
     id: int
     uid: str
     loan_type: str
+    bank_name: str | None
     principal_amount: Decimal
     interest_rate: Decimal
     tenure_months: int

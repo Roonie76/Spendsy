@@ -29,7 +29,9 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
         maxAmount: '',
         categories: [], // Array of category IDs
         types: [],      // ['income', 'expense']
+        accountTypes: [], // ['debit', 'credit']
         sortBy: 'date-desc' // 'date-desc', 'date-asc', 'amount-desc', 'amount-asc'
+
     });
 
     // 1. Calculate Active Filters Badge
@@ -41,6 +43,8 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
         if (filters.maxAmount) count++;
         if (filters.categories.length > 0) count++;
         if (filters.types.length > 0) count++;
+        if (filters.accountTypes.length > 0) count++;
+
         return count;
     }, [filters]);
 
@@ -83,6 +87,12 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
         if (filters.types.length > 0) {
             data = data.filter(t => filters.types.includes(t.type));
         }
+
+        // Account Types
+        if (filters.accountTypes.length > 0) {
+            data = data.filter(t => filters.accountTypes.includes(t.account_type));
+        }
+
         
         // Sorting
         data.sort((a, b) => {
@@ -186,7 +196,9 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
                         {filters.minAmount && <div className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] rounded-full border border-emerald-500/30 whitespace-nowrap">Min: ₹{filters.minAmount}</div>}
                         {filters.maxAmount && <div className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] rounded-full border border-emerald-500/30 whitespace-nowrap">Max: ₹{filters.maxAmount}</div>}
                         {filters.types.map(t => <div key={t} className="px-3 py-1 bg-purple-500/20 text-purple-300 text-[10px] rounded-full border border-purple-500/30 capitalize whitespace-nowrap">{t}</div>)}
+                        {filters.accountTypes.map(t => <div key={t} className={`px-3 py-1 text-[10px] rounded-full border capitalize whitespace-nowrap ${t === 'credit' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}>{t}</div>)}
                     </div>
+
                 )}
             </div>
 
@@ -206,8 +218,9 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
                     <div className="text-center py-20 opacity-50">
                         <Filter className="w-12 h-12 mx-auto mb-3 text-slate-600" />
                         <p className="text-slate-400 text-sm">No transactions match your filters.</p>
-                        <button onClick={() => setFilters({startDate: '', endDate: '', minAmount: '', maxAmount: '', categories: [], types: [], sortBy: 'date-desc'})} className="mt-4 text-blue-400 text-sm font-bold hover:underline">Clear Filters</button>
+                        <button onClick={() => setFilters({startDate: '', endDate: '', minAmount: '', maxAmount: '', categories: [], types: [], accountTypes: [], sortBy: 'date-desc'})} className="mt-4 text-blue-400 text-sm font-bold hover:underline">Clear Filters</button>
                     </div>
+
                 ) : (
                     visible.map(t => (
                         <TransactionItem 

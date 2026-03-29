@@ -11,5 +11,6 @@ class Settings(BaseSettings):
     finance_service_url: str = "http://localhost:8002"
     internal_api_key: str = "internal-dev-key"
     google_api_key: str | None = None
+    mistral_api_key: str | None = None
 
 settings = Settings()

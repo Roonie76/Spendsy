@@ -14,6 +14,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import settings
 from .tora_personality import TORA_SYSTEM_PROMPT, detect_intent, get_greeting_response, get_fallback_response
+from .llm_router import call_llm
+from .tools.tool_registry import get_tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,7 @@ def fetch_financial_summary(user_id: int) -> Dict[str, Any]:
         "loans": context.get("loans", []),
         "credit_cards": context.get("credit_cards", []),
         "goals": context.get("goals", []),
+        "plans": context.get("plans", []),
         "recent_transactions": context.get("recent_transactions", [])
     }
 
@@ -136,6 +139,11 @@ def sanitize_financial_data(summary: Dict[str, Any]) -> Dict[str, Any]:
             "category": tx.get("category", "unknown"),
             "is_recurring": tx.get("is_recurring", False)
         })
+    # Clean plans
+    for plan in clean_summary.get("plans", []):
+        plan.pop("id", None)
+        plan.pop("user_id", None)
+
     clean_summary["recent_transactions"] = clean_txs
     
     return clean_summary
@@ -164,60 +172,7 @@ def build_ai_context(summary: Dict[str, Any], simulations: Dict[str, Any], quest
     return prompt
 
 
-def call_ai_api(context: str) -> str:
-    """
-    Execute the HTTP call to the Google Gemini API using gemini-1.5-flash-lite.
-    """
-    api_key = settings.google_api_key or os.environ.get("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY environment variable is not set")
-        
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    # Adapt the context/prompt for Gemini
-    # Gemini 1.5 prefers a clear instruction to return JSON
-    effective_prompt = f"{context}\n\nIMPORTANT: Return ONLY valid JSON. No markdown backticks, no preamble."
-    
-    payload = {
-        "contents": [{"parts": [{"text": effective_prompt}]}],
-        "generationConfig": {
-            "temperature": 0.2
-        }
-    }
-    
-    # Use httpx if available (FastAPI standard), otherwise fallback to urllib
-    if has_httpx:
-        import httpx
-        with httpx.Client(timeout=30.0) as client:
-            response = client.post(url, headers=headers, json=payload)
-            if response.status_code != 200:
-                raise RuntimeError(f"Gemini API Error: {response.text}")
-            
-            data = response.json()
-            try:
-                return data["candidates"][0]["content"]["parts"][0]["text"]
-            except (KeyError, IndexError):
-                logger.error(f"Unexpected Gemini response structure: {data}")
-                raise RuntimeError("Gemini API returned an unexpected response structure")
-    else:
-        req = urllib.request.Request(
-            url, 
-            data=json.dumps(payload).encode('utf-8'), 
-            headers=headers, 
-            method="POST"
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30.0) as response:
-                result = json.loads(response.read().decode('utf-8'))
-                return result["candidates"][0]["content"]["parts"][0]["text"]
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode('utf-8')
-            raise RuntimeError(f"Gemini API Error ({e.code}): {error_body}")
-        except Exception as e:
-            raise RuntimeError(f"Request failed: {str(e)}")
+# Function call_ai_api is now replaced by llm_router.call_llm
 
 
 def _clean_json_response(raw_response: str) -> str:
@@ -227,7 +182,7 @@ def _clean_json_response(raw_response: str) -> str:
     return clean.strip()
 
 
-def generate_financial_strategy(user_id: int, question: str) -> Dict[str, Any]:
+def generate_financial_strategy(user_id: int, question: str, model: str = "tora") -> Dict[str, Any]:
     """
     The orchestrator function executing the full Agent Workflow.
     """
@@ -247,7 +202,7 @@ def generate_financial_strategy(user_id: int, question: str) -> Dict[str, Any]:
     
     # 5. Execute
     try:
-        raw_response = call_ai_api(prompt)
+        raw_response = call_llm(model, prompt, clean_summary)
         
         # Clean and parse the structured JSON response
         try:
@@ -256,25 +211,24 @@ def generate_financial_strategy(user_id: int, question: str) -> Dict[str, Any]:
             
             # Execute tools if requested
             if "tool_calls" in structured_advice and isinstance(structured_advice["tool_calls"], list):
-                from tools import create_plan, delete_plan
+                registry = get_tool_registry()
                 for tool in structured_advice["tool_calls"]:
                     try:
                         name = tool.get("name")
                         params = tool.get("parameters", {})
-                        if name == "create_plan":
-                            logger.info(f"TORA executing tool: create_plan for user {user_id}")
-                            create_plan(
-                                user_id, 
-                                str(params.get("title", "Financial Plan")), 
-                                str(params.get("description", "")),
-                                float(params.get("target_amount", 0)),
-                                params.get("target_date")
-                            )
-                        elif name == "delete_plan":
-                            plan_id = params.get("plan_id")
-                            if plan_id:
-                                logger.info(f"TORA executing tool: delete_plan {plan_id} for user {user_id}")
-                                delete_plan(user_id, str(plan_id))
+                        if name in registry:
+                            logger.info(f"TORA executing tool: {name} for user {user_id}")
+                            tool_func = registry[name]
+                            
+                            # Special handling for user_id and plan_id
+                            if name in ["create_plan", "create_loan_repayment_plan"]:
+                                # TORA provides the data inside parameters
+                                tool_func(user_id, params)
+
+                            elif name == "adjust_plan":
+                                plan_id = params.pop("plan_id", None)
+                                if plan_id:
+                                    tool_func(user_id, plan_id, params)
                         else:
                             logger.warning(f"Unknown tool requested by TORA: {name}")
                     except Exception as e:
@@ -361,7 +315,7 @@ def _load_recent_conversation(user_id: int, limit: int = 5) -> List[Dict[str, An
     return history
 
 
-def handle_user_question(user_id: int, question: str) -> Dict[str, Any]:
+def handle_user_question(user_id: int, question: str, model: str = "tora") -> Dict[str, Any]:
     """
     Main entry point for the TORA agent endpoint.
     1. Detects message intent (greeting, finance, or other).
@@ -391,7 +345,7 @@ def handle_user_question(user_id: int, question: str) -> Dict[str, Any]:
     _save_conversation(user_id, "user", question)
 
     try:
-        strategy_json = generate_financial_strategy(user_id, question)
+        strategy_json = generate_financial_strategy(user_id, question, model)
         # Persist the assistant response
         _save_conversation(user_id, "assistant", strategy_json.get("Financial Overview", ""), strategy_json)
         return strategy_json

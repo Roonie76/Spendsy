@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   TABS,
   APP_VERSION,
-} from "../../../../packages/shared/config/constants";
-import { cn } from "../../../../packages/shared/utils/cn";
+} from "@shared/config/constants";
+import { cn } from "@shared/utils/cn";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap,
@@ -13,7 +13,7 @@ import {
   ArrowUp,
   Layout as LayoutIcon,
 } from "lucide-react";
-import { formatIndianCompact } from "../../../../packages/shared/utils/helpers";
+import { formatIndianCompact } from "@shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
 import { Toast, ConfirmationDialog } from "./components/ui/Shared";
 
@@ -32,6 +32,7 @@ import CreditCardsPage from "./pages/CreditCardsPage";
 import SettingsPage from "./pages/SettingsPage";
 import BankAccountsPage from "./pages/BankAccountsPage";
 import GoalsPage from "./pages/GoalsPage";
+import PlannerPage from "./pages/PlannerPage";
 import AICopilot from "./components/ai/AICopilot";
 import { apiFetch, authApi, clearStoredAuth } from "./api";
 
@@ -644,7 +645,7 @@ export default function App() {
           </div>
         </header>
 
-        {[TABS.HOME, TABS.ADD, TABS.STATS, TABS.WEALTH].includes(activeTab) && (
+        {[TABS.HOME, TABS.ADD, TABS.STATS, TABS.WEALTH, TABS.PLANNER].includes(activeTab) && (
           <motion.div
             whileHover={{ scale: 1.01, y: -2 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -791,6 +792,14 @@ export default function App() {
                   onSuccess={fetchWealth}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
+                />
+              )}
+              {activeTab === TABS.PLANNER && (
+                <PlannerPage 
+                  user={currentUser}
+                  authToken={authToken}
+                  apiBaseUrl={API_BASE_URL}
+                  theme={theme} 
                 />
               )}
               {activeTab === TABS.AUDIT && (

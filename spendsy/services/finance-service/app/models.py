@@ -47,9 +47,11 @@ class Transaction(Base):
     statement_row_hash = Column(String(64), nullable=True, index=True)
     fingerprint = Column(String(64), nullable=True)
     is_recurring = Column(Boolean, default=False)
+    account_type = Column(String(20), nullable=True)  # 'debit', 'credit'
     confidence = Column(Integer, default=100, nullable=False)
     status = Column(String(20), default="active", nullable=False)  # 'active', 'flagged'
     reconciliation_flags = Column(JSONB, default=list, nullable=False)
+
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 
@@ -150,7 +152,9 @@ class Loan(Base):
     uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     loan_type = Column(String(20), nullable=False)  # home, car, student, personal
+    bank_name = Column(String(100), nullable=True)
     principal_amount = Column(Numeric(15, 2), nullable=False)
+
     interest_rate = Column(Numeric(5, 2), nullable=False)
     tenure_months = Column(Integer, nullable=False)
     start_date = Column(Date, default=date.today)
@@ -298,6 +302,7 @@ class SmartRecommendation(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 
+
 class UserAlert(Base):
     """Stores proactive financial alerts for the user."""
     __tablename__ = "finance_useralert"
@@ -311,3 +316,30 @@ class UserAlert(Base):
     data_json = Column(JSONB, default=dict)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class FinancePlan(Base):
+    """Detailed financial plans — e.g. 'Retirement', 'House Purchase', 'Debt Payoff'."""
+    __tablename__ = "finance_plan"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    loan_id = Column(BigInteger, nullable=True)  # Link to finance_loan
+    title = Column(String(100), nullable=False)
+
+    source = Column(String(20), default="manual")  # 'manual' or 'ai'
+
+    target_amount = Column(Numeric(15, 2), nullable=False)
+    current_saved = Column(Numeric(15, 2), nullable=False, default=0)
+    deadline = Column(Date, nullable=False)
+
+    monthly_saving = Column(Numeric(15, 2), nullable=False)
+    daily_saving = Column(Numeric(15, 2), nullable=False)
+
+    confidence_score = Column(Numeric(5, 2), default=1.0)  # 0.0 to 1.0 (AI confidence)
+    reasoning = Column(String(1000), nullable=True)
+
+    status = Column(String(20), default="on_track")  # 'on_track', 'risk', 'delayed', 'completed'
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

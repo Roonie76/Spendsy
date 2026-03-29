@@ -19,6 +19,8 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
   const [uploading, setUploading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [showUnsupportedPdfModal, setShowUnsupportedPdfModal] = useState(false);
+  const [statementType, setStatementType] = useState("debit");
+
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -52,27 +54,26 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
     try {
       const pdfType = await detectPdfType(file);
       if (pdfType === "ocr") {
-        setShowUnsupportedPdfModal(true);
-        if (fileRef.current) fileRef.current.value = "";
-        return;
+        console.warn("Frontend OCR detection triggered, but allowing upload to backend for robust verification.");
+        showToast("Low text density detected. Attempting to parse anyway...", "info");
       }
     } catch (error) {
       console.error("PDF inspection error:", error);
-      showToast("Could not inspect this PDF. Please try another file.", "error");
-      if (fileRef.current) fileRef.current.value = "";
-      return;
+      // Fallback to uploading if inspection fails
     }
 
     setUploading(true);
     try {
-      showToast("Uploading and parsing digital PDF...", "info");
-      const parseResponse = await parseDigitalPdfUpload(apiBaseUrl, file);
+      showToast("Uploading and parsing PDF...", "info");
+      const parseResponse = await parseDigitalPdfUpload(apiBaseUrl, file, statementType);
+
+
 
       const parsedPayload = parseResponse?.data || parseResponse;
       const txs = parsedPayload.transactions || [];
 
       if (txs.length === 0) {
-        setShowUnsupportedPdfModal(true);
+        showToast("No transactions were found in this PDF. It might be an unsupported format.", "warning");
         return;
       }
 
@@ -82,8 +83,9 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
       if (warnings.length > 0) {
         showToast(warnings[0] || `Statement processed! Synced ${savedCount} transactions with warnings.`, "info");
       } else {
-        showToast(`Digital PDF processed! Synced ${savedCount} transactions.`, "success");
+        showToast(`PDF processed! Synced ${savedCount} transactions.`, "success");
       }
+
       
       await Promise.all([
         fetchHistory(),
@@ -92,15 +94,26 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
 
     } catch (err) {
       console.error("Upload error:", err);
-      showToast(err.message || "Error processing digital PDF. Please try again.", "error");
+      
+      if (
+        err.code === "OCR_REQUIRED" || 
+        err.body?.code === "OCR_REQUIRED" || 
+        (err.message && err.message.includes("OCR_REQUIRED"))
+      ) {
+        setShowUnsupportedPdfModal(true);
+      } else {
+        showToast(err.message || "Error processing PDF. Please try again.", "error");
+      }
+
       
       await apiFetch(`${apiBaseUrl}/statements/record`, {
         method: "POST",
         body: JSON.stringify({
           filename: file.name,
           status: "failed",
-          account_type: "Unknown",
+          account_type: statementType === "debit" ? "Debit" : "Credit",
           tx_count: 0,
+
           reconciliation_score: 0
         }),
       }).catch(e => console.error("Could not log failed statement", e));
@@ -132,7 +145,32 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
 
   return (
     <div className="space-y-6">
+      {/* Account Type Toggle */}
+      <div className="flex bg-slate-900/50 backdrop-blur-xl p-1 rounded-xl border border-white/5 max-w-[300px] mx-auto">
+        <button
+          onClick={() => setStatementType("debit")}
+          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+            statementType === "debit"
+              ? "bg-blue-500/20 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+              : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          Debit Card
+        </button>
+        <button
+          onClick={() => setStatementType("credit")}
+          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+            statementType === "credit"
+              ? "bg-purple-500/20 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
+              : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          Credit Card
+        </button>
+      </div>
+
       <motion.div
+
         whileHover={{ scale: 1.01, borderColor: "rgba(59,130,246,0.5)" }}
         onClick={() => !uploading && fileRef.current.click()}
         className={`border-2 border-dashed border-white/10 rounded-[2.5rem] p-12 text-center cursor-pointer transition-all bg-white/[0.02] relative overflow-hidden backdrop-blur-xl ${
@@ -142,8 +180,9 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
         {uploading ? (
             <div className="relative z-10 flex flex-col items-center">
               <Loader2 className="w-12 h-12 text-blue-400 mb-4 animate-spin" />
-              <h3 className="font-bold text-white text-lg">Parsing Digital PDF...</h3>
+              <h3 className="font-bold text-white text-lg">Parsing PDF...</h3>
               <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest">
+
                 Extracting searchable text
               </p>
             </div>
@@ -152,14 +191,13 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
             <div className="w-16 h-16 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
               <UploadCloud className="w-8 h-8 text-blue-400" />
             </div>
-            <h3 className="font-bold text-white text-xl">Upload Digital PDF Statement</h3>
-            <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
-              Upload a searchable bank statement. 
-            </p>
+            <h3 className="font-bold text-white text-xl">
+              Upload {statementType === "debit" ? "Debit Card" : "Credit Card"} Statement
+            </h3>
+
+
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">PDF</span>
-              <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">Digital</span>
-              <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-300 border border-white/10">Searchable</span>
               <button 
                 type="button" 
                 onClick={(e) => { e.stopPropagation(); setShowUnsupportedPdfModal(true); }} 
@@ -223,7 +261,20 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
                       <span>{new Date(record.created_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       <span>•</span>
                       <span>{record.tx_count} transactions</span>
+                      {record.account_type && (
+                        <>
+                          <span>•</span>
+                          <span className={`uppercase tracking-tighter text-[9px] px-1.5 py-0.5 rounded ${
+                            record.account_type.toLowerCase() === 'credit' 
+                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                              : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                          }`}>
+                            {record.account_type}
+                          </span>
+                        </>
+                      )}
                     </div>
+
                   </div>
                 </div>
 

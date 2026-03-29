@@ -38,6 +38,19 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
         });
     };
 
+    const handleAccountTypeToggle = (type) => {
+        setLocalFilters(prev => {
+            const exists = prev.accountTypes.includes(type);
+            return {
+                ...prev,
+                accountTypes: exists 
+                    ? prev.accountTypes.filter(t => t !== type) 
+                    : [...prev.accountTypes, type]
+            };
+        });
+    };
+
+
     return (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-[#0f172a] border border-white/10 w-full md:max-w-md h-[85vh] md:h-auto md:max-h-[85vh] rounded-t-[2rem] md:rounded-[2rem] shadow-2xl flex flex-col">
@@ -48,8 +61,9 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                     <div className="flex gap-2">
                         <button 
                             onClick={() => setLocalFilters({
-                                startDate: '', endDate: '', minAmount: '', maxAmount: '', categories: [], types: [], sortBy: 'date-desc'
+                                startDate: '', endDate: '', minAmount: '', maxAmount: '', categories: [], types: [], accountTypes: [], sortBy: 'date-desc'
                             })}
+
                             className="p-2 bg-white/5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                             title="Reset"
                         >
@@ -111,6 +125,30 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                             })}
                         </div>
                     </div>
+
+                    {/* Card Type */}
+                    <div className="space-y-3">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Card Type</label>
+                        <div className="flex gap-2">
+                            {['debit', 'credit'].map(type => {
+                                const isActive = localFilters.accountTypes.includes(type);
+                                return (
+                                    <button
+                                        key={type}
+                                        onClick={() => handleAccountTypeToggle(type)}
+                                        className={`flex-1 py-3 rounded-xl text-sm font-bold capitalize border transition-all flex items-center justify-center gap-2 ${
+                                            isActive
+                                            ? (type === 'credit' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'bg-blue-500/20 border-blue-500/50 text-blue-300')
+                                            : 'bg-white/5 border-transparent text-slate-400'
+                                        }`}
+                                    >
+                                        {isActive && <Check className="w-3 h-3" />} {type} Card
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
 
                     {/* Date Range */}
                     <div className="space-y-3">

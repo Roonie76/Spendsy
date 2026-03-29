@@ -10,6 +10,8 @@ export default function AIChatPanel({
   onSend,
   isLoading,
   authMissing,
+  model,
+  setModel,
 }) {
   const bottomRef = useRef(null);
 
@@ -37,10 +39,36 @@ export default function AIChatPanel({
               <Sparkles className="h-4 w-4 text-cyan-300" />
             </span>
             <div>
-              <p className="text-sm font-semibold">Tora</p>
+              <p className="text-sm font-semibold">
+                {model === "tora_plus" ? "TORA+ (Advanced Intelligence)" : "TORA"}
+              </p>
               <p className="text-[11px] text-slate-400">Private, personalized insights</p>
             </div>
           </div>
+
+          <div className="flex items-center gap-1.5 bg-white/5 rounded-2xl p-1 border border-white/10 ml-4 mr-auto">
+            <button
+              onClick={() => setModel("tora")}
+              className={`px-3 py-1 rounded-xl text-[10px] font-bold transition-all ${
+                model === "tora" 
+                  ? "bg-white/10 text-white shadow-sm" 
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              TORA
+            </button>
+            <button
+              onClick={() => setModel("tora_plus")}
+              className={`px-3 py-1 rounded-xl text-[10px] font-bold transition-all flex items-center gap-1 ${
+                model === "tora_plus" 
+                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg" 
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              TORA+ <Sparkles className="h-2.5 w-2.5" />
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={onClose}

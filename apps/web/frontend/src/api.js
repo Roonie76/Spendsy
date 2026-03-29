@@ -275,7 +275,10 @@ export const financeApi = {
   deleteWealth: (id) =>
     apiFetch(`${API_BASE}/wealth/${id}`, { method: "DELETE" }),
 
+  loans: () => apiFetch(`${API_BASE}/loans`),
+
   taxProfile: (userId) => apiFetch(`${API_BASE}/tax-profile/${userId}`),
+
   updateTaxProfile: (userId, body) =>
     apiFetch(`${API_BASE}/tax-profile/${userId}`, {
       method: "POST",
@@ -287,6 +290,12 @@ export const financeApi = {
     fd.append("file", file);
     return apiFetch(`${API_BASE}/parse-digital-pdf`, { method: "POST", body: fd });
   },
+  
+  // Plans (Planner System)
+  plans: () => apiFetch(`${API_BASE}/plans`),
+  addPlan: (body) => apiFetch(`${API_BASE}/plans`, { method: "POST", body: JSON.stringify(body) }),
+  updatePlan: (uid, body) => apiFetch(`${API_BASE}/plans/${uid}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deletePlan: (uid) => apiFetch(`${API_BASE}/plans/${uid}`, { method: "DELETE" }),
 };
 
 // ─── AI ───────────────────────────────────────────────────────────────────

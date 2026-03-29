@@ -57,6 +57,20 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
           <span className="mx-1.5 opacity-50">•</span>
           <span>{displayDate}</span>
           
+          {item.account_type && (
+            <>
+              <span className="mx-1.5 opacity-50">•</span>
+              <span className={`uppercase tracking-tighter text-[9px] px-1.5 py-0.5 rounded ${
+                item.account_type.toLowerCase() === 'credit' 
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/20' 
+                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/20'
+              }`}>
+                {item.account_type}
+              </span>
+            </>
+          )}
+
+          
           {isFlagged && item.reconciliation_flags && item.reconciliation_flags.length > 0 && (
             <span className="ml-2 text-[10px] text-rose-400 flex items-center gap-0.5 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
               {item.reconciliation_flags.join(", ")}

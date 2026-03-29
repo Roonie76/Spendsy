@@ -20,7 +20,7 @@ from app.core.config import settings
 from app.core.database import check_database_connection, get_db
 from app.core.redis import enqueue_task, get_identity_from_request, is_rate_limited, record_event, clear_user_financial_cache
 from app.core.security import UserContext, get_current_user
-from app.models import ApiAuditLog, CreditCard, DebitCard, ITRData, Loan, NetWorthSnapshot, StatementRecord, TaxProfile, Transaction, UserProfile, WealthItem
+from app.models import ApiAuditLog, CreditCard, DebitCard, FinancePlan, ITRData, Loan, NetWorthSnapshot, StatementRecord, TaxProfile, Transaction, UserProfile, WealthItem
 from pydantic import BaseModel
 from typing import List
 from app.schemas import (
@@ -329,7 +329,9 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
             confidence=confidence_val,
             status=tx_status,
             reconciliation_flags=reconciliation_flags,
+            account_type=item.get("account_type"),
         )
+
         db.add(tx)
         saved += 1
 
@@ -496,7 +498,9 @@ def add_transaction(
             raw_title,
         ),
         is_recurring=data.get("is_recurring") or False,
+        account_type=data.get("account_type"),
     )
+
     db.add(tx)
     try:
         db.commit()
@@ -572,7 +576,9 @@ def get_transaction_history(
                 "source": t.source,
                 "fingerprint": t.fingerprint,
                 "is_recurring": t.is_recurring,
+                "account_type": t.account_type,
                 "status": t.status,
+
                 "reconciliation_flags": t.reconciliation_flags,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             }
@@ -736,16 +742,40 @@ def wealth_list_create(
 ):
     if request.method == "GET":
         items = db.query(WealthItem).filter(WealthItem.user_id == user.id).order_by(WealthItem.created_at.desc()).all()
+        # Aggregate Loans into Wealth View
+        loans = db.query(Loan).filter(Loan.user_id == user.id).all()
+        
         payload_out = [
             {
-                "id": item.id,
+                "id": f"wealth_{item.id}",
+                "uid": item.uid,
                 "title": item.title,
                 "amount": str(item.amount),
                 "type": item.type,
                 "category": item.category,
+                "is_loan": False
             }
             for item in items
         ]
+        
+        for loan in loans:
+            payload_out.append({
+                "id": f"loan_{loan.id}",
+                "uid": loan.uid,
+                "title": f"{loan.loan_type.capitalize()} Loan",
+                "amount": str(loan.remaining_balance),
+                "type": "liability",
+                "category": "Debt",
+                "is_loan": True,
+                "loan_details": {
+                    "bank_name": loan.bank_name or "Unknown Bank",
+                    "principal": str(loan.principal_amount),
+                    "roi": str(loan.interest_rate),
+                    "tenure": loan.tenure_months,
+                    "emi": str(loan.emi_amount)
+                }
+            })
+            
         return success_response(request, payload_out)
 
     if payload is None:
@@ -1129,6 +1159,7 @@ def create_loan(
     loan = Loan(
         user_id=user.id,
         loan_type=payload.loan_type,
+        bank_name=payload.bank_name,
         principal_amount=payload.principal_amount,
         interest_rate=payload.interest_rate,
         tenure_months=payload.tenure_months,
@@ -1140,6 +1171,42 @@ def create_loan(
     db.commit()
     db.refresh(loan)
     return success_response(request, LoanOut.model_validate(loan).model_dump(), message="Loan created")
+
+
+@router.delete("/loans/{uid}")
+def delete_loan(
+    request: Request,
+    uid: str,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    loan = db.query(Loan).filter(Loan.uid == uid, Loan.user_id == user.id).first()
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    db.delete(loan)
+    db.commit()
+    return success_response(request, {"id": uid, "deleted": True}, message="Loan deleted")
+
+
+@router.put("/loans/{uid}")
+def update_loan(
+    request: Request,
+    uid: str,
+    payload: LoanUpdatePayload,
+    db: Session = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    loan = db.query(Loan).filter(Loan.uid == uid, Loan.user_id == user.id).first()
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(loan, key, value)
+    
+    db.commit()
+    db.refresh(loan)
+    return success_response(request, LoanOut.model_validate(loan).model_dump(), message="Loan updated")
 
 
 @router.get("/net-worth/history")
@@ -1223,8 +1290,10 @@ def create_statement_record(
 async def parse_digital_pdf_route(
     request: Request,
     file: UploadFile = File(...),
+    account_type: str | None = None,
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
+
 ):
     if file is None:
         return error_response(request, "Missing statement file upload", code=ErrorCode.MISSING_FILE)
@@ -1245,7 +1314,10 @@ async def parse_digital_pdf_route(
         status="processing",
         file_size=file_size,
         file_hash=file_hash,
+        account_type=account_type,
     )
+
+
     db.add(record)
     db.commit()
 
@@ -1256,8 +1328,13 @@ async def parse_digital_pdf_route(
     except Exception as exc:
         record.status = "failed"
         db.commit()
-        logger.error("Deterministic parser exception: %s", str(exc))
-        return error_response(request, str(exc), code=ErrorCode.PARSER_ERROR, http_status=422)
+        error_msg = str(exc)
+        logger.error("Deterministic parser exception: %s", error_msg)
+        
+        if "OCR_REQUIRED" in error_msg:
+            return error_response(request, "This PDF appears to be a scanned image. Please provide a digital statement or use an OCR tool.", code=ErrorCode.OCR_REQUIRED, http_status=422)
+            
+        return error_response(request, error_msg, code=ErrorCode.PARSER_ERROR, http_status=422)
 
     transactions = []
     for idx, tx in enumerate(tx_list):
@@ -1289,9 +1366,11 @@ async def parse_digital_pdf_route(
                 "is_valid": True,
                 "statement_hash": file_hash,
                 "statement_row_hash": row_hash,
+                "account_type": account_type,
                 "reference": None
             }
         )
+
 
     parsed_payload = {
         "status": "success",
@@ -1349,3 +1428,105 @@ async def parse_digital_pdf_route(
     )
 
     return success_response(request, parsed_payload, message="Digital PDF parsed", http_status=status.HTTP_200_OK)
+
+
+# ─── Planner System ───────────────────────────────────────────────────────────
+
+@router.get("/plans")
+def get_user_plans(request: Request, user: UserContext = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Fetch all financial plans for the authenticated user."""
+    plans = db.query(FinancePlan).filter(FinancePlan.user_id == user.id).all()
+    data = [
+        {
+            "id": p.id,
+            "uid": p.uid,
+            "title": p.title,
+            "source": p.source,
+            "target_amount": float(p.target_amount),
+            "current_saved": float(p.current_saved),
+            "deadline": p.deadline.isoformat(),
+            "monthly_saving": float(p.monthly_saving),
+            "daily_saving": float(p.daily_saving),
+            "loan_id": p.loan_id,
+            "status": p.status,
+            "reasoning": p.reasoning,
+        }
+        for p in plans
+    ]
+    return success_response(request, data)
+
+@router.post("/plans")
+def create_user_plan(request: Request, payload: dict, user: UserContext = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Create a new plan manually from the frontend."""
+    from datetime import datetime
+    
+    try:
+        deadline = datetime.fromisoformat(payload["deadline"].replace("Z", "+00:00")).date()
+    except Exception:
+        from datetime import date
+        deadline = date.today()
+
+    plan = FinancePlan(
+        user_id=user.id,
+        title=payload["title"],
+        source=payload.get("source", "manual"),
+        target_amount=payload["target_amount"],
+        monthly_saving=payload["monthly_saving"],
+        daily_saving=float(payload["monthly_saving"]) / 30,
+        loan_id=payload.get("loan_id"),
+        deadline=deadline,
+        status="on_track",
+    )
+    db.add(plan)
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+    db.refresh(plan)
+    _audit(db, request, action="plan_created", resource_type="finance_plan", resource_id=str(plan.id), status_code=201, user=user)
+    return success_response(request, {"id": plan.id, "uid": plan.uid}, http_status=201)
+
+@router.patch("/plans/{uid}")
+def update_user_plan(request: Request, uid: str, payload: dict, user: UserContext = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Update or adjust an existing plan."""
+    plan = db.query(FinancePlan).filter(FinancePlan.uid == uid, FinancePlan.user_id == user.id).first()
+    if not plan:
+        return error_response(request, "Plan not found", code=ErrorCode.NOT_FOUND, http_status=404)
+        
+    if "monthly_saving" in payload:
+        plan.monthly_saving = payload["monthly_saving"]
+        plan.daily_saving = float(payload["monthly_saving"]) / 30
+    if "status" in payload:
+        plan.status = payload["status"]
+    if "title" in payload:
+        plan.title = payload["title"]
+    if "loan_id" in payload:
+        plan.loan_id = payload["loan_id"]
+
+        
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+    _audit(db, request, action="plan_updated", resource_type="finance_plan", resource_id=str(plan.id), status_code=200, user=user)
+    return success_response(request, {"id": plan.id, "uid": plan.uid}, message="Plan updated")
+
+@router.delete("/plans/{uid}")
+def delete_user_plan(request: Request, uid: str, user: UserContext = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Delete a financial plan."""
+    plan = db.query(FinancePlan).filter(FinancePlan.uid == uid, FinancePlan.user_id == user.id).first()
+    if not plan:
+        return error_response(request, "Plan not found", code=ErrorCode.NOT_FOUND, http_status=404)
+        
+    plan_id = plan.id
+    db.delete(plan)
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+        
+    _audit(db, request, action="plan_deleted", resource_type="finance_plan", resource_id=str(plan_id), status_code=200, user=user)
+    return success_response(request, None, message="Plan deleted")

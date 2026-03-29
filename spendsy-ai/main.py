@@ -29,6 +29,7 @@ app.add_middleware(
 class QuestionRequest(BaseModel):
     user_id: int = 1
     question: str
+    model: str = "tora"
 
 @app.get("/")
 def health_check():
@@ -41,7 +42,7 @@ async def handle_ask_tora(request: QuestionRequest):
     
     try:
         # Route to the new OpenAI-powered TORA Agent
-        answer = handle_user_question(request.user_id, request.question)
+        answer = handle_user_question(request.user_id, request.question, request.model)
         if "error" in answer:
             raise HTTPException(status_code=500, detail=answer["error"])
         return {"answer": answer}

@@ -11,7 +11,7 @@ from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.internal_auth import verify_internal_api_key
 from app.core.security import RequireRole, UserContext, get_current_user
-from app.models import CreditCard, FinanceGoal, ITRData, Loan, TaxProfile, Transaction, UserProfile, WealthItem
+from app.models import CreditCard, FinanceGoal, FinancePlan, ITRData, Loan, TaxProfile, Transaction, UserProfile, WealthItem
 from app.utils.response import success_response
 
 router = APIRouter(prefix="/internal", tags=["internal"])
@@ -98,6 +98,7 @@ def finance_context(
     credit_cards = db.query(CreditCard).filter(CreditCard.user_id == user_id).all()
     loans = db.query(Loan).filter(Loan.user_id == user_id).all()
     goals = db.query(FinanceGoal).filter(FinanceGoal.user_id == user_id).all()
+    plans = db.query(FinancePlan).filter(FinancePlan.user_id == user_id).all()
     wealth_assets = sum(float(item.amount) for item in wealth_items if item.type == "asset")
     wealth_liabilities = sum(float(item.amount) for item in wealth_items if item.type == "liability")
 
@@ -177,6 +178,17 @@ def finance_context(
                 "is_completed": g.is_completed,
             }
             for g in goals
+        ],
+        "plans": [
+            {
+                "id": p.id,
+                "title": p.title,
+                "target_amount": float(p.target_amount),
+                "current_saved": float(p.current_saved),
+                "deadline": p.deadline.isoformat(),
+                "status": p.status,
+            }
+            for p in plans
         ],
         "recent_transactions": [
             {
@@ -357,3 +369,144 @@ def internal_delete_goal(
         
     record_audit(db, request, action="internal_delete_goal", resource_type="finance_goal", resource_id=str(goal_id), status_code=200, user=None)
     return success_response(request, {"id": goal_id}, message="Goal deleted")
+
+
+# ─── TORA Planner System ───────────────────────────────────────────────────────
+
+class _InternalPlanPayload(_BaseModel):
+    title: str
+    source: str = "manual"
+    loan_id: _Optional[int] = None
+    target_amount: float
+    current_saved: float = 0
+    deadline: str
+    monthly_saving: float
+    daily_saving: float
+    confidence_score: _Optional[float] = 1.0
+    reasoning: _Optional[str] = None
+    status: str = "on_track"
+
+@router.post("/plans/create/{user_id}")
+def internal_create_plan(
+    request: Request,
+    user_id: int,
+    payload: _InternalPlanPayload,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Create a detailed finance plan (used by TORA AI or Dashboard)."""
+    try:
+        parsed_date = datetime.fromisoformat(payload.deadline.replace("Z", "+00:00")).date()
+    except Exception:
+        from datetime import date
+        parsed_date = date.today()
+
+    plan = FinancePlan(
+        user_id=user_id,
+        title=payload.title,
+        source=payload.source,
+        target_amount=payload.target_amount,
+        current_saved=payload.current_saved,
+        loan_id=payload.loan_id,
+        deadline=parsed_date,
+        monthly_saving=payload.monthly_saving,
+        daily_saving=payload.daily_saving,
+        confidence_score=payload.confidence_score,
+        reasoning=payload.reasoning,
+        status=payload.status,
+    )
+    db.add(plan)
+    try:
+        db.commit()
+        db.refresh(plan)
+    except Exception:
+        db.rollback()
+        raise
+    
+    record_audit(db, request, action="internal_create_plan", resource_type="finance_plan", resource_id=str(plan.id), status_code=201, user=None)
+    return success_response(request, {"id": plan.id}, message="Plan created")
+
+class _InternalPlanAdjustPayload(_BaseModel):
+    title: _Optional[str] = None
+    loan_id: _Optional[int] = None
+    monthly_saving: _Optional[float] = None
+    deadline: _Optional[str] = None
+    status: _Optional[str] = None
+    reasoning: _Optional[str] = None
+
+@router.post("/plans/adjust/{user_id}/{plan_id}")
+def internal_adjust_plan(
+    request: Request,
+    user_id: int,
+    plan_id: int,
+    payload: _InternalPlanAdjustPayload,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Adjust an existing finance plan."""
+    plan = db.query(FinancePlan).filter(FinancePlan.id == plan_id, FinancePlan.user_id == user_id).first()
+    if not plan:
+        return {"status": "error", "message": "Plan not found"}
+
+    if payload.monthly_saving is not None:
+        plan.monthly_saving = payload.monthly_saving
+        # Also update daily saving
+        plan.daily_saving = float(payload.monthly_saving) / 30
+        
+    if payload.deadline:
+        try:
+            plan.deadline = datetime.fromisoformat(payload.deadline.replace("Z", "+00:00")).date()
+        except Exception:
+            pass
+            
+    if payload.status:
+        plan.status = payload.status
+        
+    if payload.reasoning:
+        plan.reasoning = payload.reasoning
+        
+    if payload.loan_id is not None:
+        plan.loan_id = payload.loan_id
+
+    if payload.title:
+        plan.title = payload.title
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+        
+    record_audit(db, request, action="internal_adjust_plan", resource_type="finance_plan", resource_id=str(plan_id), status_code=200, user=None)
+    return success_response(request, {"id": plan.id}, message="Plan adjusted")
+
+@router.get("/plans/list/{user_id}")
+def internal_list_plans(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """List all finance plans for a user."""
+    plans = db.query(FinancePlan).filter(FinancePlan.user_id == user_id).all()
+    data = [
+        {
+            "id": p.id,
+            "uid": p.uid,
+            "title": p.title,
+            "source": p.source,
+            "loan_id": p.loan_id,
+            "target_amount": float(p.target_amount),
+            "current_saved": float(p.current_saved),
+            "deadline": p.deadline.isoformat(),
+            "monthly_saving": float(p.monthly_saving),
+            "daily_saving": float(p.daily_saving),
+            "confidence_score": float(p.confidence_score),
+            "reasoning": p.reasoning,
+            "status": p.status,
+            "created_at": p.created_at.isoformat(),
+        }
+        for p in plans
+    ]
+    record_audit(db, request, action="internal_list_plans", resource_type="user_plans", resource_id=str(user_id), status_code=200, user=None)
+    return success_response(request, data)

@@ -38,6 +38,7 @@ const AddPage = ({
   const [type, setType] = useState("");
   const [transUnit, setTransUnit] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Removed offline scanning states, now handled by StatementHub.
@@ -72,6 +73,7 @@ const AddPage = ({
       category: cat, // Matches the slug/id of the category
       is_recurring: isRecurring, // Note: Ensure this is added to models.py
     };
+
 
     try {
       const data = await apiFetch(`${apiBaseUrl}/transactions`, {
@@ -154,17 +156,6 @@ const AddPage = ({
             <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
               <button
                 type="button"
-                onClick={() => setType("expense")}
-                className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${
-                  type === "expense"
-                    ? "bg-rose-500/20 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.1)]"
-                    : "text-slate-500"
-                }`}
-              >
-                Expense
-              </button>
-              <button
-                type="button"
                 onClick={() => setType("income")}
                 className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${
                   type === "income"
@@ -173,6 +164,17 @@ const AddPage = ({
                 }`}
               >
                 Income
+              </button>
+              <button
+                type="button"
+                onClick={() => setType("expense")}
+                className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${
+                  type === "expense"
+                    ? "bg-rose-500/20 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.1)]"
+                    : "text-slate-500"
+                }`}
+              >
+                Expense
               </button>
             </div>
 
