@@ -267,9 +267,9 @@ const ProfilePage = ({
 
           <div className="grid grid-cols-1 gap-8">
             {[
-              { id: "monthlyIncome", label: "Monthly Revenue", icon: TrendingUp, color: "text-emerald-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(52,211,153,0.3)]" },
-              { id: "monthlyBudget", label: "Operating Budget", icon: Briefcase, color: "text-violet-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(167,139,250,0.3)]" },
-              { id: "dailyBudget", label: "Daily Threshold", icon: Sparkles, color: "text-amber-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(251,191,36,0.3)]" }
+              { id: "monthlyIncome", label: "Monthly Income", icon: TrendingUp, color: "text-emerald-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(52,211,153,0.3)]" },
+              { id: "monthlyBudget", label: "Monthly Budget", icon: Briefcase, color: "text-violet-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(167,139,250,0.3)]" },
+              { id: "dailyBudget", label: "Daily Budget", icon: Sparkles, color: "text-amber-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(251,191,36,0.3)]" }
             ].map((field) => (
               <div key={field.id} className="space-y-4">
                 <label className="text-[11px] text-slate-500 font-black uppercase tracking-[0.4em] flex items-center gap-2.5 ml-2">

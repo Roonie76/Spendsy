@@ -758,6 +758,8 @@ export default function App() {
               {activeTab === TABS.SETTINGS && (
                 <SettingsPage
                   user={currentUser}
+                  settings={settings}
+                  onUpdateSettings={saveSettings}
                   onBack={() => setActiveTab(TABS.PROFILE)}
                   onSignOut={() => triggerConfirm("Are you sure you want to sign out?", clearClientSession)}
                   triggerConfirm={triggerConfirm}
