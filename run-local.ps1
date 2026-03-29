@@ -61,9 +61,9 @@ Get-Content "$PROJECT_ROOT\.env" | ForEach-Object {
 # Map POSTGRES_* → DB_* which the backend services expect
 $env:DB_HOST     = "localhost"
 $env:DB_PORT     = "5434"           # host-side port Docker maps to Postgres
-$env:DB_NAME     = $env:POSTGRES_DB       ?? "spendsy"
-$env:DB_USER     = $env:POSTGRES_USER     ?? "smartuser"
-$env:DB_PASSWORD = $env:POSTGRES_PASSWORD ?? "smartpass"
+$env:DB_NAME     = if ($env:POSTGRES_DB) { $env:POSTGRES_DB } else { "spendsy" }
+$env:DB_USER     = if ($env:POSTGRES_USER) { $env:POSTGRES_USER } else { "smartuser" }
+$env:DB_PASSWORD = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else { "smartpass" }
 
 # ── Install Dependencies ─────────────────────────────────────────────────────
 Write-Host ""

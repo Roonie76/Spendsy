@@ -56,6 +56,7 @@ def fetch_financial_summary(user_id: int) -> Dict[str, Any]:
         "monthly_surplus": (profile.get("monthlyIncome", 0) or summary.get("income", 0)) - summary.get("expense", 0),
         "loans": context.get("loans", []),
         "credit_cards": context.get("credit_cards", []),
+        "goals": context.get("goals", []),
         "recent_transactions": context.get("recent_transactions", [])
     }
 
@@ -120,6 +121,11 @@ def sanitize_financial_data(summary: Dict[str, Any]) -> Dict[str, Any]:
         card.pop("name", None) # Could contain bank names e.g. "HDFC Millenia"
         card.pop("last_four_digits", None)
         card.pop("card_holder_name", None)
+        
+    # Clean goals
+    for goal in clean_summary.get("goals", []):
+        goal.pop("id", None)
+        goal.pop("user_id", None)
         
     # Clean transactions (Only keep categories and amounts, drop titles/descriptions)
     clean_txs = []

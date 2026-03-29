@@ -14,9 +14,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY spendsy/services/auth-service/alembic.ini ./alembic.ini
-COPY spendsy/services/auth-service/alembic ./alembic
-COPY spendsy/services/auth-service/app ./app
+COPY Spendsy/services/auth-service/alembic.ini ./alembic.ini
+COPY Spendsy/services/auth-service/alembic ./alembic
+COPY Spendsy/services/auth-service/app ./app
 
 EXPOSE 8000
 

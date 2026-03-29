@@ -1,3 +1,10 @@
+﻿=== Test 1: Direct to auth-service port 8001 ===
+Got HTTP 422 (non-2xx)
+
+=== Test 2: Through gateway port 8080/auth/register ===
+Got HTTP 404 (non-2xx)
+
+=== Nginx config in container ===
 events {}
 
 http {

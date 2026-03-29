@@ -51,4 +51,4 @@ async def sqlalchemy_exception_handler(
 
 
 app.include_router(health_router)
-app.include_router(auth_router, prefix="/auth")
+app.include_router(auth_router)

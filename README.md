@@ -55,31 +55,33 @@ The Spendsy ecosystem is built on a resilient service-mesh architecture:
 ## 🚀 Getting Started
 
 ### 📋 Prerequisites
-- [Docker](https://www.docker.com/) and Docker Compose
-- Node.js (v18+) & Python (v3.11+)
+- [Docker Desktop](https://www.docker.com/) (must be running)
+- Windows: PowerShell 5.1+
 
-### ⚡ Quick Start
-The simplest way to spin up the entire ecosystem is using the included orchestration script:
+### ⚡ Quick Start (Windows)
 
-```bash
-# Clone the repository
+```powershell
+# 1. Clone the repository
 git clone https://github.com/Roonie76/Spendsy.git
 cd Spendsy
 
-# Start all services (Infrastructure + Microservices + Frontend)
-./run-local.sh
+# 2. Create your environment file
+cp .env.example .env
+
+# 3. Start everything (one command!)
+.\docker-run.ps1
 ```
 
-Alternatively, use Docker Compose directly:
-```bash
-docker compose -f infra/docker/docker-compose.dev.yml up --build
-```
+That's it! Docker will build all images and start every service automatically.
 
 ### 📍 Local Endpoints
-- **Frontend Dashboard**: `http://localhost:5173`
-- **Main API Gateway**: `http://localhost:8080`
-- **Interactive API Docs (Auth)**: `http://localhost:8001/docs`
-- **Interactive API Docs (Finance)**: `http://localhost:8002/docs`
+| Service | URL |
+| :--- | :--- |
+| **Frontend** | http://localhost:3000 |
+| **API Gateway** | http://localhost:8080 |
+| **Auth Service Docs** | http://localhost:8001/docs |
+| **Finance Service Docs** | http://localhost:8002/docs |
+| **AI Service Docs** | http://localhost:8004/docs |
 
 ---
 

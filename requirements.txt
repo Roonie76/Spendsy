@@ -26,7 +26,7 @@ sqlalchemy==2.0.25
 tenacity==8.5.0
 starlette>=0.40.0
 uvicorn[standard]==0.27.0
-uvloop==0.22.1
+uvloop==0.22.1; sys_platform != 'win32'
 google-genai
 python-dateutil==2.8.2
 camelot-py[cv]

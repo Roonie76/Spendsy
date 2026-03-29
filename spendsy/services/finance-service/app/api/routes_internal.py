@@ -11,7 +11,7 @@ from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.internal_auth import verify_internal_api_key
 from app.core.security import RequireRole, UserContext, get_current_user
-from app.models import CreditCard, ITRData, Loan, TaxProfile, Transaction, UserProfile, WealthItem
+from app.models import CreditCard, FinanceGoal, ITRData, Loan, TaxProfile, Transaction, UserProfile, WealthItem
 from app.utils.response import success_response
 
 router = APIRouter(prefix="/internal", tags=["internal"])
@@ -97,6 +97,7 @@ def finance_context(
     wealth_items = db.query(WealthItem).filter(WealthItem.user_id == user_id).all()
     credit_cards = db.query(CreditCard).filter(CreditCard.user_id == user_id).all()
     loans = db.query(Loan).filter(Loan.user_id == user_id).all()
+    goals = db.query(FinanceGoal).filter(FinanceGoal.user_id == user_id).all()
     wealth_assets = sum(float(item.amount) for item in wealth_items if item.type == "asset")
     wealth_liabilities = sum(float(item.amount) for item in wealth_items if item.type == "liability")
 
@@ -107,7 +108,7 @@ def finance_context(
         .limit(50)
         .all()
     )
-
+    
     payload = {
         "user_id": user_id,
         "profile": {
@@ -164,6 +165,19 @@ def finance_context(
             }
             for l in loans
         ],
+        "goals": [
+            {
+                "id": g.id,
+                "title": g.title,
+                "description": g.description,
+                "target_amount": float(g.target_amount),
+                "current_amount": float(g.current_amount),
+                "target_date": g.target_date.isoformat() if g.target_date else None,
+                "category": g.category,
+                "is_completed": g.is_completed,
+            }
+            for g in goals
+        ],
         "recent_transactions": [
             {
                 "id": tx.id,
@@ -184,7 +198,7 @@ def finance_context(
         "generated_at": datetime.utcnow().isoformat() + "Z",
     }
 
-    record_audit(db, request, action="internal_finance_context", resource_type="user_context", resource_id=str(user_id), status_code=200, user=current_user)
+    record_audit(db, request, action="internal_finance_context", resource_type="user_context", resource_id=str(user_id), status_code=200, user=None)
     return success_response(request, payload, message="Finance context")
 
 
@@ -264,7 +278,7 @@ def get_tora_history(
         }
         for m in msgs
     ]
-    record_audit(db, request, action="internal_get_tora_history", resource_type="tora_conversation", resource_id=str(user_id), status_code=200, user=current_user)
+    record_audit(db, request, action="internal_get_tora_history", resource_type="tora_conversation", resource_id=str(user_id), status_code=200, user=None)
     return success_response(request, data, message="Conversation history")
 
 
