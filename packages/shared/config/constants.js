@@ -59,6 +59,8 @@ const {
   Gift,
   Smartphone,
   Activity,
+  Heart,
+  GraduationCap,
 } = LucideIcons;
 
 export const CATEGORIES = [
@@ -229,6 +231,20 @@ export const CATEGORIES = [
       "croma",
       "reliance digital",
     ],
+  },
+  {
+    id: "health",
+    name: "Health",
+    icon: Heart,
+    color: "bg-red-500/20 text-red-300",
+    keywords: ["doctor", "hospital", "medicine", "pharmacy", "clinic", "dental"],
+  },
+  {
+    id: "education",
+    name: "Education",
+    icon: GraduationCap,
+    color: "bg-violet-500/20 text-violet-300",
+    keywords: ["school", "college", "tuition", "course", "udemy", "book", "exam"],
   },
   {
     id: "other",

@@ -220,7 +220,7 @@ const AddPage = ({
                   type="button"
                   onClick={() => {
                     setCat(c.id);
-                    if (!desc.trim()) {
+                    if (!desc.trim() || CATEGORIES.some(cat => cat.name === desc)) {
                       setDesc(c.name);
                     }
                   }}

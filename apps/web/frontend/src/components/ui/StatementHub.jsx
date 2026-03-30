@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
+  HelpCircle,
 } from "lucide-react";
 import { formatIndianCompact } from "../../../../../../packages/shared/utils/helpers";
 import { apiFetch } from "../../api";
@@ -204,9 +205,19 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
                 className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded-full text-xs font-medium text-amber-400 border border-amber-500/20 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <AlertTriangle className="w-3 h-3" />
-                OCR / Scanned Help
+                Open OCR Convertor*
               </button>
             </div>
+          </div>
+        )}
+        
+        {!uploading && (
+          <div 
+            onClick={(e) => { e.stopPropagation(); setShowUnsupportedPdfModal(true); }}
+            className="absolute bottom-5 left-6 flex items-center gap-1.5 text-slate-500 hover:text-slate-300 transition-colors z-20 cursor-help text-[11px] font-medium"
+          >
+            <span>*OCR not supported</span>
+            <HelpCircle className="w-3.5 h-3.5" />
           </div>
         )}
         <input
