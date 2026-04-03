@@ -33,6 +33,8 @@ import SettingsPage from "./pages/SettingsPage";
 import BankAccountsPage from "./pages/BankAccountsPage";
 import GoalsPage from "./pages/GoalsPage";
 import PlannerPage from "./pages/PlannerPage";
+import ActiveLoansPage from "./pages/ActiveLoansPage";
+import BudgetPage from "./pages/BudgetPage";
 import AICopilot from "./components/ai/AICopilot";
 import { apiFetch, authApi, clearStoredAuth } from "./api";
 
@@ -770,16 +772,35 @@ export default function App() {
                 <GoalsPage theme={theme} />
               )}
               {activeTab === TABS.BANK_ACCOUNTS && (
-                <BankAccountsPage setActiveTab={setActiveTab} />
+                <BankAccountsPage 
+                  setActiveTab={setActiveTab} 
+                  onBack={() => setActiveTab(TABS.PROFILE)}
+                />
               )}
               {activeTab === TABS.PROFILE && (
                 <ProfilePage
                   user={currentUser}
+                  wealthItems={wealthItems}
+                  transactions={transactions}
                   settings={settings}
                   onUpdateSettings={saveSettings}
                   onSignOut={clearClientSession}
                   triggerConfirm={triggerConfirm}
                   setActiveTab={setActiveTab}
+                />
+              )}
+              {activeTab === TABS.LOANS && (
+                <ActiveLoansPage 
+                  wealthItems={wealthItems}
+                  onBack={() => setActiveTab(TABS.PROFILE)}
+                />
+              )}
+              {activeTab === TABS.BUDGET && (
+                <BudgetPage 
+                   settings={settings}
+                   onUpdateSettings={saveSettings}
+                   triggerConfirm={triggerConfirm}
+                   onBack={() => setActiveTab(TABS.PROFILE)}
                 />
               )}
               {activeTab === TABS.WEALTH && (

@@ -270,6 +270,8 @@ export const TABS = {
   BANK_ACCOUNTS: "bank_accounts",
   GOALS: "goals",
   PLANNER: "planner",
+  BUDGET: "budget",
+  LOANS: "loans",
 };
 
 export const BANKS = [

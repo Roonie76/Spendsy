@@ -1,445 +1,553 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  User, 
-  Mail, 
-  Lock, 
-  Phone, 
-  Home as HomeIcon, 
-  Briefcase, 
-  Coins, 
-  Moon, 
-  Bell, 
-  Shield, 
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  LogOut,
-  Database,
-  Edit2,
-  Save,
-  X
+import {
+  User, Mail, Lock, Phone, Home as HomeIcon, Briefcase,
+  Coins, Moon, Sun, Bell, Shield, ChevronLeft, ChevronRight,
+  LogOut, Database, Edit2, Save, X, Search,
+  CreditCard, Tag, Target, Camera, Smartphone, Eye,
+  Download, Upload, Trash2, AlertTriangle, Crown,
+  HelpCircle, FileText, Info, MessageSquare, Ticket,
+  Palette, Bot, TrendingUp, RefreshCw, Globe,
+  ShieldCheck, Activity, CheckCircle, QrCode, Key,
+  Sliders, Repeat, Star, Package, LifeBuoy, ZapOff,
+  BarChart2, SlidersHorizontal, Layers
 } from "lucide-react";
 
-const CURRENCY_OPTIONS = [
-  "INR (₹) - Indian Rupee",
-  "USD ($) - US Dollar",
-  "EUR (€) - Euro",
-  "GBP (£) - British Pound",
-  "AUD (A$) - Australian Dollar",
-  "CAD (C$) - Canadian Dollar",
-  "SGD (S$) - Singapore Dollar",
-  "JPY (¥) - Japanese Yen",
-];
+// ─── Reusable Components ──────────────────────────────────────────────────────
 
-const OCCUPATION_OPTIONS = [
-  "Software Engineer",
-  "Business Owner",
-  "Freelancer",
-  "Student",
-  "Healthcare Professional",
-  "Educator",
-  "Creative Professional",
-];
+const pageVariants = {
+  initial: { opacity: 0, x: 30 },
+  animate: { opacity: 1, x: 0, transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
+  exit:    { opacity: 0, x: -20, transition: { duration: 0.18 } },
+};
 
-const COUNTRY_OPTIONS = [
-  "India",
-  "United States",
-  "United Kingdom",
-  "Australia",
-  "Canada",
-  "Singapore",
-];
-
-const SettingsItem = ({ icon: Icon, label, value, type = "text", isEditing, onChange, color = "text-blue-400", focusGlow = "rgba(59,130,246,0.3)", options, customInput, allowOther = true }) => (
-  <motion.div 
-    layout
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, scale: 0.95 }}
-    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-    className={isEditing && onChange 
-      ? `w-full p-5 bg-black/20 backdrop-blur-xl rounded-[2rem] border border-white/10 relative group transition-all duration-300 focus-within:border-white/20 hover:border-white/20 focus-within:bg-white/5`
-      : "w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group cursor-pointer"}
+const SettingRow = ({ icon: Icon, iconColor = "text-blue-400", iconBg = "bg-blue-500/10", label, description, value, onClick, danger = false, badge, trailing }) => (
+  <motion.button
+    onClick={onClick}
+    whileHover={{ x: 4, backgroundColor: "rgba(255,255,255,0.06)" }}
+    whileTap={{ scale: 0.99 }}
+    className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border border-white/5 transition-colors group ${danger ? "hover:border-rose-500/20" : ""}`}
+    style={{ background: "rgba(255,255,255,0.03)" }}
   >
-    <div className={`flex ${isEditing && onChange ? 'flex-col gap-3' : 'items-center gap-4'} w-full`}>
-      <div className={`flex items-center gap-3 ${isEditing && onChange ? 'opacity-80 ml-1' : ''}`}>
-        <div className={`p-2 bg-white/5 rounded-xl group-hover:scale-110 transition-transform ${color} shrink-0`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        {(!isEditing || !onChange) && (
-          <div className="text-left flex-1 mr-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-tight">{label}</p>
-            <p className="text-sm font-bold text-white mt-0.5">{type === "password" ? "••••••••" : value}</p>
-          </div>
-        )}
-        {(isEditing && onChange) && (
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-tight">{label}</p>
-        )}
-      </div>
-
-      {(isEditing && onChange) && (
-        <div className="w-full flex flex-col gap-3">
-          {customInput ? customInput : (
-            <div 
-              className="relative rounded-[1.5rem] transition-all duration-300"
-              style={{ boxShadow: `0 0 0 0 ${focusGlow}` }}
-              onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 20px -5px ${focusGlow}`}
-              onBlur={(e) => e.currentTarget.style.boxShadow = `0 0 0 0 ${focusGlow}`}
-            >
-              {options ? (
-                <div className="relative">
-                  <select
-                    value={(options.includes(value) || !allowOther) ? value : "Other"}
-                    onChange={(e) => onChange(e.target.value === "Other" ? "" : e.target.value)}
-                    className="w-full bg-black/40 border-2 border-white/5 rounded-[1.5rem] px-5 py-3.5 text-base font-black text-white outline-none focus:border-white/20 focus:bg-white/5 transition-all shadow-inner appearance-none relative z-10"
-                  >
-                    <option value="" disabled className="bg-slate-900 text-slate-400">Select an option</option>
-                    {options.map(opt => <option key={opt} value={opt} className="bg-slate-900 text-white">{opt}</option>)}
-                    {allowOther && <option value="Other" className="bg-slate-900 text-white">Other (Specify)</option>}
-                  </select>
-                  <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 z-0" />
-                </div>
-              ) : (
-                <input
-                  type={type}
-                  value={value || ""}
-                  onChange={(e) => onChange(e.target.value)}
-                  className="w-full bg-black/40 border-2 border-white/5 rounded-[1.5rem] px-5 py-3.5 text-base font-black text-white outline-none focus:border-white/20 focus:bg-white/5 transition-all shadow-inner placeholder:text-slate-600"
-                  placeholder={`Enter ${label}`}
-                />
-              )}
-            </div>
-          )}
-          
-          {/* Fallback to custom input if "Other" is chosen and it's not customInput handled */}
-          {(options && allowOther && !options.includes(value) && value !== undefined && !customInput) && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="relative rounded-[1.5rem] transition-all duration-300"
-              style={{ boxShadow: `0 0 0 0 ${focusGlow}` }}
-              onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 20px -5px ${focusGlow}`}
-              onBlur={(e) => e.currentTarget.style.boxShadow = `0 0 0 0 ${focusGlow}`}
-            >
-              <input
-                type="text"
-                value={value || ""}
-                onChange={(e) => onChange(e.target.value)}
-                className="w-full bg-black/40 border-2 border-white/5 rounded-[1.5rem] px-5 py-3.5 text-base font-black text-white outline-none focus:border-emerald-500/50 focus:bg-emerald-500/5 transition-all shadow-inner placeholder:text-slate-500"
-                placeholder="Type your custom value..."
-                autoFocus
-              />
-            </motion.div>
-          )}
-        </div>
-      )}
+    <div className={`p-2.5 ${iconBg} ${iconColor} rounded-xl shrink-0 group-hover:scale-110 transition-transform`}>
+      <Icon className="w-5 h-5" />
     </div>
-    {!isEditing && <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-white group-hover:translate-x-1 transition-all shrink-0" />}
-  </motion.div>
+    <div className="flex-1 text-left min-w-0">
+      <p className={`text-sm font-bold ${danger ? "text-rose-400" : "text-white"} leading-tight`}>{label}</p>
+      {description && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{description}</p>}
+    </div>
+    {badge && (
+      <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-[10px] font-bold text-indigo-400 uppercase tracking-wider shrink-0">
+        {badge}
+      </span>
+    )}
+    {value && <span className="text-xs text-slate-500 font-medium shrink-0 max-w-[120px] truncate">{value}</span>}
+    {trailing || <ChevronRight className={`w-4 h-4 ${danger ? "text-rose-500/50 group-hover:text-rose-400" : "text-slate-700 group-hover:text-slate-400"} transition-colors shrink-0`} />}
+  </motion.button>
 );
 
-const SettingsSection = ({ title, children }) => (
-  <div className="space-y-4">
-    <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em] px-4 mb-3">{title}</h3>
-    <div className="space-y-3">{children}</div>
+const SettingSection = ({ title, children }) => (
+  <div className="space-y-2">
+    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] px-2 mb-3">{title}</p>
+    <div className="space-y-2">{children}</div>
   </div>
 );
 
-const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [localSettings, setLocalSettings] = useState({
-    username: user?.username || "Admin",
-    email: user?.email || "user@example.com",
-    security: "", // New password
-    phoneNumber: settings.phoneNumber || "+91 98765 43210",
-    addressState: settings.addressState || "Tamil Nadu",
-    addressCountry: settings.addressCountry || "India",
-    addressCustom: settings.addressCustom || "",
-    occupation: settings.occupation || "Software Engineer",
-    baseCurrency: settings.baseCurrency || "INR (₹) - Indian Rupee",
-    theme: settings.theme || "Dark Mode (OLED)",
-    notifications: settings.notifications || "Enabled (Push & Email)"
-  });
-
-  const handleSave = async () => {
-    if (onUpdateSettings) {
-      await onUpdateSettings(localSettings);
-    }
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setLocalSettings({
-      username: user?.username || "Admin",
-      email: user?.email || "user@example.com",
-      security: "",
-      phoneNumber: settings.phoneNumber || "+91 98765 43210",
-      addressState: settings.addressState || "Tamil Nadu",
-      addressCountry: settings.addressCountry || "India",
-      addressCustom: settings.addressCustom || "",
-      occupation: settings.occupation || "Software Engineer",
-      baseCurrency: settings.baseCurrency || "INR (₹) - Indian Rupee",
-      theme: settings.theme || "Dark Mode (OLED)",
-      notifications: settings.notifications || "Enabled (Push & Email)"
-    });
-    setIsEditing(false);
-  };
-
-  const updateField = (field, value) => {
-    setLocalSettings(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Format Address for display
-  const displayAddress = localSettings.addressCountry === "Other" 
-    ? localSettings.addressCustom 
-    : `${localSettings.addressState}, ${localSettings.addressCountry}`;
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-8 pb-28"
+const PageHeader = ({ title, subtitle, onBack }) => (
+  <div className="flex items-center gap-4 pb-5 border-b border-white/5 mb-6">
+    <motion.button
+      whileHover={{ scale: 1.05, x: -2 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onBack}
+      className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors shadow-lg shrink-0"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-white/5">
-        <div className="flex items-center gap-4">
-          <motion.button 
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onBack}
-            className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors shadow-lg"
-          >
-            <ChevronLeft className="w-5 h-5 text-white" />
-          </motion.button>
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight">App Settings</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Configure your experience</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <AnimatePresence mode="wait">
-            {isEditing ? (
-              <motion.div 
-                key="edit-actions"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="flex gap-2"
-              >
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleCancel}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl transition-colors text-xs font-black uppercase tracking-wider"
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </motion.button>
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleSave}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-2xl shadow-lg shadow-indigo-500/20 transition-all text-xs font-black uppercase tracking-wider relative overflow-hidden group"
-                >
-                  <span className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
-                  <Save className="w-4 h-4 relative z-10" />
-                  <span className="relative z-10">Save</span>
-                </motion.button>
-              </motion.div>
-            ) : (
-              <motion.button 
-                key="edit-btn"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-colors text-xs font-black uppercase tracking-wider shadow-lg"
-              >
-                <Edit2 className="w-4 h-4" />
-                Edit Profile
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+      <ChevronLeft className="w-5 h-5 text-white" />
+    </motion.button>
+    <div>
+      <h2 className="text-xl font-black text-white tracking-tight">{title}</h2>
+      {subtitle && <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">{subtitle}</p>}
+    </div>
+  </div>
+);
 
-      {/* Account Settings */}
-      <SettingsSection title="Account Settings">
-        <AnimatePresence>
-          <SettingsItem 
-            icon={User} 
-            label="Display Name" 
-            value={localSettings.username} 
-            isEditing={isEditing}
-            onChange={(val) => updateField('username', val)}
-            color="text-blue-400" 
-            focusGlow="rgba(96,165,250,0.3)"
-          />
-          <SettingsItem 
-            icon={Mail} 
-            label="Email Address" 
-            value={localSettings.email} 
-            type="email"
-            isEditing={isEditing}
-            onChange={(val) => updateField('email', val)}
-            color="text-emerald-400" 
-            focusGlow="rgba(52,211,153,0.3)"
-          />
-          <SettingsItem 
-            icon={Lock} 
-            label="Security (New Password)" 
-            value={localSettings.security} 
-            type="password"
-            isEditing={isEditing}
-            onChange={(val) => updateField('security', val)}
-            color="text-purple-400" 
-            focusGlow="rgba(192,132,252,0.3)"
-          />
-        </AnimatePresence>
-      </SettingsSection>
+const Toggle = ({ enabled, onChange }) => (
+  <button
+    type="button"
+    onClick={(e) => { e.stopPropagation(); onChange(!enabled); }}
+    className={`relative w-10 h-5 rounded-full transition-all duration-300 shrink-0 ${enabled ? "bg-indigo-500" : "bg-white/10"}`}
+  >
+    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-300 ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+  </button>
+);
 
-      {/* Personal Info */}
-      <SettingsSection title="Personal Info">
-        <AnimatePresence>
-          <SettingsItem 
-            icon={Phone} 
-            label="Phone Number" 
-            value={localSettings.phoneNumber} 
-            isEditing={isEditing}
-            onChange={(val) => updateField('phoneNumber', val)}
-            color="text-sky-400" 
-            focusGlow="rgba(56,189,248,0.3)"
-          />
-          <SettingsItem 
-            icon={HomeIcon} 
-            label="Primary Address" 
-            value={displayAddress} 
-            isEditing={isEditing}
-            onChange={(val) => {}} // handled by customInput
-            color="text-indigo-400" 
-            focusGlow="rgba(129,140,248,0.3)"
-            customInput={
-              <div className="flex flex-col gap-3 w-full">
-                <div className="flex gap-3">
-                  <div className="relative flex-1">
-                    <select
-                      value={COUNTRY_OPTIONS.includes(localSettings.addressCountry) ? localSettings.addressCountry : "Other"}
-                      onChange={(e) => updateField('addressCountry', e.target.value)}
-                      className="w-full bg-black/40 border-2 border-white/5 rounded-[1.5rem] px-5 py-3.5 text-base font-black text-white outline-none focus:border-white/20 focus:bg-white/5 transition-all shadow-inner appearance-none relative z-10"
-                    >
-                      {COUNTRY_OPTIONS.map(opt => <option key={opt} value={opt} className="bg-slate-900">{opt}</option>)}
-                      <option value="Other" className="bg-slate-900">Other (Specify)</option>
-                    </select>
-                    <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 z-0" />
-                  </div>
-                  {localSettings.addressCountry !== "Other" && (
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={localSettings.addressState}
-                        onChange={(e) => updateField('addressState', e.target.value)}
-                        className="w-full bg-black/40 border-2 border-white/5 rounded-[1.5rem] px-5 py-3.5 text-base font-black text-white outline-none focus:border-white/20 transition-all shadow-inner placeholder:text-slate-600"
-                        placeholder="State / Region"
-                      />
-                    </div>
-                  )}
-                </div>
-                {localSettings.addressCountry === "Other" && (
-                  <input
-                    type="text"
-                    value={localSettings.addressCustom}
-                    onChange={(e) => updateField('addressCustom', e.target.value)}
-                    className="w-full bg-black/40 border-2 border-white/5 rounded-[1.5rem] px-5 py-3.5 text-base font-black text-white outline-none focus:border-emerald-500/50 transition-all shadow-inner placeholder:text-slate-500"
-                    placeholder="Enter full custom address..."
-                    autoFocus
-                  />
-                )}
-              </div>
-            }
-          />
-          <SettingsItem 
-            icon={Briefcase} 
-            label="Occupation" 
-            value={localSettings.occupation} 
-            isEditing={isEditing}
-            onChange={(val) => updateField('occupation', val)}
-            color="text-amber-400" 
-            focusGlow="rgba(251,191,36,0.3)"
-            options={OCCUPATION_OPTIONS}
-          />
-        </AnimatePresence>
-      </SettingsSection>
+const ComingSoonBadge = () => (
+  <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-400 tracking-wider">Soon</span>
+);
 
-      {/* App Preferences */}
-      <SettingsSection title="App Preferences">
-        <AnimatePresence>
-          <SettingsItem 
-            icon={Coins} 
-            label="Base Currency" 
-            value={localSettings.baseCurrency} 
-            isEditing={isEditing}
-            onChange={(val) => updateField('baseCurrency', val)}
-            color="text-yellow-400" 
-            focusGlow="rgba(250,204,21,0.3)"
-            options={CURRENCY_OPTIONS}
-            allowOther={false}
-          />
-          <SettingsItem 
-            icon={Moon} 
-            label="App Theme" 
-            value={localSettings.theme} 
-            isEditing={isEditing}
-            onChange={(val) => updateField('theme', val)}
-            color="text-violet-400" 
-            focusGlow="rgba(167,139,250,0.3)"
-          />
-          <SettingsItem 
-            icon={Bell} 
-            label="Notifications" 
-            value={localSettings.notifications} 
-            isEditing={isEditing}
-            onChange={(val) => updateField('notifications', val)}
-            color="text-rose-400" 
-            focusGlow="rgba(251,113,133,0.3)"
-          />
-        </AnimatePresence>
-      </SettingsSection>
+// ─── Sub-Pages ────────────────────────────────────────────────────────────────
 
-      {/* Security & Data */}
-      <SettingsSection title="Security & Privacy">
-        <SettingsItem icon={Database} label="Data Management" value="Export or Purge Records" color="text-slate-400" />
-        <SettingsItem icon={Shield} label="Privacy Policy" value="v1.4 Updated Jan 2026" color="text-emerald-500" />
-        
-        <motion.button 
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          onClick={() => triggerConfirm("Are you sure you want to sign out?", onSignOut)}
-          className="w-full flex items-center justify-between p-5 bg-rose-500/5 hover:bg-rose-500/10 rounded-[2rem] transition-colors group mt-6 border border-rose-500/10 shadow-lg"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 group-hover:scale-110 transition-transform">
-              <LogOut className="w-6 h-6" />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-black text-rose-500/60 uppercase tracking-widest leading-tight">Session Actions</p>
-              <p className="text-base font-black text-rose-500 mt-0.5">Sign Out of Spendsy</p>
-            </div>
-          </div>
-          <ChevronRight className="w-5 h-5 text-rose-500/50 group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
-        </motion.button>
-      </SettingsSection>
-
-      {/* Footer Meta */}
-      <div className="text-center px-4 pt-8">
-        <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Spendsy v2.4.0-stable</p>
-        <div className="h-1 w-8 bg-slate-800 rounded-full mx-auto"></div>
+const PersonalInfoPage = ({ user, onBack }) => {
+  const [editing, setEditing] = useState(false);
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <PageHeader title="Personal Information" subtitle="Manage your identity" onBack={onBack} />
+      <div className="space-y-6">
+        <SettingSection title="Profile">
+          <SettingRow icon={Camera} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="Profile Picture" description="Upload a photo or avatar" />
+          <SettingRow icon={User} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Display Name" description="Your public name" value={user?.username || "Admin"} />
+          <SettingRow icon={Mail} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Email Address" description="Login & notifications" value={user?.email || "—"} />
+          <SettingRow icon={Phone} iconColor="text-sky-400" iconBg="bg-sky-500/10" label="Verify Phone" description="Add for 2FA & alerts" badge="Add" />
+        </SettingSection>
+        <SettingSection title="Personal Details">
+          <SettingRow icon={HomeIcon} iconColor="text-indigo-400" iconBg="bg-indigo-500/10" label="Primary Address" description="State & Country" />
+          <SettingRow icon={Briefcase} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Occupation" description="Your profession" />
+        </SettingSection>
       </div>
     </motion.div>
+  );
+};
+
+const SecurityPage = ({ onBack }) => {
+  const [twoFA, setTwoFA] = useState(false);
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <PageHeader title="Privacy & Security" subtitle="Protect your account" onBack={onBack} />
+      <div className="space-y-6">
+        <SettingSection title="Authentication">
+          <SettingRow icon={Lock} iconColor="text-purple-400" iconBg="bg-purple-500/10" label="Change Password" description="Update your login password" />
+          <SettingRow
+            icon={ShieldCheck}
+            iconColor="text-emerald-400"
+            iconBg="bg-emerald-500/10"
+            label="Two-Factor Authentication"
+            description={twoFA ? "Enabled — your account is secure" : "Disabled — enable for extra security"}
+            badge={twoFA ? "On" : "Off"}
+            trailing={<Toggle enabled={twoFA} onChange={setTwoFA} />}
+          />
+        </SettingSection>
+
+        {twoFA && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+            <SettingSection title="2FA Methods">
+              <SettingRow icon={Smartphone} iconColor="text-sky-400" iconBg="bg-sky-500/10" label="SMS Verification" description="Send OTP to your phone" />
+              <SettingRow icon={QrCode} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="Authenticator App" description="Scan QR with Google / Authy" badge="Recommended" />
+            </SettingSection>
+          </motion.div>
+        )}
+
+        <SettingSection title="Sessions">
+          <SettingRow icon={Activity} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Active Sessions" description="View & revoke logins" />
+        </SettingSection>
+
+        <SettingSection title="Privacy Controls">
+          <SettingRow icon={Eye} iconColor="text-slate-400" iconBg="bg-slate-500/10" label="Profile Visibility" description="Who can see your profile" value="Private" />
+          <SettingRow icon={Database} iconColor="text-rose-400" iconBg="bg-rose-500/10" label="Data Sharing" description="Manage app data permissions" />
+        </SettingSection>
+      </div>
+    </motion.div>
+  );
+};
+
+const FinancialSettingsPage = ({ onBack }) => {
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <PageHeader title="Financial Settings" subtitle="Configure money preferences" onBack={onBack} />
+      <div className="space-y-6">
+        <SettingSection title="Region">
+          <SettingRow icon={Globe} iconColor="text-sky-400" iconBg="bg-sky-500/10" label="Currency & Region" description="Base currency for all transactions" value="INR (₹)" />
+        </SettingSection>
+
+        <SettingSection title="Bank Accounts">
+          <SettingRow icon={CreditCard} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Add Account" description="Link a new bank or card" />
+          <SettingRow icon={Trash2} iconColor="text-rose-400" iconBg="bg-rose-500/10" label="Remove Account" description="Unlink an existing account" danger />
+          <SettingRow icon={RefreshCw} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Sync Status" description="Last synced: Just now" />
+        </SettingSection>
+
+        <SettingSection title="Budget & Categories">
+          <SettingRow icon={Tag} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="Expense Categories" description="Customize spending categories" />
+          <SettingRow icon={Target} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Monthly Limit" description="Set your monthly spending cap" />
+          <SettingRow icon={Bell} iconColor="text-rose-400" iconBg="bg-rose-500/10" label="Budget Alerts" description="Get notified before you overspend" />
+        </SettingSection>
+      </div>
+    </motion.div>
+  );
+};
+
+const NotificationsPage = ({ onBack }) => {
+  const [emailN, setEmailN] = useState(true);
+  const [pushN, setPushN] = useState(true);
+  const [smsN, setSmsN] = useState(false);
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <PageHeader title="Notifications" subtitle="Stay informed, not overwhelmed" onBack={onBack} />
+      <div className="space-y-6">
+        <SettingSection title="Channels">
+          <SettingRow icon={Mail} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Email Preferences" description={emailN ? "Receiving email updates" : "Email notifications silenced"} trailing={<Toggle enabled={emailN} onChange={setEmailN} />} />
+          <SettingRow icon={Smartphone} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Push Notifications" description={pushN ? "Enabled on this device" : "Silent mode active"} trailing={<Toggle enabled={pushN} onChange={setPushN} />} />
+          <SettingRow icon={MessageSquare} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="SMS Alerts" description={smsN ? "Receiving SMS for critical events" : "No SMS alerts"} trailing={<Toggle enabled={smsN} onChange={setSmsN} />} />
+        </SettingSection>
+      </div>
+    </motion.div>
+  );
+};
+
+const AppearancePage = ({ onBack }) => {
+  const [theme, setTheme] = useState("Dark");
+  const [accent, setAccent] = useState("indigo");
+  const accents = [
+    { name: "indigo", color: "#6366f1" },
+    { name: "violet", color: "#8b5cf6" },
+    { name: "emerald", color: "#10b981" },
+    { name: "rose", color: "#f43f5e" },
+    { name: "amber", color: "#f59e0b" },
+    { name: "sky", color: "#38bdf8" },
+  ];
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <PageHeader title="Appearance" subtitle="Make it yours" onBack={onBack} />
+      <div className="space-y-6">
+        <SettingSection title="Theme">
+          <div className="flex bg-black/30 p-1.5 rounded-2xl border border-white/5">
+            {["Dark", "Light", "System"].map((t) => (
+              <button key={t} onClick={() => setTheme(t)} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${theme === t ? "bg-white/10 text-white shadow" : "text-slate-500 hover:text-slate-300"}`}>
+                {t === "Dark" ? "🌑" : t === "Light" ? "☀️" : "⚙️"} {t}
+              </button>
+            ))}
+          </div>
+        </SettingSection>
+
+        <SettingSection title="Accent Color">
+          <div className="flex gap-3 px-2 py-3">
+            {accents.map((a) => (
+              <button key={a.name} onClick={() => setAccent(a.name)} className="relative w-10 h-10 rounded-2xl transition-transform hover:scale-110">
+                <div className="w-full h-full rounded-2xl" style={{ backgroundColor: a.color }} />
+                {accent === a.name && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-white drop-shadow-lg" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </SettingSection>
+
+        <SettingSection title="Layout">
+          <SettingRow icon={Layers} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Layout Preferences" description="Compact or Comfortable" value="Default" />
+        </SettingSection>
+      </div>
+    </motion.div>
+  );
+};
+
+const AIFeaturesPage = ({ onBack }) => {
+  const [autoCat, setAutoCat] = useState(true);
+  const [insights, setInsights] = useState(true);
+  const [predictive, setPredictive] = useState(false);
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <PageHeader title="Smart Features (AI)" subtitle="Let Tora work for you" onBack={onBack} />
+      <div className="space-y-2">
+        <div className="p-5 mb-6 rounded-3xl bg-gradient-to-br from-violet-500/10 to-blue-500/5 border border-violet-500/20">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-violet-500/20 rounded-xl"><Bot className="w-5 h-5 text-violet-400" /></div>
+            <p className="text-sm font-black text-white">Tora AI Engine</p>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">Tora learns from your spending patterns to provide personalized insights and automation.</p>
+        </div>
+        <SettingSection title="Features">
+          <SettingRow icon={Tag} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Auto Categorization" description="Let AI sort your transactions" trailing={<Toggle enabled={autoCat} onChange={setAutoCat} />} />
+          <SettingRow icon={TrendingUp} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Smart Insights" description="Weekly AI-powered spending reports" trailing={<Toggle enabled={insights} onChange={setInsights} />} />
+          <SettingRow icon={Bell} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Predictive Alerts" description="Know before you overspend" trailing={<Toggle enabled={predictive} onChange={setPredictive} />} badge={!predictive ? "Beta" : undefined} />
+        </SettingSection>
+      </div>
+    </motion.div>
+  );
+};
+
+const DataManagementPage = ({ onBack, triggerConfirm }) => (
+  <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+    <PageHeader title="Data Management" subtitle="Your data, your control" onBack={onBack} />
+    <div className="space-y-6">
+      <SettingSection title="Import & Export">
+        <SettingRow icon={Download} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Export Data" description="Download your data as CSV or JSON" />
+        <SettingRow icon={Upload} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Import Statements" description="Upload bank or card statements" />
+        <SettingRow icon={RefreshCw} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="Backup & Restore" description="Cloud backup of your portfolio" />
+      </SettingSection>
+
+      <SettingSection title="⚠️ Danger Zone">
+        <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-2">
+          <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-3">Irreversible Actions</p>
+          <SettingRow icon={Trash2} iconColor="text-rose-400" iconBg="bg-rose-500/10" label="Delete All Transactions" description="Permanently erase transaction history" danger onClick={() => triggerConfirm?.("Delete ALL transactions? This cannot be undone.", () => {})} />
+          <SettingRow icon={AlertTriangle} iconColor="text-rose-500" iconBg="bg-rose-500/10" label="Delete Account" description="Permanently close your Spendsy account" danger onClick={() => triggerConfirm?.("Permanently delete your account? This action is irreversible.", () => {})} />
+        </div>
+      </SettingSection>
+    </div>
+  </motion.div>
+);
+
+const SubscriptionPage = ({ onBack }) => (
+  <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+    <PageHeader title="Subscription & Billing" subtitle="Manage your plan" onBack={onBack} />
+    <div className="space-y-6">
+      <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-900/50 to-violet-900/30 border border-indigo-500/20 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/10 blur-[60px] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-indigo-500/20 rounded-xl"><Crown className="w-5 h-5 text-indigo-400" /></div>
+            <div>
+              <p className="text-xs font-black text-white uppercase tracking-wider">Pro Member</p>
+              <p className="text-[10px] text-indigo-400 font-bold">Active · Renews April 2027</p>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-4">
+            {["Unlimited Transactions", "AI Insights", "Priority Support"].map(f => (
+              <span key={f} className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-wider">{f}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <SettingSection title="Plan">
+        <SettingRow icon={Star} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Upgrade Plan" description="Unlock advanced features" badge="New" />
+        <SettingRow icon={FileText} iconColor="text-slate-400" iconBg="bg-slate-500/10" label="Billing History" description="View past invoices & receipts" />
+        <SettingRow icon={Package} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Redeem Coupon" description="Apply a promo or referral code" />
+      </SettingSection>
+    </div>
+  </motion.div>
+);
+
+const HelpSupportPage = ({ onBack }) => (
+  <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+    <PageHeader title="Help & Support" subtitle="We're here for you" onBack={onBack} />
+    <div className="space-y-6">
+      <SettingSection title="Resources">
+        <SettingRow icon={LifeBuoy} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Help Center" description="Browse guides and documentation" />
+        <SettingRow icon={HelpCircle} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="FAQs" description="Frequently asked questions" />
+      </SettingSection>
+      <SettingSection title="Contact">
+        <SettingRow icon={MessageSquare} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Contact Support" description="Chat with our team" />
+        <SettingRow icon={Ticket} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Raise a Ticket" description="Report a bug or issue" />
+      </SettingSection>
+    </div>
+  </motion.div>
+);
+
+const AboutPage = ({ onBack }) => (
+  <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+    <PageHeader title="About" subtitle="Spendsy — Know your money" onBack={onBack} />
+    <div className="space-y-6">
+      <div className="text-center py-8">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-indigo-900/40">
+          <span className="text-3xl">⚡</span>
+        </div>
+        <p className="text-xl font-black text-white">Spendsy</p>
+        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Personal Finance OS</p>
+      </div>
+      <SettingSection title="App Info">
+        <SettingRow icon={Info} iconColor="text-slate-400" iconBg="bg-slate-500/10" label="App Version" description="Current build" value="v2.4.0-stable" trailing={<span />} />
+        <SettingRow icon={FileText} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Terms & Conditions" description="User agreement" />
+        <SettingRow icon={Shield} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Privacy Policy" description="How we use your data" value="v1.4 Jan 2026" />
+      </SettingSection>
+    </div>
+  </motion.div>
+);
+
+// ─── Main Settings Page ───────────────────────────────────────────────────────
+
+const SECTIONS = [
+  {
+    key: "personal",
+    icon: User, label: "Personal Information",
+    description: "Name, email, phone, photo",
+    iconColor: "text-blue-400", iconBg: "bg-blue-500/10",
+  },
+  {
+    key: "security",
+    icon: Shield, label: "Privacy & Security",
+    description: "Password, 2FA, sessions",
+    iconColor: "text-emerald-400", iconBg: "bg-emerald-500/10",
+  },
+  {
+    key: "financial",
+    icon: Coins, label: "Financial Settings",
+    description: "Currency, accounts, budget",
+    iconColor: "text-amber-400", iconBg: "bg-amber-500/10",
+  },
+  {
+    key: "notifications",
+    icon: Bell, label: "Notifications",
+    description: "Email, push, SMS",
+    iconColor: "text-violet-400", iconBg: "bg-violet-500/10",
+  },
+  {
+    key: "appearance",
+    icon: Palette, label: "Appearance",
+    description: "Theme, colors, layout",
+    iconColor: "text-pink-400", iconBg: "bg-pink-500/10",
+  },
+  {
+    key: "ai",
+    icon: Bot, label: "Smart Features",
+    description: "Auto-categorize, AI insights",
+    iconColor: "text-indigo-400", iconBg: "bg-indigo-500/10",
+    badge: "AI",
+  },
+  {
+    key: "data",
+    icon: Database, label: "Data Management",
+    description: "Export, import, backup, danger zone",
+    iconColor: "text-slate-400", iconBg: "bg-slate-500/10",
+  },
+  {
+    key: "subscription",
+    icon: Crown, label: "Subscription & Billing",
+    description: "Plan, invoices, coupons",
+    iconColor: "text-amber-400", iconBg: "bg-amber-500/10",
+  },
+  {
+    key: "help",
+    icon: LifeBuoy, label: "Help & Support",
+    description: "FAQs, contact, raise ticket",
+    iconColor: "text-sky-400", iconBg: "bg-sky-500/10",
+  },
+  {
+    key: "about",
+    icon: Info, label: "About",
+    description: "Version, terms, privacy policy",
+    iconColor: "text-slate-400", iconBg: "bg-slate-500/10",
+  },
+];
+
+const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm }) => {
+  const [currentSection, setCurrentSection] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const filteredSections = useMemo(() =>
+    SECTIONS.filter(s =>
+      s.label.toLowerCase().includes(search.toLowerCase()) ||
+      s.description.toLowerCase().includes(search.toLowerCase())
+    ), [search]);
+
+  const goBack = () => setCurrentSection(null);
+
+  const renderSection = () => {
+    switch (currentSection) {
+      case "personal":     return <PersonalInfoPage user={user} onBack={goBack} />;
+      case "security":     return <SecurityPage onBack={goBack} />;
+      case "financial":    return <FinancialSettingsPage onBack={goBack} />;
+      case "notifications":return <NotificationsPage onBack={goBack} />;
+      case "appearance":   return <AppearancePage onBack={goBack} />;
+      case "ai":           return <AIFeaturesPage onBack={goBack} />;
+      case "data":         return <DataManagementPage onBack={goBack} triggerConfirm={triggerConfirm} />;
+      case "subscription": return <SubscriptionPage onBack={goBack} />;
+      case "help":         return <HelpSupportPage onBack={goBack} />;
+      case "about":        return <AboutPage onBack={goBack} />;
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="space-y-0 pb-32">
+      <AnimatePresence mode="wait">
+        {currentSection ? (
+          <motion.div key={currentSection} variants={pageVariants} initial="initial" animate="animate" exit="exit">
+            {renderSection()}
+          </motion.div>
+        ) : (
+          <motion.div key="main" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-5 border-b border-white/5">
+              <div className="flex items-center gap-4">
+                <motion.button
+                  whileHover={{ scale: 1.05, x: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onBack}
+                  className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors shadow-lg"
+                >
+                  <ChevronLeft className="w-5 h-5 text-white" />
+                </motion.button>
+                <div>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Settings</h1>
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Configure your experience</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative group">
+              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors">
+                <Search className="w-5 h-5" />
+              </div>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search settings..."
+                className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-sm font-medium outline-none focus:border-indigo-500/50 focus:bg-white/8 transition-all placeholder:text-slate-600"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Sections */}
+            <div className="space-y-2">
+              {filteredSections.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Search className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+                  <p className="text-slate-500 text-sm font-bold">No settings found for "{search}"</p>
+                </div>
+              ) : (
+                filteredSections.map((s) => (
+                  <motion.button
+                    key={s.key}
+                    onClick={() => setCurrentSection(s.key)}
+                    whileHover={{ x: 6, backgroundColor: "rgba(255,255,255,0.07)" }}
+                    whileTap={{ scale: 0.99 }}
+                    className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl border border-white/5 transition-all group text-left"
+                    style={{ background: "rgba(255,255,255,0.03)" }}
+                  >
+                    <div className={`p-3 ${s.iconBg} ${s.iconColor} rounded-2xl shrink-0 group-hover:scale-110 transition-transform shadow-inner`}>
+                      <s.icon className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-white leading-tight">{s.label}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">{s.description}</p>
+                    </div>
+                    {s.badge && (
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-[9px] font-bold text-indigo-400 uppercase tracking-wider shrink-0">{s.badge}</span>
+                    )}
+                    <ChevronRight className="w-5 h-5 text-slate-700 group-hover:text-slate-400 transition-colors shrink-0" />
+                  </motion.button>
+                ))
+              )}
+            </div>
+
+            {/* Logout */}
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => triggerConfirm?.("Are you sure you want to sign out?", onSignOut)}
+              className="w-full flex items-center gap-4 px-5 py-5 rounded-2xl bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 hover:border-rose-500/25 transition-all group mt-4"
+            >
+              <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 shrink-0 group-hover:scale-110 transition-transform">
+                <LogOut className="w-6 h-6" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-black text-rose-400">Sign Out of Spendsy</p>
+                <p className="text-[11px] text-rose-500/50 mt-0.5">End your current session</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-rose-500/40 group-hover:text-rose-400 transition-colors shrink-0" />
+            </motion.button>
+
+            {/* Footer */}
+            <p className="text-center text-[10px] font-black text-slate-800 uppercase tracking-widest pt-4">Spendsy v2.4.0-stable</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

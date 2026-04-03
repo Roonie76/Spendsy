@@ -2,18 +2,13 @@ import React, { useState, useEffect } from "react";
 import { 
   User, 
   Target, 
-  IndianRupee, 
-  Loader2, 
   ShieldCheck, 
-  CreditCard as CreditCardIcon, 
   Briefcase, 
-  TrendingUp,
   LogOut,
   ChevronRight,
   Sparkles,
   Settings as SettingsIcon,
-  Landmark,
-  CreditCard
+  Landmark
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -22,13 +17,14 @@ import { TABS } from "../../../../../packages/shared/config/constants";
 const ProfilePage = ({
   user,
   settings,
+  wealthItems = [],
+  transactions = [],
   onUpdateSettings,
   onSignOut,
   triggerConfirm,
   setActiveTab
 }) => {
   const [localSettings, setLocalSettings] = useState(settings || {});
-  const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -70,20 +66,9 @@ const ProfilePage = ({
     { value: 100 - score, color: "rgba(255,255,255,0.03)" }
   ];
 
-  const requestSaveSettings = (e) => {
-    e.preventDefault();
-    triggerConfirm("Save your financial goals?", async () => {
-      setSavingSettings(true);
-      const updatedData = {
-        monthlyIncome: Number(localSettings.monthlyIncome) || 0,
-        monthlyBudget: Number(localSettings.monthlyBudget) || 0,
-        dailyBudget: Number(localSettings.dailyBudget) || 0,
-      };
-      const dummyUnits = { monthlyIncome: 1, monthlyBudget: 1, dailyBudget: 1 };
-      await onUpdateSettings(updatedData, dummyUnits);
-      setSavingSettings(false);
-    });
-  };
+
+  // --- Dynamic Category Counts ---
+  const loanCount = wealthItems.filter(i => i.type === "liability" || i.is_loan).length;
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -224,8 +209,8 @@ const ProfilePage = ({
         <section className="space-y-4">
           {[
             { label: "Bank Accounts", icon: Landmark, count: "Debit & Credit", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-l-blue-500", onClick: () => setActiveTab(TABS.BANK_ACCOUNTS) },
-            { label: "Active Loans", icon: Briefcase, count: "1 Active", color: "text-rose-400", bg: "bg-rose-500/10", border: "border-l-rose-500" },
-            { label: "Wealth Portfolio", icon: TrendingUp, count: "3 Assets", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-l-emerald-500" }
+            { label: "Active Loans", icon: Briefcase, count: loanCount > 0 ? `${loanCount} Active` : "No Loans", color: "text-rose-400", bg: "bg-rose-500/10", border: "border-l-rose-500", onClick: () => setActiveTab(TABS.LOANS) },
+            { label: "Set Budget", icon: Target, count: settings?.monthlyBudget > 0 ? `₹${(settings.monthlyBudget/1000).toFixed(0)}K / month` : "Goals & Limits", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-l-amber-500", onClick: () => setActiveTab(TABS.BUDGET) }
           ].map((item, idx) => (
             <motion.div 
               key={idx}
@@ -249,79 +234,6 @@ const ProfilePage = ({
         </section>
       </div>
 
-      {/* Modern Financial Goals Form */}
-      <section className="relative">
-        <div className="absolute -inset-px bg-gradient-to-b from-white/10 to-transparent rounded-[2.5rem] pointer-events-none"></div>
-        <form
-          onSubmit={requestSaveSettings}
-          className="bg-black/20 p-8 rounded-[2.5rem] border border-white/10 space-y-8 relative z-10"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-black text-white text-xl flex items-center gap-3">
-              <div className="p-2 bg-yellow-400/10 rounded-xl">
-                <Target className="w-6 h-6 text-yellow-500" />
-              </div> 
-              Set Budget
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 gap-8">
-            {[
-              { id: "monthlyIncome", label: "Monthly Income", icon: TrendingUp, color: "text-emerald-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(52,211,153,0.3)]" },
-              { id: "monthlyBudget", label: "Monthly Budget", icon: Briefcase, color: "text-violet-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(167,139,250,0.3)]" },
-              { id: "dailyBudget", label: "Daily Budget", icon: Sparkles, color: "text-amber-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(251,191,36,0.3)]" }
-            ].map((field) => (
-              <div key={field.id} className="space-y-4">
-                <label className="text-[11px] text-slate-500 font-black uppercase tracking-[0.4em] flex items-center gap-2.5 ml-2">
-                  <field.icon className={`w-3.5 h-3.5 ${field.color}`} />
-                  {field.label}
-                </label>
-                <div className={`relative group transition-all duration-300 rounded-[2.5rem] ${field.glow}`}>
-                  <div className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-white transition-colors z-20">
-                    <IndianRupee className="w-6 h-6" />
-                  </div>
-                  <input
-                    type="number"
-                    value={localSettings[field.id] || ""}
-                    onChange={(e) =>
-                      setLocalSettings({ ...localSettings, [field.id]: e.target.value })
-                    }
-                    className="w-full pl-16 pr-36 py-6 bg-black/40 border-2 border-white/5 rounded-[2.5rem] text-2xl font-black text-white outline-none focus:border-white/20 focus:bg-white/5 transition-all placeholder:text-slate-800 shadow-inner relative z-10"
-                    placeholder="0"
-                  />
-                  {localSettings[field.id] > 0 && (
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-xl z-20 shadow-lg">
-                      <span className={`text-xs font-black ${field.color}`}>
-                        {getReadableUnit(localSettings[field.id])}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={savingSettings}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-[2rem] font-black text-lg shadow-2xl shadow-indigo-900/40 transition-all disabled:opacity-50 flex items-center justify-center gap-3 mt-4 overflow-hidden relative"
-          >
-            {savingSettings ? (
-              <>
-                <Loader2 className="w-6 h-6 animate-spin" />
-                <span className="animate-pulse">Syncing with Cloud...</span>
-              </>
-            ) : (
-              <>
-                <span>Update Budget Configuration</span>
-                <ChevronRight className="w-6 h-6" />
-              </>
-            )}
-          </motion.button>
-        </form>
-      </section>
 
       {/* Dynamic Sign Out */}
       <motion.button

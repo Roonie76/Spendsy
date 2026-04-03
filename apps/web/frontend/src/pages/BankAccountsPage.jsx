@@ -6,11 +6,12 @@ import {
   Zap,
   ChevronRight,
   ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  ChevronLeft
 } from "lucide-react";
 import { TABS } from "../../../../../packages/shared/config/constants";
 
-const BankAccountsPage = ({ setActiveTab }) => {
+const BankAccountsPage = ({ setActiveTab, onBack }) => {
   const options = [
     {
       id: TABS.DEBIT_CARDS,
@@ -36,9 +37,19 @@ const BankAccountsPage = ({ setActiveTab }) => {
 
   return (
     <div className="space-y-8 pb-28 animate-in slide-in-from-bottom-8">
-      <div>
-        <h1 className="text-2xl font-black text-white tracking-tight mb-2">Bank Accounts</h1>
-        <p className="text-slate-400 text-sm font-medium">Manage your linked financial instruments</p>
+      <div className="flex items-center gap-4 pb-4 border-b border-white/5">
+        <motion.button 
+          whileHover={{ scale: 1.05, x: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onBack}
+          className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors shadow-lg"
+        >
+          <ChevronLeft className="w-5 h-5 text-white" />
+        </motion.button>
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Bank Accounts</h1>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Manage your linked financial instruments</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
