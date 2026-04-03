@@ -591,9 +591,9 @@ def get_transaction_history(
         error_text = str(exc).lower()
         details = None
         message = "Unable to fetch transactions"
-        if any(token in error_text for token in ("no such column", "undefined column", "unknown column")):
+        if any(token in error_text for token in ("no such column", "undefined column", "unknown column", "does not exist", "undefined table", "no such table")):
             message = "Transaction schema is out of date. Run finance-service migrations."
-            details = {"hint": "Run `alembic upgrade head` in spendsy/services/finance-service"}
+            details = {"hint": "Run `alembic upgrade head` in Spendsy/services/finance-service"}
         return error_response(
             request,
             message,
