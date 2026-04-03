@@ -27,10 +27,11 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave }) => {
 
             setFormData({
                 id: transaction.id,
+                uid: transaction.uid,
                 amount: transaction.amount || '',
                 // Check both description and title to be safe
                 description: transaction.description || transaction.title || '',
-                category: transaction.category || '',
+                category: transaction.category || 'other',
                 type: transaction.type || 'expense',
                 date: dateStr
             });

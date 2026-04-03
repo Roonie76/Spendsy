@@ -1,7 +1,23 @@
 import { useState, useMemo } from "react";
 import { Trash2, Filter, ChevronDown, ChevronUp, AlertTriangle, CheckSquare, Square } from "lucide-react";
 
-const CATEGORIES = ["all", "food", "transport", "utilities", "entertainment", "shopping", "health", "other"];
+const CATEGORIES = [
+  "all",
+  "salary",
+  "investment",
+  "housing",
+  "utilities",
+  "food",
+  "shopping",
+  "transport",
+  "entertainment",
+  "rent",
+  "travel",
+  "tech",
+  "health",
+  "education",
+  "other",
+];
 const TYPES = ["all", "income", "expense"];
 
 export default function CustomDeletePanel({ transactions = [], onBulkDelete, onClose, showToast }) {
@@ -76,7 +92,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
             <div>
               <label className="text-[10px] uppercase tracking-widest opacity-50 block mb-1">Type</label>
               <select
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none"
+                className="w-full rounded-xl bg-slate-900/50 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-all [&>option]:bg-slate-900 [&>option]:text-white"
                 value={filters.type}
                 onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
               >
@@ -90,7 +106,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
             <div>
               <label className="text-[10px] uppercase tracking-widest opacity-50 block mb-1">Category</label>
               <select
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none"
+                className="w-full rounded-xl bg-slate-900/50 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-all [&>option]:bg-slate-900 [&>option]:text-white"
                 value={filters.category}
                 onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
               >
@@ -105,7 +121,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
               <label className="text-[10px] uppercase tracking-widest opacity-50 block mb-1">Date From</label>
               <input
                 type="date"
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none"
+                className="w-full rounded-xl bg-slate-900/50 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-all [color-scheme:dark]"
                 value={filters.dateFrom}
                 onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
               />
@@ -116,7 +132,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
               <label className="text-[10px] uppercase tracking-widest opacity-50 block mb-1">Date To</label>
               <input
                 type="date"
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none"
+                className="w-full rounded-xl bg-slate-900/50 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-all [color-scheme:dark]"
                 value={filters.dateTo}
                 onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
               />
@@ -128,7 +144,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
               <input
                 type="number"
                 placeholder="0"
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none"
+                className="w-full rounded-xl bg-slate-900/50 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-all"
                 value={filters.amountMin}
                 onChange={(e) => setFilters((f) => ({ ...f, amountMin: e.target.value }))}
               />
@@ -140,7 +156,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
               <input
                 type="number"
                 placeholder="Any"
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none"
+                className="w-full rounded-xl bg-slate-900/50 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 transition-all"
                 value={filters.amountMax}
                 onChange={(e) => setFilters((f) => ({ ...f, amountMax: e.target.value }))}
               />

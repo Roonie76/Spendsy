@@ -19,6 +19,9 @@ class TransactionCategory(str, Enum):
     entertainment = "entertainment"
     rent = "rent"
     travel = "travel"
+    tech = "tech"
+    health = "health"
+    education = "education"
     other = "other"
 
 

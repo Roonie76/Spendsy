@@ -108,7 +108,7 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete(item.id);
+                onDelete(item.uid || item.id);
               }}
               className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-full"
             >

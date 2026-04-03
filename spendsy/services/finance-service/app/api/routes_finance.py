@@ -198,6 +198,17 @@ def _infer_category(description: str, tx_type: str) -> str:
         "mutual fund": "investment",
         "nps": "investment",
         "stock": "investment",
+        "apple": "tech",
+        "google": "tech",
+        "electronics": "tech",
+        "doctor": "health",
+        "hospital": "health",
+        "medicine": "health",
+        "pharmacy": "health",
+        "school": "education",
+        "college": "education",
+        "tuition": "education",
+        "course": "education",
     }
     for keyword, category in keyword_map.items():
         if keyword in text:
@@ -522,7 +533,7 @@ def add_transaction(
 
     return success_response(
         request,
-        {"id": tx.id},
+        {"id": tx.id, "uid": tx.uid},
         message="Transaction saved successfully",
         http_status=status.HTTP_201_CREATED,
     )
@@ -565,6 +576,7 @@ def get_transaction_history(
         data = [
             {
                 "id": t.id,
+                "uid": t.uid,
                 "title": _display_title(t),
                 "description": _display_title(t),
                 "raw_description": t.raw_description,
@@ -662,6 +674,9 @@ def delete_transaction(
     db: Session = Depends(get_db),
 ):
     txn = db.query(Transaction).filter(Transaction.uid == uid, Transaction.user_id == user.id).first()
+    if txn is None and uid.isdigit():
+        txn = db.query(Transaction).filter(Transaction.id == int(uid), Transaction.user_id == user.id).first()
+    
     if txn is None:
         return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
@@ -686,6 +701,9 @@ def update_transaction(
     db: Session = Depends(get_db),
 ):
     txn = db.query(Transaction).filter(Transaction.uid == uid, Transaction.user_id == user.id).first()
+    if txn is None and uid.isdigit():
+        txn = db.query(Transaction).filter(Transaction.id == int(uid), Transaction.user_id == user.id).first()
+
     if txn is None:
         return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
@@ -729,6 +747,7 @@ def update_transaction(
         db.rollback()
         raise
     _audit(db, request, action="transaction_updated", resource_type="transaction", resource_id=uid, status_code=200, user=user)
+    clear_user_financial_cache(user.id)
     return success_response(request, {"id": txn.id, "title": _display_title(txn)}, message="Updated successfully")
 
 

@@ -450,12 +450,12 @@ export default function App() {
     }
   }, [API_BASE_URL, currentUser?.email, currentUser?.id, handleUnauthorized, sessionReady]);
 
-  const deleteTransaction = async (id) => {
+  const deleteTransaction = async (txId) => {
     try {
-      await apiFetch(`${API_BASE_URL}/transactions/${id}`, {
+      await apiFetch(`${API_BASE_URL}/transactions/${txId}`, {
         method: "DELETE",
       });
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
+      setTransactions((prev) => prev.filter((t) => (t.uid || t.id) !== txId));
       fetchSummary();
     } catch (error) {
       if (error.status === 401) {
@@ -468,13 +468,14 @@ export default function App() {
   };
   const updateTransaction = async (updatedTx) => {
     try {
-      await apiFetch(`${API_BASE_URL}/transactions/${updatedTx.id}`, {
+      const txId = updatedTx.uid || updatedTx.id;
+      await apiFetch(`${API_BASE_URL}/transactions/${txId}`, {
         method: "PUT",
         body: JSON.stringify({
-          title: updatedTx.description,
-          amount: updatedTx.amount,
-          type: updatedTx.type.toLowerCase(),
-          category: updatedTx.category.toLowerCase(),
+          title: updatedTx.title || updatedTx.description || "Untitled",
+          amount: parseFloat(updatedTx.amount || 0),
+          type: (updatedTx.type || "expense").toLowerCase(),
+          category: (updatedTx.category || "other").toLowerCase(),
           date: updatedTx.date,
         }),
       });
