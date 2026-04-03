@@ -806,11 +806,18 @@ export default function App() {
               {activeTab === TABS.WEALTH && (
                 <WealthPage
                   wealthItems={wealthItems}
+                  netWorthHistory={netWorthHistory}
                   user={currentUser}
                   authToken={authToken}
                   apiBaseUrl={API_BASE_URL}
                   appId={settings?.appId}
-                  onSuccess={fetchWealth}
+                  onSuccess={async () => {
+                    await Promise.all([
+                      fetchWealth(),
+                      fetchNetWorthHistory(),
+                      fetchSummary(),
+                    ]);
+                  }}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
                 />
@@ -839,7 +846,7 @@ export default function App() {
               )}
 
               {activeTab === TABS.STATS && (
-                <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} />
+                <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} wealthItems={wealthItems} />
               )}
 
               {activeTab === TABS.ITR && (

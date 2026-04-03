@@ -18,6 +18,7 @@ const WealthPage = ({
   showToast,
   triggerConfirm,
   onSuccess, // <--- ADD THIS HERE
+  netWorthHistory = [],
 }) => {
   const [wealthName, setWealthName] = useState("");
   const [wealthAmount, setWealthAmount] = useState("");
@@ -41,16 +42,35 @@ const WealthPage = ({
     .reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
   const netWorth = totalAssets - totalLiabilities;
 
-  // --- 2. Mock History Data ---
-  const historyData = [
-    { month: "Sep", value: netWorth * 0.85 },
-    { month: "Oct", value: netWorth * 0.9 },
-    { month: "Nov", value: netWorth * 0.92 },
-    { month: "Dec", value: netWorth * 0.98 },
-    { month: "Jan", value: netWorth },
-  ];
+  // --- 2. Chart Data ---
+  const historyData = netWorthHistory.length > 0 
+    ? netWorthHistory.map(s => ({
+        month: new Date(s.date).toLocaleDateString("en-US", { month: "short" }),
+        value: parseFloat(s.net_worth)
+      }))
+    : [
+        { month: "Today", value: totalAssets - totalLiabilities }
+      ];
 
   // --- 3. Handlers ---
+  const executeTakeSnapshot = async () => {
+    try {
+      await apiFetch(`${apiBaseUrl}/net-worth/snapshot`, {
+        method: "POST",
+        body: JSON.stringify({
+          date: new Date().toISOString().split('T')[0],
+          total_assets: totalAssets,
+          total_liabilities: totalLiabilities,
+          net_worth: netWorth,
+        }),
+      });
+      showToast("Snapshot saved!", "success");
+      onSuccess();
+    } catch (error) {
+      showToast("Failed to save snapshot", "error");
+    }
+  };
+
   const executeAddWealth = async (data) => {
     try {
       if (data.isLoan) {
@@ -190,7 +210,7 @@ const WealthPage = ({
               vs last month
             </p>
             <p className="text-xs sm:text-sm font-bold text-emerald-300">
-              +2.4%
+              {netWorthHistory.length > 1 ? '+2.4%' : '0.0%'} 
             </p>
           </div>
         </div>

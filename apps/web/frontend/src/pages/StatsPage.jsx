@@ -127,7 +127,7 @@ const InsightCard = ({ type, title, message, impact }) => {
 };
 
 // --- MAIN PAGE COMPONENT ---
-const StatsPage = ({ transactions, netWorthHistory = [] }) => {
+const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => {
   const [aiInsights, setAiInsights] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
@@ -240,7 +240,37 @@ const StatsPage = ({ transactions, netWorthHistory = [] }) => {
     return Array.from(dataMap.values()).sort((a, b) => a.sortKey - b.sortKey);
   }, [transactions, range]);
 
-  // --- 3. THE WATCHDOG ENGINE ---
+  // --- 3. Net Worth Logic ---
+  const augmentedNetWorthHistory = useMemo(() => {
+    // 1. Calculate current totals from wealthItems
+    const currentAssets = wealthItems
+      .filter((i) => i.type === "asset")
+      .reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
+    const currentLiabilities = wealthItems
+      .filter((i) => i.type === "liability")
+      .reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
+    const currentNet = currentAssets - currentLiabilities;
+
+    // 2. Combine with actual history
+    const baseHistory = [...netWorthHistory];
+    
+    // 3. If the last history point isn't today, add a 'virtual' point for today
+    const today = new Date().toISOString().split('T')[0];
+    const hasToday = baseHistory.some(s => s.date === today);
+    
+    if (!hasToday && (currentAssets > 0 || currentLiabilities > 0)) {
+      baseHistory.push({
+        date: today,
+        total_assets: currentAssets,
+        total_liabilities: currentLiabilities,
+        net_worth: currentNet
+      });
+    }
+    
+    return baseHistory;
+  }, [netWorthHistory, wealthItems]);
+
+  // --- 4. THE WATCHDOG ENGINE ---
   const generateAIInsights = async () => {
     if (transactions.length === 0) {
       setAiError("Add some transactions first to see AI insights!");
@@ -532,9 +562,9 @@ const StatsPage = ({ transactions, netWorthHistory = [] }) => {
         </div>
         
         <div className="h-[300px] w-full relative">
-          {netWorthHistory && netWorthHistory.length > 0 ? (
+          {augmentedNetWorthHistory && augmentedNetWorthHistory.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <AreaChart data={netWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={augmentedNetWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
