@@ -77,7 +77,7 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
                 <div>
                   <h4 className="text-lg font-black text-white leading-none">{loan.title || loan.bank_name}</h4>
                   <div className="flex items-center gap-3 mt-2">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">₹{formatIndianCompact(loan.amount)} Remaining</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{formatIndianCompact(loan.amount)} Remaining</span>
                     <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
                     <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Next EMI: 15 Apr</span>
                   </div>
