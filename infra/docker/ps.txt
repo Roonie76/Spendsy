@@ -1,8 +1,0 @@
-NAME               IMAGE                    COMMAND                  SERVICE           CREATED          STATUS                          PORTS
-spendsy_ai         docker-ai-service        "uvicorn app.main:ap…"   ai-service        23 hours ago     Up 19 minutes (healthy)         0.0.0.0:8004->8000/tcp, [::]:8004->8000/tcp
-spendsy_auth       docker-auth-service      "uvicorn app.main:ap…"   auth-service      23 hours ago     Up 19 minutes (healthy)         0.0.0.0:8001->8000/tcp, [::]:8001->8000/tcp
-spendsy_finance    docker-finance-service   "uvicorn app.main:ap…"   finance-service   23 hours ago     Up 19 minutes (healthy)         0.0.0.0:8002->8000/tcp, [::]:8002->8000/tcp
-spendsy_gateway    nginx:alpine             "/docker-entrypoint.…"   nginx             19 minutes ago   Restarting (1) 13 seconds ago   
-spendsy_parser     docker-parser-service    "uvicorn app.main:ap…"   parser-service    23 hours ago     Up 19 minutes (healthy)         0.0.0.0:8003->8000/tcp, [::]:8003->8000/tcp
-spendsy_postgres   postgres:15              "docker-entrypoint.s…"   postgres          26 hours ago     Up 19 minutes (healthy)         0.0.0.0:5434->5432/tcp, [::]:5434->5432/tcp
-spendsy_redis      redis:7-alpine           "docker-entrypoint.s…"   redis             26 hours ago     Up 19 minutes (healthy)         0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp

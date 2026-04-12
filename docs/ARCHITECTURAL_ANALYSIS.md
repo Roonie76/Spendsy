@@ -39,11 +39,11 @@ This document provides a comprehensive technical breakdown of the **Spendsy** ec
 ```
 
 ### Folder Structure
-- `apps/web/frontend`: React application source.
-- `spendsy/services/`: Microservices (Auth, Finance, AI).
-- `packages/shared/`: Cross-cutting concerns (Constants, Utils).
+- `frontend`: React application source.
+- `backend/`: Microservices (Auth, Finance, AI).
+- `shared/`: Cross-cutting concerns (Constants, Utils).
 - `infra/docker/`: Environment orchestration.
-- `spendsy-ai/`: Specialized Tora agent service.
+- `backend/spendsy-ai/`: Specialized Tora agent service.
 
 ### Layer Separation
 - **Routes**: Located in `app/api/`, handling endpoint definitions and input/output serialization (Pydantic).

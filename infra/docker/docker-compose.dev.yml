@@ -42,7 +42,7 @@ services:
   auth-service:
     build:
       context: ../../
-      dockerfile: Spendsy/services/auth-service/Dockerfile
+      dockerfile: backend/auth-service/Dockerfile
     container_name: spendsy_auth
     restart: always
     env_file:
@@ -62,7 +62,7 @@ services:
       AUTH_RATE_LIMIT_REGISTER: ${AUTH_RATE_LIMIT_REGISTER:-50}
       ENVIRONMENT: ${ENVIRONMENT:-production}
     volumes:
-      - ../../Spendsy/services/auth-service:/app
+      - ../../backend/auth-service:/app
     working_dir: /app
     depends_on:
       postgres:
@@ -85,7 +85,7 @@ services:
   finance-service:
     build:
       context: ../../
-      dockerfile: Spendsy/services/finance-service/Dockerfile
+      dockerfile: backend/finance-service/Dockerfile
     container_name: spendsy_finance
     restart: always
     env_file:
@@ -103,7 +103,7 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
       ENVIRONMENT: ${ENVIRONMENT:-production}
     volumes:
-      - ../../Spendsy/services/finance-service:/app
+      - ../../backend/finance-service:/app
     working_dir: /app
     depends_on:
       postgres:
@@ -126,7 +126,7 @@ services:
   ai-service:
     build:
       context: ../../
-      dockerfile: Spendsy/services/ai-service/Dockerfile
+      dockerfile: backend/ai-service/Dockerfile
     container_name: spendsy_ai
     restart: always
     env_file:
@@ -140,7 +140,7 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
       ENVIRONMENT: ${ENVIRONMENT:-production}
     volumes:
-      - ../../Spendsy/services/ai-service:/app
+      - ../../backend/ai-service:/app
     working_dir: /app
     depends_on:
       redis:

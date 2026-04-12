@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Legacy monolithic backend is disabled. Use the microservices in spendsy/services/
+  # Legacy monolithic backend is disabled. Use the microservices in backend/
 
   frontend:
     build:

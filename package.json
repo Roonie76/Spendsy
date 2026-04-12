@@ -2,10 +2,10 @@
   "name": "spendsy-monorepo",
   "private": true,
   "workspaces": [
-    "apps/web/frontend"
+    "frontend"
   ],
   "scripts": {
-    "web": "npm run dev -w apps/web/frontend"
+    "web": "npm run dev -w frontend"
   },
   "dependencies": {
     "axios": "^1.13.5",

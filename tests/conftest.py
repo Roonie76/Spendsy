@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SERVICES_ROOT = REPO_ROOT / "spendsy" / "services"
+SERVICES_ROOT = REPO_ROOT / "backend"
 TEST_DB_PATH = REPO_ROOT / "tests" / "test.db"
 
 ENV_FILE_PATH = REPO_ROOT / ".env"

@@ -15,17 +15,17 @@ ENV VITE_AI_URL=${VITE_AI_URL}
 
 # Install dependencies using workspace lock for better caching
 COPY package.json package-lock.json ./
-COPY apps/web/frontend/package.json apps/web/frontend/package-lock.json ./apps/web/frontend/
+COPY frontend/package.json frontend/package-lock.json ./frontend/
 RUN npm ci
 
 # Copy the rest of the repo and build
 COPY . .
-RUN npm run build -w apps/web/frontend
+RUN npm run build -w frontend
 
 # Production stage
 FROM nginx:alpine
 
-COPY --from=build /repo/apps/web/frontend/dist /usr/share/nginx/html
+COPY --from=build /repo/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
 
