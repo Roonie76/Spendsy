@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import httpx
 
 from app.core.config import settings
+
+logger = logging.getLogger("ai.gemini")
 
 
 class GeminiError(RuntimeError):
@@ -32,7 +35,7 @@ def generate_text(prompt: str, *, response_format: str = "text", image: str | No
     )
     # Security: Only log the start and end of the key for verification
     masked_key = f"{api_key[:4]}...{api_key[-4:]}" if api_key else "NONE"
-    print(f"DEBUG: Using Model: gemini-2.5-flash-lite | API Key: {masked_key}")
+    logger.debug("Using Model: gemini-2.5-flash-lite | API Key: %s", masked_key)
     generation_config: dict = {"temperature": 0.4}
     
     # Use prompt enforcement for JSON on stable v1 to avoid 'response_mime_type' errors
@@ -68,7 +71,7 @@ def generate_text(prompt: str, *, response_format: str = "text", image: str | No
         
         if response.status_code != 200:
             error_body = response.text
-            print(f"DEBUG: Gemini API Error Response (Status {response.status_code}): {error_body}")
+            logger.error("Gemini API Error Response (Status %d): %s", response.status_code, error_body)
             # Raise with body included
             raise GeminiError(f"API Error {response.status_code}: {error_body}")
             
@@ -79,7 +82,7 @@ def generate_text(prompt: str, *, response_format: str = "text", image: str | No
     except Exception as exc:
         # If it was wrapped by Tenacity, try to get the original if possible
         errorMessage = str(exc)
-        print(f"ERROR: Final AI Failure: {errorMessage}")
+        logger.error("Final AI Failure: %s", errorMessage)
         raise GeminiError(errorMessage) from exc
 
     data = response.json()

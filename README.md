@@ -19,16 +19,24 @@ Spendsy is a high-performance, open-source fintech platform designed for persona
 cd d:\Projects\Spendsy
 ```
 
-3. **Run the orchestration script**:
+3. **Recommended daily workflow for Windows development**:
+```powershell
+.\run-local.ps1
+```
+
+This starts:
+- frontend locally on Vite at `http://localhost:5173`
+- all backend services in Docker
+- the API gateway at `http://localhost:8080`
+
+Use this mode when you want reliable frontend hot reload.
+
+4. **Optional pure-Docker mode**:
 ```powershell
 .\run.ps1
 ```
 
-This will:
-- Build all Docker images for frontend, backend services, and databases
-- Start PostgreSQL, Redis, and PgBouncer
-- Launch auth-service, finance-service, ai-service, and frontend
-- Configure Nginx as the API gateway
+This keeps the original Docker-first workflow, including the frontend container.
 
 ### Verifying Services are Running
 
@@ -48,7 +56,7 @@ docker ps
 # - spendsy_nginx
 ```
 
-Access the frontend at http://localhost:3000 to verify the UI loads.
+Access the frontend at `http://localhost:5173` for local-Vite development or `http://localhost:3000` for the Docker frontend.
 
 ### Viewing Logs
 
@@ -88,7 +96,7 @@ docker-compose down -v
     - **Spendsy AI Agent**: An autonomous agent (Tora) for complex reasoning and tool-calling.
     - **MCP Support**: Native [Model Context Protocol](https://modelcontextprotocol.io/) server for external AI integration.
 - **Automated Statement Parsing**: High-fidelity deterministic extraction from digital PDF bank statements.
-- **Developer Experience**: Docker-first development with unified orchestration via `run.ps1`.
+- **Developer Experience**: Hybrid Windows development via `run-local.ps1` with local Vite hot reload, plus optional pure-Docker mode via `run.ps1`.
 
 ---
 
@@ -136,20 +144,23 @@ cd Spendsy
 # 2. Create your environment file
 cp .env.example .env
 
-# 3. Start everything (one command!)
-.\run.ps1
+# 3. Start the recommended dev workflow
+.\run-local.ps1
 ```
 
-That's it! Docker will build all images and start every service automatically.
+That's it. Vite runs locally for fast hot reload while the backend stack runs in Docker.
 
 ### Local Endpoints
 | Service | URL |
 | :--- | :--- |
-| **Frontend** | http://localhost:3000 |
+| **Frontend (Local Vite)** | http://localhost:5173 |
+| **Frontend (Docker)** | http://localhost:3000 |
 | **API Gateway** | http://localhost:8080 |
 | **Auth Service Docs** | http://localhost:8001/docs |
 | **Finance Service Docs** | http://localhost:8002/docs |
 | **AI Service Docs** | http://localhost:8004/docs |
+| **Spendsy AI (Tora)** | http://localhost:8005 |
+| **Spendsy MCP (SSE)** | http://localhost:8080/mcp/sse |
 
 ---
 
@@ -209,7 +220,15 @@ docker-compose logs postgres
 
 ### Development Workflow
 
-For active development, you can run services individually:
+For active development on Windows, prefer:
+
+```powershell
+.\run-local.ps1
+```
+
+That keeps frontend HMR local while the backend stays containerized.
+
+If you need to run pieces individually:
 
 ```powershell
 # Start only database and cache

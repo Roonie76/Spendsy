@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+logger = logging.getLogger("ai.routes")
 
 from app.core.security import UserContext, get_current_user
 from app.schemas import AIRequest, AIResponse, HealthResponse
@@ -26,7 +29,7 @@ def _run_gemini(payload: AIRequest) -> AIResponse:
             image_mime_type=payload.image_mime_type
         )
     except GeminiError as exc:
-        print(f"ERROR: AI Request failed: {str(exc)}")
+        logger.error("AI Request failed: %s", str(exc))
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     output: str | dict | list = raw
@@ -45,7 +48,7 @@ def _run_gemini(payload: AIRequest) -> AIResponse:
             
             output = json.loads(content)
         except (json.JSONDecodeError, Exception) as e:
-            print(f"ERROR: JSON Parsing failed for raw output: {raw[:100]}... Error: {str(e)}")
+            logger.warning("JSON Parsing failed for raw output: %s... Error: %s", raw[:100], str(e))
             output = []
     return AIResponse(status="ok", output=output, raw=raw)
 

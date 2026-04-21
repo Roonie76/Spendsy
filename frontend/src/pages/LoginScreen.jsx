@@ -96,6 +96,7 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
               placeholder="Username"
               className="bg-black/20 border border-white/10 p-3 rounded-xl focus:border-blue-500 outline-none text-sm"
               required
+              autoComplete="off"
               onChange={(e) =>
                 setAuthData({ ...authData, username: e.target.value })
               }
@@ -106,6 +107,7 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
                 className="bg-black/20 border border-white/10 p-3 rounded-xl focus:border-blue-500 outline-none text-sm"
                 type="email"
                 required
+                autoComplete="off"
                 onChange={(e) =>
                   setAuthData({ ...authData, email: e.target.value })
                 }
@@ -117,6 +119,7 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
                 placeholder="Password"
                 className="w-full bg-black/20 border border-white/10 p-3 pr-10 rounded-xl focus:border-blue-500 outline-none text-sm"
                 required
+                autoComplete="new-password"
                 onChange={(e) =>
                   setAuthData({ ...authData, password: e.target.value })
                 }
@@ -149,8 +152,20 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
           </button>
         </div>
 
-        <div className="mt-8 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
-          {APP_VERSION}
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+            {APP_VERSION}
+          </div>
+          <button 
+            onClick={() => {
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.href = window.location.pathname; // Clear query params and reload
+            }}
+            className="text-[9px] text-slate-600 hover:text-rose-400 font-bold uppercase tracking-tighter transition-colors"
+          >
+            Hard Reset Site Data
+          </button>
         </div>
       </div>
     </div>

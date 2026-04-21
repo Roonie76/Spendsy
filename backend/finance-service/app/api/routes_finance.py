@@ -937,6 +937,12 @@ def manage_tax_profile(
             "healthInsuranceParents": "health_insurance_parents",
             "homeLoanInterest": "home_loan_interest",
             "educationLoanInterest": "education_loan_interest",
+            "parentsAreSenior": "parents_are_senior",
+            "age": "age",
+            "isMetro": "is_metro",
+            "isPresumptive": "is_presumptive",
+            "isNRI": "is_nri",
+            "foreignAssets": "foreign_assets",
         }
         for key, attr in mapping.items():
             if key in data:
@@ -1345,10 +1351,11 @@ async def parse_digital_pdf_route(
         tx_list = parsed_result.get("transactions", [])
         meta = parsed_result.get("meta", {})
     except Exception as exc:
+        import traceback
         record.status = "failed"
         db.commit()
         error_msg = str(exc)
-        logger.error("Deterministic parser exception: %s", error_msg)
+        logger.error("Deterministic parser exception: %s\n%s", error_msg, traceback.format_exc())
         
         if "OCR_REQUIRED" in error_msg:
             return error_response(request, "This PDF appears to be a scanned image. Please provide a digital statement or use an OCR tool.", code=ErrorCode.OCR_REQUIRED, http_status=422)

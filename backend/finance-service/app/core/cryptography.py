@@ -85,8 +85,8 @@ def decrypt_string(encrypted_value: str | None) -> str | None:
                 ciphertext = data[12:]
                 # Will raise exception if tag doesn't match or not GCM
                 return aesgcm.decrypt(nonce, ciphertext, None).decode()
-        except:
-            pass
+        except Exception:
+            logger.debug("AES-GCM decryption failed, trying Fernet fallback")
             
         # 2. Try Fernet fallback for legacy data
         if fernet_fallback:

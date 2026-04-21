@@ -57,7 +57,6 @@ const AddPage = ({
     setIsSubmitting(true);
 
     const finalAmount = Number(amount) * transUnit;
-    console.log("AddPage: amount input =", { rawAmount: amount, parsedAmount: Number(amount), transUnit, finalAmount });
     const normalizedType = String(type || "").trim().toLowerCase();
     if (!["income", "expense"].includes(normalizedType)) {
       setIsSubmitting(false);
@@ -81,7 +80,6 @@ const AddPage = ({
         body: JSON.stringify(formData),
       });
 
-      console.log("AddPage transaction response:", data);
       showToast(isRecurring ? "Recurring bill added!" : "Added!", "success");
       if (refreshData) refreshData();
       // Clear form

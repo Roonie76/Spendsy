@@ -319,6 +319,7 @@ export const TAX_CONSTANTS = {
     REBATE_MAX: 60000,
     STANDARD_DEDUCTION: 75000,
     CESS: 0.04,
+    MAX_SURCHARGE_RATE: 0.25, // Capped at 25% in new regime
   },
   OLD_REGIME: {
     SLABS: [
@@ -327,18 +328,54 @@ export const TAX_CONSTANTS = {
       { limit: 1000000, rate: 0.2 },
       { limit: null, rate: 0.3 },
     ],
+    SLABS_SENIOR: [
+      { limit: 300000, rate: 0.0 },
+      { limit: 500000, rate: 0.05 },
+      { limit: 1000000, rate: 0.2 },
+      { limit: null, rate: 0.3 },
+    ],
+    SLABS_SUPER_SENIOR: [
+      { limit: 500000, rate: 0.0 },
+      { limit: 1000000, rate: 0.2 },
+      { limit: null, rate: 0.3 },
+    ],
     REBATE_LIMIT: 500000,
     REBATE_MAX: 12500,
     STANDARD_DEDUCTION: 50000,
     CESS: 0.04,
+    MAX_SURCHARGE_RATE: 0.37,
   },
+  SURCHARGE: [
+    { threshold: 5000000, rate: 0.10 },
+    { threshold: 10000000, rate: 0.15 },
+    { threshold: 20000000, rate: 0.25 },
+    { threshold: 50000000, rate: 0.37 },
+  ],
   LIMITS: {
     SECTION_80C: 150000,
     SECTION_80D_SELF: 25000,
-    SECTION_80D_PARENTS: 50000,
+    SECTION_80D_SELF_SENIOR: 50000,
+    SECTION_80D_PARENTS: 25000,
+    SECTION_80D_PARENTS_SENIOR: 50000,
     SEC_80CCD_1B: 50000,
     SECTION_80TTA: 10000,
+    SECTION_80TTB_SENIOR: 50000,
+    SECTION_80G_100: 1.0,
+    SECTION_80G_50: 0.5,
+    SECTION_80GG_MONTHLY: 5000,
+    SECTION_80EE: 50000,
+    SECTION_80EEB: 150000,
+    SECTION_24B_SOP: 200000,
     PRESUMPTIVE_44ADA: 0.5,
     PRESUMPTIVE_TURNOVER_LIMIT: 30000000,
+  },
+  // Capital gains rates (post Budget 2024)
+  CAPITAL_GAINS: {
+    STCG_111A: 0.20,          // Listed equity STCG
+    LTCG_112A: 0.125,         // Listed equity LTCG
+    LTCG_112A_EXEMPT: 125000, // Annual exemption
+    LTCG_112: 0.125,          // Other assets LTCG (no indexation)
+    CRYPTO_VDA: 0.30,         // Section 115BBH
+    LOTTERY_115BB: 0.30,      // Lottery/game show
   },
 };

@@ -1,19 +1,41 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { 
-  Briefcase, 
-  ChevronLeft, 
+import {
+  Briefcase,
+  ChevronLeft,
   TrendingUp,
   Landmark,
   ShieldCheck,
-  Zap
+  Zap,
+  Calendar,
+  Percent,
+  Clock
 } from "lucide-react";
 import { formatIndianCompact } from "@shared/utils/helpers";
+import { financeApi } from "../api";
 
 const ActiveLoansPage = ({ wealthItems, onBack }) => {
-  const loans = wealthItems.filter(item => item.type === "liability" || item.is_loan);
+  const [loans, setLoans] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalDebt = loans.reduce((acc, curr) => acc + parseFloat(curr.amount || 0), 0);
+  const fetchLoans = useCallback(async () => {
+    setLoading(true);
+    try {
+      const resp = await financeApi.loans();
+      const data = resp?.data || resp;
+      setLoans(Array.isArray(data) ? data : []);
+    } catch {
+      // Fallback to wealth items if loan API fails
+      setLoans(wealthItems.filter(item => item.type === "liability" || item.is_loan));
+    } finally {
+      setLoading(false);
+    }
+  }, [wealthItems]);
+
+  useEffect(() => { fetchLoans(); }, [fetchLoans]);
+
+  const totalDebt = loans.reduce((acc, curr) => acc + parseFloat(curr.remaining_balance || curr.amount || 0), 0);
+  const totalEmi = loans.reduce((acc, curr) => acc + parseFloat(curr.emi_amount || 0), 0);
 
   return (
     <div className="space-y-8 pb-32">
@@ -40,20 +62,28 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
           <h2 className="text-5xl font-black text-white tracking-tighter mb-4">
             ₹{totalDebt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </h2>
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <span className="px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
-               {loans.length} Active Accounts
+               {loans.length} Active Loan{loans.length !== 1 ? "s" : ""}
             </span>
-            <span className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
-               Avg. 9.5% APR
-            </span>
+            {totalEmi > 0 && (
+              <span className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+                 {formatIndianCompact(totalEmi)}/mo Total EMI
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       {/* Loan List */}
       <div className="space-y-4">
-        {loans.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2].map(n => (
+              <div key={n} className="h-40 animate-pulse rounded-3xl bg-white/5 border border-white/10" />
+            ))}
+          </div>
+        ) : loans.length === 0 ? (
            <div className="bg-white/5 p-12 rounded-[2.5rem] border border-white/5 text-center">
               <div className="p-4 bg-white/5 rounded-full w-fit mx-auto mb-4">
                  <ShieldCheck className="w-8 h-8 text-slate-500" />
@@ -62,33 +92,82 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
               <p className="text-slate-500 text-sm max-w-xs mx-auto">Your credit profile looks clean. New loans will appear here once registered.</p>
            </div>
         ) : (
-          loans.map((loan, idx) => (
-            <motion.div 
-              key={idx}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-white/5 backdrop-blur-xl p-6 rounded-3xl border border-white/10 flex items-center justify-between group hover:bg-white/10 transition-all border-l-4 border-l-rose-500"
-            >
-              <div className="flex items-center gap-5">
-                <div className="p-4 bg-rose-500/10 rounded-2xl group-hover:scale-110 transition-transform">
-                   <Landmark className="w-7 h-7 text-rose-400" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-black text-white leading-none">{loan.title || loan.bank_name}</h4>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{formatIndianCompact(loan.amount)} Remaining</span>
-                    <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
-                    <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Next EMI: 15 Apr</span>
+          loans.map((loan, idx) => {
+            const principal = parseFloat(loan.principal_amount || loan.amount || 0);
+            const remaining = parseFloat(loan.remaining_balance || loan.amount || 0);
+            const emi = parseFloat(loan.emi_amount || 0);
+            const rate = parseFloat(loan.interest_rate || 0);
+            const repaidPercent = principal > 0 ? Math.min(100, ((principal - remaining) / principal) * 100) : 0;
+            const monthsLeft = emi > 0 ? Math.ceil(remaining / emi) : 0;
+
+            return (
+              <motion.div
+                key={loan.uid || loan.id || idx}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-white/5 backdrop-blur-xl p-6 rounded-3xl border border-white/10 group hover:bg-white/10 transition-all border-l-4 border-l-rose-500 space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-5">
+                    <div className="p-4 bg-rose-500/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
+                      <Landmark className="w-7 h-7 text-rose-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-white leading-none">
+                        {loan.loan_type ? `${loan.loan_type.charAt(0).toUpperCase() + loan.loan_type.slice(1)} Loan` : loan.title || loan.bank_name}
+                      </h4>
+                      {loan.bank_name && <p className="text-[11px] text-slate-500 font-medium mt-1">{loan.bank_name}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {emi > 0 && <p className="text-sm font-black text-white">{formatIndianCompact(emi)}/mo</p>}
+                    {rate > 0 && (
+                      <div className="flex items-center gap-1 justify-end mt-1">
+                        <Percent className="w-3 h-3 text-slate-500" />
+                        <span className="text-[10px] text-slate-500 font-bold">{rate}% APR</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-black text-white">₹{(parseFloat(loan.amount) / 12).toFixed(0)}/mo</p>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">EMI Auto-Pay</p>
-              </div>
-            </motion.div>
-          ))
+
+                {/* Repayment Progress */}
+                <div>
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-2">
+                    <span className="text-emerald-400">{repaidPercent.toFixed(0)}% Repaid</span>
+                    <span className="text-slate-500">{formatIndianCompact(remaining)} remaining</span>
+                  </div>
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${repaidPercent}%` }}
+                      transition={{ duration: 1, ease: "circOut" }}
+                      className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Loan Details */}
+                <div className="flex gap-4 flex-wrap">
+                  {principal > 0 && (
+                    <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> Principal: {formatIndianCompact(principal)}
+                    </span>
+                  )}
+                  {monthsLeft > 0 && (
+                    <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> ~{monthsLeft} months left
+                    </span>
+                  )}
+                  {loan.start_date && (
+                    <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> Since {loan.start_date}
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })
         )}
       </div>
 

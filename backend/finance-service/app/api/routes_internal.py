@@ -13,8 +13,21 @@ from app.core.internal_auth import verify_internal_api_key
 from app.core.security import RequireRole, UserContext, get_current_user
 from app.models import CreditCard, FinanceGoal, FinancePlan, ITRData, Loan, TaxProfile, Transaction, UserProfile, WealthItem
 from app.utils.response import success_response
+from app.services.reconciliation_logic import reconcile_user_transactions
 
 router = APIRouter(prefix="/internal", tags=["internal"])
+
+
+@router.post("/reconcile/{user_id}")
+async def trigger_reconciliation(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Trigger the reconciliation logic for a user."""
+    count = reconcile_user_transactions(db, user_id)
+    return success_response(request, {"reconciled_pairs": count}, message=f"Successfully reconciled {count} pairs")
 
 
 @router.get("/transactions/{user_id}")
@@ -203,6 +216,7 @@ def finance_context(
                 "balance": float(tx.balance) if tx.balance is not None else None,
                 "source": tx.source,
                 "is_recurring": tx.is_recurring,
+                "reconciliation_flags": tx.reconciliation_flags or [],
                 "created_at": tx.created_at.isoformat() if tx.created_at else None,
             }
             for tx in recent_transactions
@@ -510,3 +524,146 @@ def internal_list_plans(
     ]
     record_audit(db, request, action="internal_list_plans", resource_type="user_plans", resource_id=str(user_id), status_code=200, user=None)
     return success_response(request, data)
+
+
+# ─── TORA Tax Profile Management ───────────────────────────────────────────────
+
+class _TaxProfileUpdatePayload(_BaseModel):
+    updates: dict = {}
+    reason: str = "Updated via TORA AI"
+    source: str = "tora_ai"
+
+
+@router.get("/tax-profile/get/{user_id}")
+def get_tax_profile_internal(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """Fetch user's tax profile for TORA AI (internal use only)."""
+    tax_profile = db.query(TaxProfile).filter(TaxProfile.user_id == user_id).first()
+    
+    if not tax_profile:
+        tax_profile = TaxProfile(user_id=user_id)
+        db.add(tax_profile)
+        try:
+            db.commit()
+            db.refresh(tax_profile)
+        except Exception:
+            db.rollback()
+            raise
+    
+    data = {
+        "id": tax_profile.id,
+        "user_id": tax_profile.user_id,
+        "is_business": bool(tax_profile.is_business),
+        "annual_rent": float(tax_profile.annual_rent),
+        "annual_epf": float(tax_profile.annual_epf),
+        "nps_contribution": float(tax_profile.nps_contribution),
+        "health_insurance_self": float(tax_profile.health_insurance_self),
+        "health_insurance_parents": float(tax_profile.health_insurance_parents),
+        "home_loan_interest": float(tax_profile.home_loan_interest),
+        "education_loan_interest": float(tax_profile.education_loan_interest),
+        "parents_are_senior": bool(tax_profile.parents_are_senior),
+        "age": int(tax_profile.age),
+        "is_metro": bool(tax_profile.is_metro),
+        "is_presumptive": bool(tax_profile.is_presumptive),
+        "is_nri": bool(tax_profile.is_nri),
+        "foreign_assets": bool(tax_profile.foreign_assets),
+        "updated_at": tax_profile.updated_at.isoformat() if tax_profile.updated_at else None,
+    }
+    
+    record_audit(db, request, action="internal_get_tax_profile", resource_type="tax_profile", resource_id=str(user_id), status_code=200, user=None)
+    return success_response(request, data)
+
+
+@router.post("/tax-profile/update/{user_id}")
+def update_tax_profile_internal(
+    request: Request,
+    user_id: int,
+    payload: _TaxProfileUpdatePayload,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_internal_api_key),
+):
+    """
+    Update tax profile with changes proposed by TORA AI.
+    Implements the "Confirmation Shield" - only whitelisted fields are updated.
+    """
+    tax_profile = db.query(TaxProfile).filter(TaxProfile.user_id == user_id).first()
+    
+    if not tax_profile:
+        tax_profile = TaxProfile(user_id=user_id)
+        db.add(tax_profile)
+        try:
+            db.commit()
+            db.refresh(tax_profile)
+        except Exception:
+            db.rollback()
+            raise
+    
+    # Whitelist of fields TORA can update
+    UPDATABLE_FIELDS = {
+        "is_business",
+        "annual_rent",
+        "annual_epf",
+        "nps_contribution",
+        "health_insurance_self",
+        "health_insurance_parents",
+        "home_loan_interest",
+        "education_loan_interest",
+        "parents_are_senior",
+        "age",
+        "is_metro",
+        "is_presumptive",
+        "is_nri",
+        "foreign_assets"
+    }
+    
+    updates = payload.updates or {}
+    applied_updates = {}
+    
+    for field, value in updates.items():
+        if field not in UPDATABLE_FIELDS:
+            continue
+            
+        # Type validation
+        if field in ["is_business", "parents_are_senior", "is_metro", "is_presumptive", "is_nri", "foreign_assets"]:
+            setattr(tax_profile, field, bool(value))
+            applied_updates[field] = bool(value)
+        elif field == "age":
+            setattr(tax_profile, field, int(value))
+            applied_updates[field] = int(value)
+        else:
+            # Numeric fields (deductions, credits)
+            setattr(tax_profile, field, float(value))
+            applied_updates[field] = float(value)
+    
+    if applied_updates:
+        try:
+            db.commit()
+            db.refresh(tax_profile)
+        except Exception:
+            db.rollback()
+            raise
+    
+    record_audit(
+        db,
+        request,
+        action="internal_update_tax_profile",
+        resource_type="tax_profile",
+        resource_id=str(user_id),
+        status_code=200,
+        metadata={"reason": payload.reason, "source": payload.source, "fields": list(applied_updates.keys())},
+        user=None
+    )
+    
+    return success_response(
+        request,
+        {
+            "id": tax_profile.id,
+            "user_id": tax_profile.user_id,
+            "applied_updates": applied_updates
+        },
+        message="Tax profile updated"
+    )

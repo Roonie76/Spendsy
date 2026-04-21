@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_name: str = "auth-service"
     environment: str = "development"
 
+    # Override via ALLOWED_ORIGINS env var (JSON array) for production deployments
     allowed_origins: list[str] = [
         "http://localhost:5173",
         "http://localhost:5174",
@@ -24,7 +25,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
     ]
-    hsts_enabled: bool = False  # Default to false in development
+    hsts_enabled: bool = False
 
     db_host: str
     db_port: int = 5432

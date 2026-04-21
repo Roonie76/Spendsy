@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
+import { downloadCSV } from "@shared/utils/exportUtils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Mail, Lock, Phone, Home as HomeIcon, Briefcase,
@@ -12,6 +13,17 @@ import {
   Sliders, Repeat, Star, Package, LifeBuoy, ZapOff,
   BarChart2, SlidersHorizontal, Layers
 } from "lucide-react";
+
+// ─── Preferences Persistence ─────────────────────────────────────────────────
+const PREFS_KEY = "spendsy_preferences";
+const loadPrefs = () => {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; }
+  catch { return {}; }
+};
+const savePref = (key, value) => {
+  const prefs = { ...loadPrefs(), [key]: value };
+  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+};
 
 // ─── Reusable Components ──────────────────────────────────────────────────────
 
@@ -174,26 +186,28 @@ const FinancialSettingsPage = ({ onBack }) => {
 };
 
 const NotificationsPage = ({ onBack }) => {
-  const [emailN, setEmailN] = useState(true);
-  const [pushN, setPushN] = useState(true);
-  const [smsN, setSmsN] = useState(false);
+  const prefs = loadPrefs();
+  const [emailN, setEmailN] = useState(prefs.notif_email !== false);
+  const [pushN, setPushN] = useState(prefs.notif_push !== false);
+  const [smsN, setSmsN] = useState(prefs.notif_sms === true);
+  const toggle = (key, setter) => (val) => { setter(val); savePref(key, val); };
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <PageHeader title="Notifications" subtitle="Stay informed, not overwhelmed" onBack={onBack} />
       <div className="space-y-6">
         <SettingSection title="Channels">
-          <SettingRow icon={Mail} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Email Preferences" description={emailN ? "Receiving email updates" : "Email notifications silenced"} trailing={<Toggle enabled={emailN} onChange={setEmailN} />} />
-          <SettingRow icon={Smartphone} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Push Notifications" description={pushN ? "Enabled on this device" : "Silent mode active"} trailing={<Toggle enabled={pushN} onChange={setPushN} />} />
-          <SettingRow icon={MessageSquare} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="SMS Alerts" description={smsN ? "Receiving SMS for critical events" : "No SMS alerts"} trailing={<Toggle enabled={smsN} onChange={setSmsN} />} />
+          <SettingRow icon={Mail} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Email Preferences" description={emailN ? "Receiving email updates" : "Email notifications silenced"} trailing={<Toggle enabled={emailN} onChange={toggle("notif_email", setEmailN)} />} />
+          <SettingRow icon={Smartphone} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Push Notifications" description={pushN ? "Enabled on this device" : "Silent mode active"} trailing={<Toggle enabled={pushN} onChange={toggle("notif_push", setPushN)} />} />
+          <SettingRow icon={MessageSquare} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="SMS Alerts" description={smsN ? "Receiving SMS for critical events" : "No SMS alerts"} trailing={<Toggle enabled={smsN} onChange={toggle("notif_sms", setSmsN)} />} />
         </SettingSection>
       </div>
     </motion.div>
   );
 };
 
-const AppearancePage = ({ onBack }) => {
-  const [theme, setTheme] = useState("Dark");
-  const [accent, setAccent] = useState("indigo");
+const AppearancePage = ({ onBack, currentTheme, onThemeChange }) => {
+  const themeLabel = currentTheme === "dark" ? "Dark" : "Light";
+  const [accent, setAccent] = useState(() => loadPrefs().accent || "indigo");
   const accents = [
     { name: "indigo", color: "#6366f1" },
     { name: "violet", color: "#8b5cf6" },
@@ -202,15 +216,23 @@ const AppearancePage = ({ onBack }) => {
     { name: "amber", color: "#f59e0b" },
     { name: "sky", color: "#38bdf8" },
   ];
+  const handleTheme = (t) => {
+    const newTheme = t === "Dark" ? "dark" : "light";
+    if (newTheme !== currentTheme && onThemeChange) onThemeChange(newTheme);
+  };
+  const handleAccent = (name) => {
+    setAccent(name);
+    savePref("accent", name);
+  };
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <PageHeader title="Appearance" subtitle="Make it yours" onBack={onBack} />
       <div className="space-y-6">
         <SettingSection title="Theme">
           <div className="flex bg-black/30 p-1.5 rounded-2xl border border-white/5">
-            {["Dark", "Light", "System"].map((t) => (
-              <button key={t} onClick={() => setTheme(t)} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${theme === t ? "bg-white/10 text-white shadow" : "text-slate-500 hover:text-slate-300"}`}>
-                {t === "Dark" ? "🌑" : t === "Light" ? "☀️" : "⚙️"} {t}
+            {["Dark", "Light"].map((t) => (
+              <button key={t} onClick={() => handleTheme(t)} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${themeLabel === t ? "bg-white/10 text-white shadow" : "text-slate-500 hover:text-slate-300"}`}>
+                {t === "Dark" ? "🌑" : "☀️"} {t}
               </button>
             ))}
           </div>
@@ -219,7 +241,7 @@ const AppearancePage = ({ onBack }) => {
         <SettingSection title="Accent Color">
           <div className="flex gap-3 px-2 py-3">
             {accents.map((a) => (
-              <button key={a.name} onClick={() => setAccent(a.name)} className="relative w-10 h-10 rounded-2xl transition-transform hover:scale-110">
+              <button key={a.name} onClick={() => handleAccent(a.name)} className="relative w-10 h-10 rounded-2xl transition-transform hover:scale-110">
                 <div className="w-full h-full rounded-2xl" style={{ backgroundColor: a.color }} />
                 {accent === a.name && (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -240,9 +262,11 @@ const AppearancePage = ({ onBack }) => {
 };
 
 const AIFeaturesPage = ({ onBack }) => {
-  const [autoCat, setAutoCat] = useState(true);
-  const [insights, setInsights] = useState(true);
-  const [predictive, setPredictive] = useState(false);
+  const prefs = loadPrefs();
+  const [autoCat, setAutoCat] = useState(prefs.ai_autocat !== false);
+  const [insights, setInsights] = useState(prefs.ai_insights !== false);
+  const [predictive, setPredictive] = useState(prefs.ai_predictive === true);
+  const toggle = (key, setter) => (val) => { setter(val); savePref(key, val); };
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <PageHeader title="Smart Features (AI)" subtitle="Let Tora work for you" onBack={onBack} />
@@ -255,30 +279,40 @@ const AIFeaturesPage = ({ onBack }) => {
           <p className="text-[11px] text-slate-400 leading-relaxed">Tora learns from your spending patterns to provide personalized insights and automation.</p>
         </div>
         <SettingSection title="Features">
-          <SettingRow icon={Tag} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Auto Categorization" description="Let AI sort your transactions" trailing={<Toggle enabled={autoCat} onChange={setAutoCat} />} />
-          <SettingRow icon={TrendingUp} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Smart Insights" description="Weekly AI-powered spending reports" trailing={<Toggle enabled={insights} onChange={setInsights} />} />
-          <SettingRow icon={Bell} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Predictive Alerts" description="Know before you overspend" trailing={<Toggle enabled={predictive} onChange={setPredictive} />} badge={!predictive ? "Beta" : undefined} />
+          <SettingRow icon={Tag} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Auto Categorization" description="Let AI sort your transactions" trailing={<Toggle enabled={autoCat} onChange={toggle("ai_autocat", setAutoCat)} />} />
+          <SettingRow icon={TrendingUp} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Smart Insights" description="Weekly AI-powered spending reports" trailing={<Toggle enabled={insights} onChange={toggle("ai_insights", setInsights)} />} />
+          <SettingRow icon={Bell} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Predictive Alerts" description="Know before you overspend" trailing={<Toggle enabled={predictive} onChange={toggle("ai_predictive", setPredictive)} />} badge={!predictive ? "Beta" : undefined} />
         </SettingSection>
       </div>
     </motion.div>
   );
 };
 
-const DataManagementPage = ({ onBack, triggerConfirm }) => (
+const DataManagementPage = ({ onBack, triggerConfirm, transactions, onDeleteAll, showToast, onNavigateImport }) => (
   <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
     <PageHeader title="Data Management" subtitle="Your data, your control" onBack={onBack} />
     <div className="space-y-6">
       <SettingSection title="Import & Export">
-        <SettingRow icon={Download} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Export Data" description="Download your data as CSV or JSON" />
-        <SettingRow icon={Upload} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Import Statements" description="Upload bank or card statements" />
-        <SettingRow icon={RefreshCw} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="Backup & Restore" description="Cloud backup of your portfolio" />
+        <SettingRow
+          icon={Download} iconColor="text-emerald-400" iconBg="bg-emerald-500/10"
+          label="Export Data" description={`Download ${transactions?.length || 0} transactions as CSV`}
+          onClick={() => {
+            if (!transactions?.length) { showToast?.("No transactions to export", "error"); return; }
+            downloadCSV(transactions);
+            showToast?.("CSV downloaded!", "success");
+          }}
+        />
+        <SettingRow icon={Upload} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Import Statements" description="Upload bank or card statements" onClick={onNavigateImport} />
       </SettingSection>
 
-      <SettingSection title="⚠️ Danger Zone">
+      <SettingSection title="Danger Zone">
         <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-2">
           <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-3">Irreversible Actions</p>
-          <SettingRow icon={Trash2} iconColor="text-rose-400" iconBg="bg-rose-500/10" label="Delete All Transactions" description="Permanently erase transaction history" danger onClick={() => triggerConfirm?.("Delete ALL transactions? This cannot be undone.", () => {})} />
-          <SettingRow icon={AlertTriangle} iconColor="text-rose-500" iconBg="bg-rose-500/10" label="Delete Account" description="Permanently close your Spendsy account" danger onClick={() => triggerConfirm?.("Permanently delete your account? This action is irreversible.", () => {})} />
+          <SettingRow
+            icon={Trash2} iconColor="text-rose-400" iconBg="bg-rose-500/10"
+            label="Delete All Transactions" description="Permanently erase transaction history" danger
+            onClick={() => triggerConfirm?.(`Delete ALL ${transactions?.length || 0} transactions? This cannot be undone.`, onDeleteAll)}
+          />
         </div>
       </SettingSection>
     </div>
@@ -418,7 +452,7 @@ const SECTIONS = [
   },
 ];
 
-const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm }) => {
+const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm, theme: currentTheme, onThemeChange, transactions, onDeleteAll, showToast, onNavigateImport }) => {
   const [currentSection, setCurrentSection] = useState(null);
   const [search, setSearch] = useState("");
 
@@ -436,9 +470,9 @@ const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut
       case "security":     return <SecurityPage onBack={goBack} />;
       case "financial":    return <FinancialSettingsPage onBack={goBack} />;
       case "notifications":return <NotificationsPage onBack={goBack} />;
-      case "appearance":   return <AppearancePage onBack={goBack} />;
+      case "appearance":   return <AppearancePage onBack={goBack} currentTheme={currentTheme} onThemeChange={onThemeChange} />;
       case "ai":           return <AIFeaturesPage onBack={goBack} />;
-      case "data":         return <DataManagementPage onBack={goBack} triggerConfirm={triggerConfirm} />;
+      case "data":         return <DataManagementPage onBack={goBack} triggerConfirm={triggerConfirm} transactions={transactions} onDeleteAll={onDeleteAll} showToast={showToast} onNavigateImport={onNavigateImport} />;
       case "subscription": return <SubscriptionPage onBack={goBack} />;
       case "help":         return <HelpSupportPage onBack={goBack} />;
       case "about":        return <AboutPage onBack={goBack} />;

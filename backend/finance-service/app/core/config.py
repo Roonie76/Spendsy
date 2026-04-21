@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_name: str = "finance-service"
     environment: str = "development"
 
+    # Override via ALLOWED_ORIGINS env var (JSON array) for production deployments
     allowed_origins: list[str] = [
         "http://localhost:5173",
         "http://localhost:5174",

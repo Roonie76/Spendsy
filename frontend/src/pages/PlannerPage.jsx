@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PlannerHeader from '../components/planner/PlannerHeader';
 import PlanCard from '../components/planner/PlanCard';
 import CreatePlanModal from '../components/planner/CreatePlanModal';
 import PlanDetailsDrawer from '../components/planner/PlanDetailsDrawer';
 import AIRecommendations from '../components/planner/AIRecommendations';
+import ProTierFeatures from '../components/planner/ProTierFeatures';
 import { Filter, Archive, Search } from 'lucide-react';
 import { financeApi } from '../api';
 
@@ -68,10 +69,31 @@ export default function PlannerPage({ user, theme }) {
     }
   };
 
-  const recommendations = [
-    { text: "Increase your 'Electric Bike' daily saving by ₹50 to hit target 2 weeks early." },
-    { text: "Your recent dining savings allow for a new 'Investment' plan of ₹5,000/mo." }
-  ];
+  const recommendations = useMemo(() => {
+    const recs = [];
+    const activePlans = plans.filter(p => p.status !== "completed" && p.status !== "cancelled");
+
+    // Suggest increasing savings for plans behind schedule
+    for (const p of activePlans) {
+      if (p.deadline && p.target_amount && p.current_saved != null) {
+        const remaining = Number(p.target_amount) - Number(p.current_saved || 0);
+        const daysLeft = Math.max(1, Math.ceil((new Date(p.deadline) - new Date()) / 86400000));
+        const neededDaily = remaining / daysLeft;
+        const currentDaily = Number(p.daily_saving || 0);
+        if (neededDaily > currentDaily * 1.2 && remaining > 0) {
+          const extra = Math.ceil(neededDaily - currentDaily);
+          recs.push({ text: `Increase daily saving on "${p.title}" by ₹${extra} to stay on track.`, planUid: p.uid });
+        }
+      }
+    }
+
+    // Suggest a new plan if fewer than 2 active
+    if (activePlans.length < 2) {
+      recs.push({ text: "You have capacity for a new savings plan. Consider starting an investment or emergency fund goal." });
+    }
+
+    return recs.length > 0 ? recs : [{ text: "All plans are on track. Keep it up!" }];
+  }, [plans]);
 
   return (
     <div className="min-h-screen bg-[#060b15] pb-20 pt-24 px-4 md:px-8 lg:px-12 text-slate-200">
@@ -145,10 +167,30 @@ export default function PlannerPage({ user, theme }) {
           </div>
 
           <aside className="w-full lg:w-80">
-            <AIRecommendations 
-              recommendations={recommendations} 
-              onApply={(rec) => console.log('Applying Recommendation:', rec)}
+            <AIRecommendations
+              recommendations={recommendations}
+              onApply={(rec) => {
+                if (rec.planUid) {
+                  // Open the existing plan for adjustment
+                  const plan = plans.find(p => p.uid === rec.planUid);
+                  if (plan) setSelectedPlan(plan);
+                } else {
+                  // Open create modal for a new plan
+                  setIsModalOpen(true);
+                }
+              }}
             />
+            
+            {/* Pro Tier Features Section */}
+            <div className="mt-8">
+              <ProTierFeatures 
+                userTier={user?.tier || "free"}
+                onSimulationSelect={(simType) => {
+                  console.log("Simulation selected:", simType);
+                  // TODO: Handle simulation selection - could open a modal or navigate
+                }}
+              />
+            </div>
           </aside>
         </div>
       </div>

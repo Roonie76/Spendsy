@@ -164,6 +164,13 @@ class TaxProfilePayload(BaseModel):
     healthInsuranceParents: Optional[Decimal] = None
     homeLoanInterest: Optional[Decimal] = None
     educationLoanInterest: Optional[Decimal] = None
+    # Extended profile fields (TORA tax integration)
+    parentsAreSenior: Optional[bool] = None
+    age: Optional[int] = None
+    isMetro: Optional[bool] = None
+    isPresumptive: Optional[bool] = None
+    isNRI: Optional[bool] = None
+    foreignAssets: Optional[bool] = None
 
 
 class ITRPayload(BaseModel):

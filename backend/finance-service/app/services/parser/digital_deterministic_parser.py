@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Minimum character density (chars/page) below which we assume scanned PDF
-OCR_THRESHOLD = 10
+OCR_THRESHOLD = 150
 
 # x-coordinate boundaries (points) — tuned from real PDF measurement
 DATE_X_MIN      = 35     # date column left edge
@@ -238,14 +238,15 @@ def group_words_by_row(words: list, tolerance: float = 4.0) -> dict:
 def check_digital(pdf) -> bool:
     """
     Return True if the PDF has extractable text (digital).
-    Checks first 2 pages; raises ValueError with OCR_REQUIRED if scanned.
+    Checks up to 10 pages; raises ValueError with OCR_REQUIRED if scanned.
     """
     total_chars = 0
-    pages_checked = min(2, len(pdf.pages))
-    for i in range(pages_checked):
+    pages_to_check = min(10, len(pdf.pages))
+    for i in range(pages_to_check):
         text = pdf.pages[i].extract_text() or ""
         total_chars += len(text.strip())
-    avg = total_chars / max(pages_checked, 1)
+    
+    avg = total_chars / max(pages_to_check, 1)
     if avg < OCR_THRESHOLD:
         raise ValueError("OCR_REQUIRED: PDF appears to be scanned. Use an OCR pipeline.")
     return True

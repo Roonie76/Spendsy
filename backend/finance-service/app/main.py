@@ -12,6 +12,7 @@ from app.api.routes_finance import router as finance_router
 from app.api.routes_internal import router as internal_router
 from app.api.routes_goals import router as goals_router
 from app.api.routes_product import router as product_router
+from app.api.routes_tax import router as tax_router
 from app.core.config import settings
 from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 from sqlalchemy.exc import SQLAlchemyError
@@ -99,3 +100,4 @@ app.include_router(finance_router)
 app.include_router(internal_router)
 app.include_router(goals_router)
 app.include_router(product_router, prefix="/product")
+app.include_router(tax_router)

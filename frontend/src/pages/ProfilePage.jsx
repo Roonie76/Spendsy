@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { TABS } from "@shared/config/constants";
+import { TierBadge, FeatureComparison } from "../components/ui/TierBadge";
 
 const ProfilePage = ({
   user,
@@ -118,7 +119,7 @@ const ProfilePage = ({
                 {user?.email || "user@example.com"}
               </p>
               <div className="mt-3 flex gap-2">
-                 <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">Pro Member</span>
+                 <TierBadge tier={user?.tier || "free"} showLabel={true} size="sm" />
                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">Verified</span>
               </div>
             </div>
@@ -234,6 +235,33 @@ const ProfilePage = ({
         </section>
       </div>
 
+      {/* Feature Comparison */}
+      {user?.tier && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-gradient-to-br from-slate-900/50 to-slate-900/30 backdrop-blur-xl p-8 rounded-[3rem] border border-slate-700/50"
+        >
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-slate-100 mb-2">Available Features by Tier</h3>
+            <p className="text-slate-400">Compare what you get with each subscription tier</p>
+          </div>
+          <FeatureComparison />
+          {user?.tier === "free" && (
+            <motion.div
+              className="mt-6 text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <button className="px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-lg font-bold transition-all">
+                Upgrade to Pro
+              </button>
+            </motion.div>
+          )}
+        </motion.section>
+      )}
 
       {/* Dynamic Sign Out */}
       <motion.button

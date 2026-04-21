@@ -190,14 +190,30 @@ export async function apiFetch(url, options = {}, retries = 3, backoff = 1000) {
     }
 
     if (!res.ok) {
-      throw buildRequestError(res, await readJsonBody(res));
+      const errorBody = await readJsonBody(res);
+      const error = buildRequestError(res, errorBody);
+      
+      // 3. Do NOT retry on 4xx client errors (except 429)
+      // These are permanent failures or security lockouts that retries will only worsen.
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        throw error;
+      }
+      
+      throw error;
     }
 
     return res.json();
   } catch (err) {
-    // TypeError: Failed to fetch (Network Error)
-    if (retries > 0) {
-      console.warn(`Retrying ${url} due to network error: ${err.message}. ${retries} attempts left.`);
+    // Only retry on:
+    // 1. Network errors (TypeError: Failed to fetch)
+    // 2. Specific status codes that were thrown (5xx, 429) - though those are handled above
+    
+    const isNetworkError = err instanceof TypeError;
+    const isRetryableStatus = err.status >= 500 || err.status === 429;
+
+    if ((isNetworkError || isRetryableStatus) && retries > 0) {
+      const reason = isNetworkError ? "network error" : `status ${err.status}`;
+      console.warn(`Retrying ${url} due to ${reason}: ${err.message}. ${retries} attempts left.`);
       await wait(backoff);
       return apiFetch(url, options, retries - 1, backoff * 2);
     }

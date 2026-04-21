@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { buildAuthHeader } from "@shared/utils/helpers";
 import { apiFetch } from "../../api"; // Centralized wrapper
 import FloatingAIButton from "./FloatingAIButton";
@@ -19,7 +19,61 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
 
   const authHeader = useMemo(() => buildAuthHeader(authToken || ""), [authToken]);
   const authMissing = !authHeader;
-  const endpoint = `${aiBaseUrl.replace(/\/$/, "")}/chat`;
+  const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
+  const toraBaseUrl = import.meta.env.VITE_TORA_URL || aiBaseUrl || `${gatewayUrl}/ai`;
+
+  // Handle tool call confirmation from the chat UI
+  const handleConfirmTool = useCallback(async (messageIndex, tool) => {
+    try {
+      const toraEndpoint = `${toraBaseUrl.replace(/\/$/, "")}/ask-tora`;
+
+      // Send a follow-up message that triggers the tool execution
+      const confirmQuestion = `Please execute the ${tool.name} action with these parameters: ${JSON.stringify(tool.parameters)}`;
+
+      const response = await apiFetch(toraEndpoint, {
+        method: "POST",
+        body: JSON.stringify({
+          question: confirmQuestion,
+          user_id: userId || 1,
+          model: model,
+        }),
+      });
+
+      const data = response;
+
+      // Update the tool status in the original message
+      setMessages((prev) => {
+        const updated = [...prev];
+        const msg = updated[messageIndex];
+        if (msg?.toolCalls) {
+          const toolIdx = msg.toolCalls.findIndex((t) => t.name === tool.name);
+          if (toolIdx !== -1) {
+            msg.toolCalls[toolIdx] = { ...msg.toolCalls[toolIdx], status: "executed" };
+          }
+        }
+        return updated;
+      });
+
+      // Add a confirmation message
+      const resultContent = data.answer && typeof data.answer === "object"
+        ? data.answer["Financial Overview"] || "Action completed successfully."
+        : data.answer || "Action completed.";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: resultContent,
+          structured: typeof data.answer === "object" ? data.answer : null,
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Failed to execute the action. Please try again." },
+      ]);
+    }
+  }, [toraBaseUrl, userId, model]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -31,8 +85,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
     setIsLoading(true);
 
     try {
-      // Use local spendsy-ai port 8005 for Ask Tora
-      const toraEndpoint = "http://localhost:8005/ask-tora";
+      const toraEndpoint = `${toraBaseUrl.replace(/\/$/, "")}/ask-tora`;
 
       const response = await apiFetch(toraEndpoint, {
         method: "POST",
@@ -44,33 +97,65 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
       });
 
       const data = response; // apiFetch returns JSON directly
-      
-      // The new TORA agent returns a structured JSON object
-      let finalContent = "";
+
+      // Build the message object. TORA returns either:
+      //   - Simple mode: { mode: "simple", content: "...markdown..." }
+      //   - Structured mode: { "Financial Overview": ..., "Current Position": ..., ... }
+      const assistantMsg = { role: "assistant", content: "" };
+
       if (data.answer && typeof data.answer === "object") {
         const a = data.answer;
+
         if (a.error) {
-           finalContent = `⚠️ **Error**: ${a.error}`;
+          assistantMsg.content = `Error: ${a.error}`;
+        } else if (a.mode === "simple" || typeof a.content === "string") {
+          // SIMPLE MODE — conversational markdown reply, no section cards
+          assistantMsg.mode = "simple";
+          assistantMsg.content = a.content || "";
         } else {
-           finalContent = `**Financial Overview**\n${a["Financial Overview"] || ""}\n\n` +
-                          `**Current Position**\n${a["Current Position"] || ""}\n\n` +
-                          `**Recommended Strategy**\n${a["Recommended Strategy"] || ""}\n\n` +
-                          `**Expected Outcome**\n${a["Expected Outcome"] || ""}`;
+          // STRUCTURED MODE — only attach sections that actually have content
+          const sections = {};
+          let hasAnySection = false;
+          for (const key of ["Financial Overview", "Current Position", "Recommended Strategy", "Expected Outcome"]) {
+            const v = a[key];
+            if (v && v !== "N/A") {
+              sections[key] = v;
+              hasAnySection = true;
+            }
+          }
+
+          if (hasAnySection) {
+            assistantMsg.structured = sections;
+            assistantMsg.content = sections["Financial Overview"] || "Here's what I found.";
+          } else {
+            // No real structured content — fall back to simple mode
+            assistantMsg.mode = "simple";
+            assistantMsg.content = typeof a === "string" ? a : JSON.stringify(a);
+          }
+        }
+
+        // Extract tool calls that need user confirmation
+        if (a.tool_calls || data.tool_calls) {
+          const tools = a.tool_calls || data.tool_calls || [];
+          const pendingTools = tools.filter(
+            (t) => t.status === "pending_confirmation"
+          );
+          if (pendingTools.length > 0) {
+            assistantMsg.toolCalls = pendingTools;
+          }
         }
       } else {
-        finalContent = data.answer || "I couldn't generate a response.";
+        assistantMsg.mode = "simple";
+        assistantMsg.content = data.answer || "I couldn't generate a response.";
       }
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: finalContent },
-      ]);
-    } catch (err) {
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "I couldn't reach TORA. Please ensure the AI service is running and API keys are set.",
+          content: "I couldn't reach TORA. Please ensure the AI service is running.",
         },
       ]);
     } finally {
@@ -93,6 +178,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         authMissing={authMissing}
         model={model}
         setModel={setModel}
+        onConfirmTool={handleConfirmTool}
       />
     </>
   );

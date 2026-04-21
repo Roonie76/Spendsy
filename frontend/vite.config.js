@@ -22,24 +22,51 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   server: {
+    host: '0.0.0.0',
+    watch: process.platform === 'win32'
+      ? {
+          usePolling: true,
+          interval: 200,
+        }
+      : undefined,
     fs: {
       allow: ['..', '../shared'],
     },
     proxy: {
-      '/api/auth': {
-        target: 'http://localhost:8001',
+      '/auth': {
+        target: 'http://localhost:8080',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/finance': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/ai': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/tora': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/mcp': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/api/auth': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/auth/, '/auth')
       },
       '/api/finance': {
-        target: 'http://localhost:8002',
+        target: 'http://localhost:8080',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/finance/, '')
+        rewrite: (path) => path.replace(/^\/api\/finance/, '/finance')
       },
       '/api/ai': {
-        target: 'http://localhost:8004',
+        target: 'http://localhost:8080',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ai/, '')
+        rewrite: (path) => path.replace(/^\/api\/ai/, '/ai')
       }
     }
   },

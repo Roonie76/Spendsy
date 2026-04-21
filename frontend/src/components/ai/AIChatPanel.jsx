@@ -1,5 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { X, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import MessageBubble from "./MessageBubble";
+import TypingIndicator from "./TypingIndicator";
 
 export default function AIChatPanel({
   isOpen,
@@ -12,6 +15,7 @@ export default function AIChatPanel({
   authMissing,
   model,
   setModel,
+  onConfirmTool,
 }) {
   const bottomRef = useRef(null);
 
@@ -33,6 +37,7 @@ export default function AIChatPanel({
           isOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
         }`}
       >
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
@@ -40,18 +45,19 @@ export default function AIChatPanel({
             </span>
             <div>
               <p className="text-sm font-semibold">
-                {model === "tora_plus" ? "TORA+ (Advanced Intelligence)" : "TORA"}
+                TORA
               </p>
               <p className="text-[11px] text-slate-400">Private, personalized insights</p>
             </div>
           </div>
 
+          {/* TORA+ toggle — disabled until fine-tuning is complete
           <div className="flex items-center gap-1.5 bg-white/5 rounded-2xl p-1 border border-white/10 ml-4 mr-auto">
             <button
               onClick={() => setModel("tora")}
               className={`px-3 py-1 rounded-xl text-[10px] font-bold transition-all ${
-                model === "tora" 
-                  ? "bg-white/10 text-white shadow-sm" 
+                model === "tora"
+                  ? "bg-white/10 text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-300"
               }`}
             >
@@ -60,14 +66,15 @@ export default function AIChatPanel({
             <button
               onClick={() => setModel("tora_plus")}
               className={`px-3 py-1 rounded-xl text-[10px] font-bold transition-all flex items-center gap-1 ${
-                model === "tora_plus" 
-                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg" 
+                model === "tora_plus"
+                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg"
                   : "text-slate-500 hover:text-slate-300"
               }`}
             >
               TORA+ <Sparkles className="h-2.5 w-2.5" />
             </button>
           </div>
+          */}
 
           <button
             type="button"
@@ -79,6 +86,7 @@ export default function AIChatPanel({
           </button>
         </div>
 
+        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.length === 0 && (
             <div className="rounded-2xl border border-dashed border-white/10 p-4 text-xs text-slate-400">
@@ -86,26 +94,40 @@ export default function AIChatPanel({
               financial context and responds instantly.
             </div>
           )}
-          {messages.map((msg, idx) => (
-            <div
-              key={`${msg.role}-${idx}`}
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                msg.role === "user"
-                  ? "ml-auto bg-cyan-500/20 text-cyan-50"
-                  : "bg-white/10 text-slate-200"
-              }`}
-            >
-              {msg.content}
-            </div>
-          ))}
+
+          <AnimatePresence initial={false}>
+            {messages.map((msg, idx) => (
+              <motion.div
+                key={`${msg.role}-${idx}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+              >
+                <MessageBubble
+                  message={{
+                    ...msg,
+                    onConfirmTool: msg.toolCalls
+                      ? (tool) => onConfirmTool?.(idx, tool)
+                      : undefined,
+                  }}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
           {isLoading && (
-            <div className="max-w-[70%] rounded-2xl bg-white/10 px-4 py-3 text-xs text-slate-400">
-              Tora is analyzing your data...
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <TypingIndicator />
+            </motion.div>
           )}
           <div ref={bottomRef} />
         </div>
 
+        {/* Input */}
         <div className="border-t border-white/10 px-4 py-3">
           {authMissing && (
             <div className="mb-2 text-xs text-rose-300">

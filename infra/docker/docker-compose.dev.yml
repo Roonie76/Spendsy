@@ -45,6 +45,7 @@ services:
       dockerfile: backend/auth-service/Dockerfile
     container_name: spendsy_auth
     restart: always
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
     env_file:
       - ../../.env
     environment:
@@ -57,9 +58,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-spendsy-very-secure-secret-key-32chars}
       JWT_ALGORITHM: HS256
       REDIS_URL: redis://redis:6379/0
-      AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-120}
-      AUTH_RATE_LIMIT_LOGIN: ${AUTH_RATE_LIMIT_LOGIN:-200}
-      AUTH_RATE_LIMIT_REGISTER: ${AUTH_RATE_LIMIT_REGISTER:-50}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
       ENVIRONMENT: ${ENVIRONMENT:-production}
     volumes:
       - ../../backend/auth-service:/app
@@ -73,14 +72,14 @@ services:
       - "8001:8000" # Host port 8001 -> Auth Service
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
-      interval: 20s
+      interval: 30s
       timeout: 5s
       retries: 5
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 256M
+          cpus: "1.00"
+          memory: 1024M
 
   finance-service:
     build:
@@ -88,6 +87,7 @@ services:
       dockerfile: backend/finance-service/Dockerfile
     container_name: spendsy_finance
     restart: always
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
     env_file:
       - ../../.env
     environment:
@@ -129,29 +129,78 @@ services:
       dockerfile: backend/ai-service/Dockerfile
     container_name: spendsy_ai
     restart: always
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     env_file:
       - ../../.env
     environment:
       PYTHONPATH: /app
-      REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:-spendsy-very-secure-secret-key-32chars}
-      JWT_ALGORITHM: HS256
-      FINANCE_SERVICE_URL: http://finance-service:8000
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
       ENVIRONMENT: ${ENVIRONMENT:-production}
     volumes:
       - ../../backend/ai-service:/app
     working_dir: /app
-    depends_on:
-      redis:
-        condition: service_healthy
     ports:
-      - "8004:8000" # Host port 8004 -> AI Service
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - "8003:8000" # Host port 8003 -> AI Service
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1024M
+
+  spendsy-ai:
+    build:
+      context: ../../
+      dockerfile: backend/spendsy-ai/Dockerfile
+    container_name: spendsy_tora
+    restart: always
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005", "--reload"]
+    env_file:
+      - ../../.env
+    environment:
+      PYTHONPATH: /app
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      FINANCE_SERVICE_URL: http://finance-service:8000
+      SPENDSY_MCP_URL: http://spendsy-mcp:8006/mcp/sse
+      MODEL_GEMMA: gemma4:e4b
+      MODEL_LLAMA: gemma4:e2b
+    volumes:
+      - ../../backend/spendsy-ai:/app
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8004:8005" # Host port 8004 -> Spendsy AI (TORA)
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1024M
+
+  spendsy-mcp:
+    build:
+      context: ../../
+      dockerfile: backend/spendsy-mcp/Dockerfile
+    container_name: spendsy_mcp
+    restart: always
+    command: ["python", "server.py"]
+    env_file:
+      - ../../.env
+    environment:
+      PYTHONPATH: /app
+      MCP_TRANSPORT: sse
+      FASTMCP_HOST: 0.0.0.0
+      FASTMCP_PORT: 8006
+      FASTMCP_SSE_PATH: /mcp/sse
+      FASTMCP_MESSAGE_PATH: /mcp/messages/
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      FINANCE_SERVICE_URL: http://finance-service:8000
+    volumes:
+      - ../../backend/spendsy-mcp:/app
+    working_dir: /app
+    ports:
+      - "8005:8006" # Host port 8005 -> Spendsy MCP
     deploy:
       resources:
         limits:
@@ -163,17 +212,17 @@ services:
     container_name: spendsy_gateway
     restart: always
     depends_on:
-      auth-service:
+      postgres:
         condition: service_healthy
-      finance-service:
+      redis:
         condition: service_healthy
-      ai-service:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:80"   # Host port 8080 -> NGINX API Gateway HTTP
       - "8443:443"  # Host port 8443 -> NGINX API Gateway HTTPS
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.dev-hybrid.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
     deploy:
       resources:
@@ -193,9 +242,13 @@ services:
     restart: always
     ports:
       - "3000:80"   # Direct access to frontend (optional if using gateway)
-    depends_on:
-      - auth-service
-      - finance-service
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    profiles:
+      - docker-frontend
 
 volumes:
   postgres_data:

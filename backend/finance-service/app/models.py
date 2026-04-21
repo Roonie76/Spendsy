@@ -82,6 +82,15 @@ class TaxProfile(Base):
     health_insurance_parents = Column(Numeric(12, 2), default=0)
     home_loan_interest = Column(Numeric(12, 2), default=0)
     education_loan_interest = Column(Numeric(12, 2), default=0)
+
+    # Extended profile fields (TORA tax integration)
+    parents_are_senior = Column(Boolean, default=False)
+    age = Column(Integer, default=30)
+    is_metro = Column(Boolean, default=False)
+    is_presumptive = Column(Boolean, default=False)
+    is_nri = Column(Boolean, default=False)
+    foreign_assets = Column(Boolean, default=False)
+
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

@@ -1,6 +1,47 @@
 import { TAX_CONSTANTS } from "../config/constants";
 import { normalizeDate } from "../utils/helpers";
 
+/**
+ * Determines the applicable ITR form based on income profile.
+ * ITR-1: Salary + 1HP + Other, ≤50L, resident individual
+ * ITR-2: Capital gains or >50L, no business income
+ * ITR-3: Business/professional income (non-presumptive)
+ * ITR-4: Presumptive income u/s 44AD/44ADA/44AE
+ */
+export const getITRFormType = (income = {}, profile = {}) => {
+  const salary = parseFloat(income.salary || 0);
+  const hp = parseFloat(income.houseProperty || 0);
+  const business = parseFloat(income.businessIncome || 0);
+  const cg = parseFloat(income.capitalGains || 0);
+  const other = parseFloat(income.otherIncome || 0) + parseFloat(income.interestIncome || 0);
+  const total = salary + Math.abs(hp) + business + cg + other;
+
+  const isPresumptive = !!profile.isPresumptive;
+  const hasBusiness = business > 0;
+  const hasCapitalGains = cg > 0;
+  const hasMultipleHP = !!profile.multipleHouseProperties;
+  const isForeignAssets = !!profile.foreignAssets;
+  const isNRI = !!profile.isNRI;
+
+  // ITR-4 (Sugam): presumptive business, no CG, total ≤ 50L
+  if (isPresumptive && !hasCapitalGains && total <= 5000000 && !isForeignAssets && !isNRI) {
+    return { form: "ITR-4", name: "Sugam", reason: "Presumptive business income u/s 44AD/44ADA" };
+  }
+
+  // ITR-3: non-presumptive business/professional income
+  if (hasBusiness) {
+    return { form: "ITR-3", name: "Business & Profession", reason: "Business or professional income declared" };
+  }
+
+  // ITR-2: capital gains, >50L, multiple HP, foreign assets, or NRI
+  if (hasCapitalGains || total > 5000000 || hasMultipleHP || isForeignAssets || isNRI) {
+    return { form: "ITR-2", name: "Capital Gains", reason: hasCapitalGains ? "Capital gains income present" : total > 5000000 ? "Total income exceeds ₹50 Lakh" : isForeignAssets ? "Foreign assets/income reported" : isNRI ? "Non-resident taxpayer" : "Multiple house properties" };
+  }
+
+  // ITR-1 (Sahaj): default for salaried individuals
+  return { form: "ITR-1", name: "Sahaj", reason: "Salaried individual with income ≤ ₹50L" };
+};
+
 export const TaxService = {
   calculate: (
     transactions = [],
@@ -167,44 +208,141 @@ export const TaxService = {
     const grossTotalIncome =
       salaryIncome + incomeFromHP + taxableBusinessIncome + otherSourcesIncome;
 
-    const used80C = Math.min(inv80C, 150000);
+    // Age-aware deduction limits
+    const age = parseInt(userProfile.age || 0);
+    const ageCategory = age >= 80 ? "super_senior" : age >= 60 ? "senior" : "general";
+    const parentsAreSenior = !!userProfile.parentsAreSenior;
+    const limits = TAX_CONSTANTS.LIMITS;
+
+    const limit80D_Self = ageCategory !== "general" ? limits.SECTION_80D_SELF_SENIOR : limits.SECTION_80D_SELF;
+    const limit80D_Parents = parentsAreSenior ? limits.SECTION_80D_PARENTS_SENIOR : limits.SECTION_80D_PARENTS;
+    const limitTTA = ageCategory !== "general" ? limits.SECTION_80TTB_SENIOR : limits.SECTION_80TTA;
+
+    const used80C = Math.min(inv80C, limits.SECTION_80C);
     const used80D =
-      Math.min(inv80D_Self, 25000) + Math.min(inv80D_Parents, 50000);
-    const usedNPS = Math.min(invNPS, 50000);
-    const used80TTA = Math.min(savingsInterest, 10000);
+      Math.min(inv80D_Self, limit80D_Self) + Math.min(inv80D_Parents, limit80D_Parents);
+    const usedNPS = Math.min(invNPS, limits.SEC_80CCD_1B);
+    const used80TTA = Math.min(savingsInterest, limitTTA);
     const used80E = interest80E;
 
-    const taxableOld = Math.max(
-      0,
-      grossTotalIncome -
-        (stdDedOld + used80C + used80D + usedNPS + used80E + used80TTA),
-    );
+    // Additional deductions from ITR data
+    const used80G = parseFloat(itr?.deductions_data?.section80G || 0);
+    const used80GG = Math.min(parseFloat(itr?.deductions_data?.section80GG || 0), limits.SECTION_80GG_MONTHLY * 12);
+    const used80EE = Math.min(parseFloat(itr?.deductions_data?.section80EE || 0), limits.SECTION_80EE);
+    const used80EEB = Math.min(parseFloat(itr?.deductions_data?.section80EEB || 0), limits.SECTION_80EEB);
+
+    const totalOldDeductions = stdDedOld + used80C + used80D + usedNPS + used80E + used80TTA + used80G + used80GG + used80EE + used80EEB;
+    const taxableOld = Math.max(0, grossTotalIncome - totalOldDeductions);
     const taxableNew = Math.max(0, grossTotalIncome - stdDedNew);
 
-    const calcTax = (income, regimeType) => {
+    const slabTax = (income, slabs) => {
       let tax = 0;
-      if (regimeType === "new") {
-        if (income > 400000) tax += Math.min(income - 400000, 400000) * 0.05;
-        if (income > 800000) tax += Math.min(income - 800000, 400000) * 0.1;
-        if (income > 1200000) tax += Math.min(income - 1200000, 400000) * 0.15;
-        if (income > 1600000) tax += Math.min(income - 1600000, 400000) * 0.2;
-        if (income > 2000000) tax += Math.min(income - 2000000, 400000) * 0.25;
-        if (income > 2400000) tax += (income - 2400000) * 0.3;
-
-        if (income <= 1200000) tax = 0;
-        else if (income > 1200000 && income <= 1275000)
-          tax = Math.min(tax, income - 1200000);
-      } else {
-        if (income > 250000) tax += Math.min(income - 250000, 250000) * 0.05;
-        if (income > 500000) tax += Math.min(income - 500000, 500000) * 0.2;
-        if (income > 1000000) tax += (income - 1000000) * 0.3;
-        if (income <= 500000) tax = 0;
+      let prev = 0;
+      for (const { limit, rate } of slabs) {
+        const upper = limit ?? Infinity;
+        if (income > prev) {
+          tax += Math.min(income - prev, upper - prev) * rate;
+        }
+        prev = upper;
+        if (income <= upper) break;
       }
-      return tax * 1.04;
+      return tax;
+    };
+
+    const computeSurcharge = (baseTax, income, maxRate) => {
+      const brackets = TAX_CONSTANTS.SURCHARGE;
+      let surchargeRate = 0;
+      for (const { threshold, rate } of brackets) {
+        if (income > threshold && rate <= maxRate) surchargeRate = rate;
+      }
+      if (surchargeRate === 0) return 0;
+
+      const rawSurcharge = baseTax * surchargeRate;
+
+      // Marginal relief: surcharge should not exceed the additional income above threshold
+      const applicableThreshold = [...brackets]
+        .filter(b => income > b.threshold && b.rate <= maxRate)
+        .pop()?.threshold;
+      if (applicableThreshold) {
+        const taxAtThreshold = slabTax(applicableThreshold, regimeSlabs);
+        const surchargeAtThreshold = computeSurchargeSimple(taxAtThreshold, applicableThreshold, maxRate);
+        const totalAtThreshold = taxAtThreshold + surchargeAtThreshold;
+        const totalWithSurcharge = baseTax + rawSurcharge;
+        const marginalExcess = income - applicableThreshold;
+        if (totalWithSurcharge - totalAtThreshold > marginalExcess) {
+          return Math.max(0, totalAtThreshold + marginalExcess - baseTax);
+        }
+      }
+      return rawSurcharge;
+    };
+
+    // Simple surcharge without marginal relief (used inside marginal relief calc to avoid recursion)
+    const computeSurchargeSimple = (baseTax, income, maxRate) => {
+      let rate = 0;
+      for (const b of TAX_CONSTANTS.SURCHARGE) {
+        if (income > b.threshold && b.rate <= maxRate) rate = b.rate;
+      }
+      return baseTax * rate;
+    };
+
+    let regimeSlabs; // used by computeSurcharge closure
+
+    const calcTax = (income, regimeType) => {
+      const regime = regimeType === "new" ? TAX_CONSTANTS.NEW_REGIME : TAX_CONSTANTS.OLD_REGIME;
+      const maxSurchargeRate = regime.MAX_SURCHARGE_RATE;
+
+      // Pick slabs based on regime and age
+      if (regimeType === "new") {
+        regimeSlabs = regime.SLABS;
+      } else {
+        regimeSlabs = ageCategory === "super_senior" ? regime.SLABS_SUPER_SENIOR
+          : ageCategory === "senior" ? regime.SLABS_SENIOR
+          : regime.SLABS;
+      }
+
+      let baseTax = slabTax(income, regimeSlabs);
+
+      // Rebate u/s 87A
+      if (regimeType === "new") {
+        if (income <= regime.REBATE_LIMIT) {
+          baseTax = 0;
+        } else if (income <= regime.REBATE_LIMIT + regime.REBATE_MAX) {
+          // Marginal relief on rebate: tax cannot exceed income above rebate limit
+          baseTax = Math.min(baseTax, income - regime.REBATE_LIMIT);
+        }
+      } else {
+        if (income <= regime.REBATE_LIMIT) baseTax = 0;
+      }
+
+      // Surcharge
+      const surcharge = computeSurcharge(baseTax, income, maxSurchargeRate);
+
+      // Cess 4% on (tax + surcharge)
+      const cess = (baseTax + surcharge) * regime.CESS;
+
+      return baseTax + surcharge + cess;
+    };
+
+    // Capital gains tax (computed separately at special rates, not through slabs)
+    const calcCapitalGainsTax = () => {
+      const cg = TAX_CONSTANTS.CAPITAL_GAINS;
+      const cgData = itr?.income_data || {};
+      let cgTax = 0;
+
+      const stcg = parseFloat(cgData.stcg_111a || 0);
+      const ltcg = parseFloat(cgData.ltcg_112a || 0);
+      const crypto = parseFloat(cgData.crypto_vda || 0);
+
+      if (stcg > 0) cgTax += stcg * cg.STCG_111A;
+      if (ltcg > cg.LTCG_112A_EXEMPT) cgTax += (ltcg - cg.LTCG_112A_EXEMPT) * cg.LTCG_112A;
+      if (crypto > 0) cgTax += crypto * cg.CRYPTO_VDA;
+
+      return cgTax * (1 + TAX_CONSTANTS.NEW_REGIME.CESS); // cess applies to CG tax too
     };
 
     const taxOld = calcTax(taxableOld, "old");
     const taxNew = calcTax(taxableNew, "new");
+    const capitalGainsTax = calcCapitalGainsTax();
 
     const totalBankCredits = txList
       .filter((t) => t?.type === "income")
@@ -218,11 +356,18 @@ export const TaxService = {
         : new Date().getMonth() + 10;
     const monthlyPace80C = inv80C / Math.max(1, monthsElapsed);
 
+    const recommendedRegime = taxNew <= taxOld ? "new" : "old";
+
     return {
       taxableOld,
       taxableNew,
       taxOld,
       taxNew,
+      capitalGainsTax,
+      totalTaxOld: taxOld + capitalGainsTax,
+      totalTaxNew: taxNew + capitalGainsTax,
+      recommendedRegime,
+      ageCategory,
       fiscalYear: `${fyStartYear}-${fyStartYear + 1}`,
       mode: "PLANNING",
       sources: {
@@ -239,13 +384,17 @@ export const TaxService = {
         other: otherSourcesIncome,
       },
       deductions: {
-        c80: { used: used80C, limit: 150000, pace: monthlyPace80C },
-        d80: { used: used80D, limit: 75000 },
-        nps: { used: usedNPS, limit: 50000 },
-        hln: { used: interest24b, potential: missingInterestClaim },
+        c80: { used: used80C, limit: limits.SECTION_80C, pace: monthlyPace80C },
+        d80: { used: used80D, limit: limit80D_Self + limit80D_Parents },
+        nps: { used: usedNPS, limit: limits.SEC_80CCD_1B },
+        hln: { used: interest24b, limit: limits.SECTION_24B_SOP, potential: missingInterestClaim },
         edu: { used: used80E },
-        tta: { used: used80TTA },
+        tta: { used: used80TTA, limit: limitTTA },
         hra: { potential: rentPaid, notComputed: rentPaid > 0 },
+        g80: { used: used80G },
+        gg80: { used: used80GG, limit: limits.SECTION_80GG_MONTHLY * 12 },
+        ee80: { used: used80EE, limit: limits.SECTION_80EE },
+        eeb80: { used: used80EEB, limit: limits.SECTION_80EEB },
       },
       compliance: {
         incomeMismatch,
@@ -256,7 +405,7 @@ export const TaxService = {
         capitalGainsUnverified: capitalGainsReceipts > 0,
       },
       missedSavings:
-        (Math.max(0, 150000 - used80C) + Math.max(0, 50000 - usedNPS)) * 0.3,
+        (Math.max(0, limits.SECTION_80C - used80C) + Math.max(0, limits.SEC_80CCD_1B - usedNPS)) * 0.3,
     };
   },
 };

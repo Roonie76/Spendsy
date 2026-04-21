@@ -253,11 +253,11 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
 
     // 2. Combine with actual history
     const baseHistory = [...netWorthHistory];
-    
+
     // 3. If the last history point isn't today, add a 'virtual' point for today
     const today = new Date().toISOString().split('T')[0];
     const hasToday = baseHistory.some(s => s.date === today);
-    
+
     if (!hasToday && (currentAssets > 0 || currentLiabilities > 0)) {
       baseHistory.push({
         date: today,
@@ -266,7 +266,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
         net_worth: currentNet
       });
     }
-    
+
     return baseHistory;
   }, [netWorthHistory, wealthItems]);
 
@@ -343,7 +343,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
       </div>
 
       {/* Watchdog Section */}
-      <div className="bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-2xl">
+      {/* <div className="bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none"></div>
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
@@ -403,7 +403,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
             </div>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Category Breakdown */}
       <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
@@ -551,7 +551,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
       </div>
 
       {/* Net Worth History Tracker */}
-      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+      {/* <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
         <div className="flex justify-between items-start mb-6 gap-4">
           <div>
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-1">
@@ -560,35 +560,35 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
             <p className="text-xs text-slate-500">Assets vs Liabilities over time</p>
           </div>
         </div>
-        
+
         <div className="h-[300px] w-full relative">
           {augmentedNetWorthHistory && augmentedNetWorthHistory.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={augmentedNetWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorLiabilities" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis 
-                  dataKey="date" 
+                <XAxis
+                  dataKey="date"
                   axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} dy={10}
                   tickFormatter={(val) => {
                     const d = new Date(val);
                     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
                   }}
                 />
-                <YAxis 
+                <YAxis
                   axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }}
                   tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
                   itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
                   labelStyle={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', marginBottom: '8px' }}
@@ -607,7 +607,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
             </div>
           )}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

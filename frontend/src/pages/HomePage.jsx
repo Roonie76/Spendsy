@@ -1,5 +1,3 @@
-//Database needed
-// Section 1 Home Page
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
@@ -12,6 +10,8 @@ import {
   Scale,
   ArrowRightLeft,
   Landmark,
+  AlertTriangle,
+  TrendingDown,
 } from "lucide-react";
 import TransactionItem from "../components/domain/TransactionItem";
 import { TABS } from "@shared/config/constants";
@@ -26,10 +26,6 @@ const HomePage = ({
   settings,
   theme = "dark",
 }) => {
-  // Debugging: Check your console to see if data is actually arriving
-  // If this logs "HomePage wealthItems: []", then the parent is not passing data.
-  // console.log("HomePage wealthItems:", wealthItems);
-
 const metrics = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -86,10 +82,17 @@ const metrics = useMemo(() => {
       estimatedTax = taxBase * 1.04; // Add 4% Cess
     }
 
+    // Daily spend (today only)
+    const todayStr = now.toISOString().slice(0, 10);
+    const todayExpense = monthlyData
+      .filter((t) => t.type === "expense" && normalizeDate(t.date).toISOString().slice(0, 10) === todayStr)
+      .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+
     return {
       expense,
+      todayExpense,
       netWorth,
-      totalTaxable: taxableIncomeValue, // This is now matched to Audit Page
+      totalTaxable: taxableIncomeValue,
       estimatedTax,
       count: transactions.length,
     };
@@ -237,6 +240,46 @@ const MetricTile = ({
                 )}
               />
             </div>
+
+            {/* Budget Alerts */}
+            {budget > 0 && percentage >= 80 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  "mt-5 flex items-center gap-3 p-4 rounded-2xl border",
+                  percentage >= 100
+                    ? "bg-rose-500/10 border-rose-500/20"
+                    : "bg-amber-500/10 border-amber-500/20",
+                )}
+              >
+                <AlertTriangle className={cn("w-4 h-4 shrink-0", percentage >= 100 ? "text-rose-400" : "text-amber-400")} />
+                <p className={cn("text-xs font-bold", percentage >= 100 ? "text-rose-400" : "text-amber-400")}>
+                  {percentage >= 100
+                    ? `Over budget by ${formatIndianCompact(metrics.expense - budget)}`
+                    : `${Math.round(percentage)}% of monthly budget used — ${formatIndianCompact(budget - metrics.expense)} remaining`}
+                </p>
+              </motion.div>
+            )}
+
+            {/* Daily Budget Tracker */}
+            {parseFloat(settings?.dailyBudget) > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  "mt-3 flex items-center gap-3 p-4 rounded-2xl border",
+                  metrics.todayExpense > parseFloat(settings.dailyBudget)
+                    ? "bg-rose-500/10 border-rose-500/20"
+                    : "bg-white/5 border-white/5",
+                )}
+              >
+                <TrendingDown className={cn("w-4 h-4 shrink-0", metrics.todayExpense > parseFloat(settings.dailyBudget) ? "text-rose-400" : "text-slate-500")} />
+                <p className={cn("text-xs font-bold", metrics.todayExpense > parseFloat(settings.dailyBudget) ? "text-rose-400" : "text-slate-500")}>
+                  Today: {formatIndianCompact(metrics.todayExpense)} / {formatIndianCompact(parseFloat(settings.dailyBudget))} daily limit
+                </p>
+              </motion.div>
+            )}
           </motion.div>
 
           {/* ITR Tile */}

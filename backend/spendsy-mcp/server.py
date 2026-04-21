@@ -1,4 +1,3 @@
-import asyncio
 import json
 import mimetypes
 import os
@@ -357,5 +356,32 @@ def simulate_house_purchase(user_id: int, house_price: float, down_payment: floa
     except Exception as e:
         return f"Error simulating house purchase: {str(e)}"
 
+# --- SECTION 9: Reconciliation Tools ---
+
+@mcp.tool()
+def sync_credit_card_payments(user_id: int) -> str:
+    """
+    Trigger the reconciliation engine to link bank statement 'payments' 
+    with credit card 'receipts'. This helps clean up the dashboard.
+    """
+    try:
+        url = f"{settings.finance_service_url.rstrip('/')}/internal/reconcile/{user_id}"
+        headers = {"X-Internal-API-Key": settings.internal_api_key}
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json().get("data", {})
+                count = data.get("reconciled_pairs", 0)
+                return f"Successfully reconciled {count} transaction pairs. Bank-side payments have been categorized as 'transfer' to avoid double-counting."
+            else:
+                return f"Reconciliation failed with status {response.status_code}: {response.text}"
+    except Exception as e:
+        return f"Error triggering reconciliation: {str(e)}"
+
 if __name__ == "__main__":
-    mcp.run()
+    transport = os.getenv("MCP_TRANSPORT", "stdio").strip().lower()
+    if transport not in {"stdio", "sse"}:
+        raise ValueError(f"Unsupported MCP_TRANSPORT: {transport}")
+
+    mcp.run(transport=transport)

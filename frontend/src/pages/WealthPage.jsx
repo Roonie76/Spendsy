@@ -1,8 +1,5 @@
-//Database needed
-// Section 6 Wealth Page
 import React, { useState } from "react";
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
-// import { db } from "@shared/config/constants";
 import { formatIndianCompact, buildAuthHeader } from "@shared/utils/helpers";
 import { BANKS } from "@shared/config/constants";
 import UnitSelector from "../components/domain/UnitSelector";

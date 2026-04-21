@@ -57,7 +57,7 @@ def record_audit_event(event: dict) -> None:
         client.lpush("auth:audit", str(payload))
         client.ltrim("auth:audit", 0, 999)
     except Exception:
-        pass
+        logger.warning("Failed to record audit event to Redis", exc_info=True)
 
 
 def blacklist_token(jti: str, ttl_seconds: int) -> None:
@@ -110,4 +110,4 @@ def reset_failed_login(identity: str) -> None:
         client = get_redis()
         client.delete(key)
     except Exception:
-        pass
+        logger.warning("Failed to reset failed login counter for %s", identity, exc_info=True)

@@ -55,8 +55,13 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
     try {
       const pdfType = await detectPdfType(file);
       if (pdfType === "ocr") {
-        console.warn("Frontend OCR detection triggered, but allowing upload to backend for robust verification.");
-        showToast("Low text density detected. Attempting to parse anyway...", "info");
+        console.warn("Frontend OCR detection triggered. Showing unsupported modal.");
+        setShowUnsupportedPdfModal(true);
+        // We still continue to setUploading(true) if we want to let them try, 
+        // but it's better to stop here to save bandwidth if we're sure.
+        // For now, I'll stop the flow and just show the modal.
+        if (fileRef.current) fileRef.current.value = "";
+        return;
       }
     } catch (error) {
       console.error("PDF inspection error:", error);
@@ -74,7 +79,8 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
       const txs = parsedPayload.transactions || [];
 
       if (txs.length === 0) {
-        showToast("No transactions were found in this PDF. It might be an unsupported format.", "warning");
+        console.warn("No transactions found. Triggering unsupported modal.");
+        setShowUnsupportedPdfModal(true);
         return;
       }
 

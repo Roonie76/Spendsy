@@ -12,6 +12,8 @@ import json
 import uuid
 import logging
 
+logger = logging.getLogger("auth.routes")
+
 from app.core import security
 from app.core.config import settings
 from app.core.database import get_db
@@ -63,7 +65,7 @@ def _generate_alert(
         db.add(alert)
         db.commit()
     except Exception:
-        pass
+        logger.warning("Failed to generate security alert: type=%s", type, exc_info=True)
 
 
 def _record_audit(
@@ -99,7 +101,11 @@ def _record_audit(
         )
         db.add(entry)
         db.commit()
+    except Exception:
+        logger.warning("Failed to record audit event: action=%s", action, exc_info=True)
+        return
 
+    try:
         # Anomaly Detection: Bruteforce-like patterns
         if action == "login_failure" and status_code == 401:
             threshold_time = datetime.utcnow() - timedelta(minutes=10)
@@ -133,7 +139,7 @@ def _record_audit(
                 actor_identity=identity,
             )
     except Exception:
-        pass
+        logger.warning("Failed anomaly detection in audit: action=%s", action, exc_info=True)
 
 
 def _normalize_email(value: str | None) -> str:
@@ -179,7 +185,7 @@ def register(payload: UserCreate, request: Request, response: Response, db: Sess
     except HTTPException:
         raise
     except Exception:
-        pass
+        logger.warning("Rate limit check failed for register, allowing request", exc_info=True)
 
     clean_username = _normalize_username(payload.username)
     clean_email = _normalize_email(str(payload.email) if payload.email is not None else None)
@@ -245,7 +251,7 @@ def login(payload: UserLogin, request: Request, response: Response, db: Session 
     except HTTPException:
         raise
     except Exception:
-        pass
+        logger.warning("Rate limit check failed for login, allowing request", exc_info=True)
 
     try:
         user_query = db.query(User)
@@ -399,7 +405,7 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
             if jti and remaining > 0:
                 blacklist_token(jti, remaining)
         except Exception:
-            pass
+            logger.warning("Failed to blacklist access token on logout", exc_info=True)
 
     # Blacklist refresh token JTI
     refresh_token_cookie = request.cookies.get("refresh_token")
