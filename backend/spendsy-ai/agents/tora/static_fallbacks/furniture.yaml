@@ -1,0 +1,66 @@
+updated_at: "2026-04-24"
+source: "Pepperfry/Urban Ladder/IKEA India + Urban Company contractor rates + IndiaMART material indices"
+notes: |
+  Prices are mid-range, finished goods. Renovation/contractor rates are
+  per-sq-ft for basic work; premium finishes can 2-3x these numbers.
+
+facts:
+  furniture_inr:
+    sofa_3seater_fabric: {min: 25000, max: 70000}
+    sofa_3seater_leather: {min: 45000, max: 150000}
+    sofa_set_5seater: {min: 45000, max: 180000}
+    dining_table_6seater: {min: 25000, max: 90000}
+    king_bed_with_storage: {min: 30000, max: 120000}
+    queen_bed_with_storage: {min: 22000, max: 80000}
+    wardrobe_3door: {min: 25000, max: 80000}
+    wardrobe_sliding_custom: {min: 55000, max: 200000}
+    bookshelf: {min: 8000, max: 30000}
+    study_table: {min: 8000, max: 35000}
+    tv_unit: {min: 12000, max: 45000}
+    dressing_table: {min: 10000, max: 35000}
+  modular_kitchen_inr_per_sqft_carcass:
+    basic_pre_lam: {min: 900, max: 1400}
+    mid_acrylic: {min: 1500, max: 2800}
+    premium_hafele_sleek: {min: 3000, max: 6000}
+  modular_kitchen_total_inr_typical:
+    studio_kitchen: {min: 120000, max: 300000}
+    standard_kitchen: {min: 200000, max: 500000}
+    large_kitchen: {min: 350000, max: 900000}
+  renovation_per_sqft_inr:
+    basic_refresh_paint_repair: {min: 400, max: 800}
+    mid_range_full_renovation: {min: 1500, max: 3000}
+    premium_full_renovation: {min: 3000, max: 6000}
+    luxury_full_renovation: {min: 6000, max: 12000}
+  material_cost_inr:
+    paint_per_sqft_2coats: {min: 15, max: 45}
+    tile_per_sqft: {min: 45, max: 250}
+    marble_per_sqft: {min: 150, max: 800}
+    wooden_flooring_per_sqft: {min: 80, max: 400}
+    false_ceiling_pop_per_sqft: {min: 65, max: 120}
+    pvc_panel_per_sqft: {min: 120, max: 280}
+  contractor_labour_inr:
+    plumber_per_day: {min: 800, max: 1500}
+    electrician_per_day: {min: 800, max: 1500}
+    painter_per_day: {min: 600, max: 1200}
+    carpenter_per_day: {min: 900, max: 1800}
+    tile_mason_per_day: {min: 900, max: 1800}
+  bathroom_renovation_total_inr:
+    basic: {min: 75000, max: 150000}
+    mid_range: {min: 150000, max: 300000}
+    premium: {min: 300000, max: 600000}
+  gst_pct:
+    furniture_below_1L: 18
+    furniture_above_1L: 18
+    under_construction_flat: 5
+    renovation_services: 18
+  typical_emi_options:
+    furniture_chain_tenure_months: [3, 6, 9, 12, 18]
+    zero_cost_emi_tenure_months: [3, 6, 9]
+
+options: []
+
+constraints:
+  - "Renovation estimates rarely hold — add 20-25% buffer for scope creep and unseen repair work."
+  - "Never start renovation without a written contractor agreement with milestone-based payments."
+  - "Modular kitchen > carpenter-built for durability and warranty, but carpenter-built is 30-40% cheaper."
+  - "Furniture chain zero-cost EMI is fine for large purchases — inflation adjustment makes spreading the cost reasonable."

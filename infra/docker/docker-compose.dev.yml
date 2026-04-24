@@ -162,10 +162,12 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       FINANCE_SERVICE_URL: http://finance-service:8000
       SPENDSY_MCP_URL: http://spendsy-mcp:8006/mcp/sse
-      MODEL_GEMMA: gemma4:e4b
+      MODEL_GEMMA: gemma4:e2b
       MODEL_LLAMA: gemma4:e2b
+      VAULT_BASE_PATH: /data/vaults
     volumes:
       - ../../backend/spendsy-ai:/app
+      - spendsy-vaults:/data/vaults
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -252,3 +254,4 @@ services:
 
 volumes:
   postgres_data:
+  spendsy-vaults:

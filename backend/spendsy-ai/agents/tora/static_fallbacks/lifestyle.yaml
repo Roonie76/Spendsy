@@ -1,0 +1,63 @@
+updated_at: "2026-04-24"
+source: "Published subscription prices + CPI inflation basket + gym chain rate cards"
+notes: |
+  OTT prices are individual-tier monthly/annual INR. Gym rates are for
+  tier-1 cities; tier-2/3 are 40-50% cheaper.
+
+facts:
+  ott_subscription_inr:
+    netflix_basic: {monthly: 199, annual: null}
+    netflix_standard: {monthly: 499, annual: null}
+    netflix_premium: {monthly: 649, annual: null}
+    amazon_prime: {monthly: 299, annual: 1499}
+    hotstar_mobile: {monthly: null, annual: 499}
+    hotstar_super: {monthly: 299, annual: 899}
+    hotstar_premium: {monthly: 499, annual: 1499}
+    sony_liv: {monthly: 299, annual: 999}
+    zee5: {monthly: 299, annual: 599}
+    jio_cinema: {monthly: 29, annual: 999}
+    apple_tv_plus: {monthly: 99, annual: null}
+    youtube_premium_individual: {monthly: 149, annual: null}
+    youtube_premium_family: {monthly: 299, annual: null}
+  music_subscription_inr:
+    spotify_individual: {monthly: 119, annual: 1189}
+    spotify_family: {monthly: 179, annual: null}
+    apple_music_individual: {monthly: 99, annual: null}
+    apple_music_family: {monthly: 149, annual: null}
+    youtube_music: {monthly: 99, annual: null}
+  gym_membership_inr:
+    local_gym_tier1_monthly: {min: 800, max: 2500}
+    local_gym_tier1_annual: {min: 8000, max: 22000}
+    cult_fit_monthly: {min: 1600, max: 3500}
+    cult_fit_annual: {min: 12000, max: 30000}
+    gold_gym_annual: {min: 25000, max: 60000}
+    boutique_studio_per_class: {min: 400, max: 1200}
+    home_gym_equipment_setup: {min: 20000, max: 100000}
+  dining_out_inr:
+    casual_meal_per_person_tier1: {min: 300, max: 800}
+    mid_range_per_person_tier1: {min: 800, max: 2000}
+    fine_dining_per_person_tier1: {min: 2000, max: 6000}
+    swiggy_zomato_avg_order: {min: 250, max: 600}
+    food_delivery_typical_markup_pct: 25
+  club_membership_inr:
+    city_club_tier1_joining: {min: 200000, max: 1500000}
+    city_club_tier1_monthly: {min: 2500, max: 15000}
+    golf_club_joining: {min: 1000000, max: 5000000}
+  productivity_saas_inr_monthly:
+    notion_personal_pro: 400
+    chatgpt_plus: 1700
+    github_copilot: 850
+    adobe_cc_all_apps: 4600
+    microsoft_365_personal_annual: 4899
+    google_one_200gb_annual: 2100
+  annual_cpi_inflation_pct: 5.2
+  subscription_bloat_warning_inr_monthly: 2500
+  subscription_audit_note: "Users typically underestimate OTT spend by 40% — multiply monthly subscriptions by 12 to see annual bite."
+
+options: []
+
+constraints:
+  - "Annual subscriptions almost always beat monthly — 15-25% cheaper. Default to annual if user commits >3 months."
+  - "Surface 'subscription audit' when monthly OTT+SaaS spend exceeds 2% of income — death by thousand cuts."
+  - "Gym membership is worthless if unused. Suggest month-to-month before annual unless user has 6+ month track record."
+  - "Food delivery markup (25-30%) + delivery fee makes ordering 3+ times/week cost more than a personal chef service in some cities."

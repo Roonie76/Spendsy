@@ -13,9 +13,10 @@ import {
   ArrowUp,
   Layout as LayoutIcon,
 } from "lucide-react";
-import { formatIndianCompact } from "@shared/utils/helpers";
+import { formatIndianCompact, normalizeDate } from "@shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
 import { Toast, ConfirmationDialog } from "./components/ui/Shared";
+import AlertsBell from "./components/ui/AlertsBell";
 
 import WelcomeWizard from "./components/onboarding/WelcomeWizard";
 import LoginScreen from "./pages/LoginScreen";
@@ -131,6 +132,14 @@ export default function App() {
         serverSummary?.expense !== undefined
           ? Number(serverSummary.expense)
           : localTotals.expenses,
+      monthIncome:
+        serverSummary?.month_income !== undefined
+          ? Number(serverSummary.month_income)
+          : 0,
+      monthExpense:
+        serverSummary?.month_expense !== undefined
+          ? Number(serverSummary.month_expense)
+          : 0,
     }),
     [serverSummary, localTotals],
   );
@@ -139,6 +148,50 @@ export default function App() {
     serverSummary?.balance !== undefined
       ? Number(serverSummary.balance)
       : totals.income - totals.expenses;
+
+  // Total-Balance-card range selector.
+  // Lifetime uses the authoritative server summary (already excludes
+  // transfers). All other ranges are computed client-side from the
+  // transactions list so we don't need a backend round-trip per click.
+  const BALANCE_RANGES = [
+    { id: "1D", label: "1D", days: 1 },
+    { id: "1W", label: "1W", days: 7 },
+    { id: "1M", label: "1M", days: 30 },
+    { id: "3M", label: "3M", days: 90 },
+    { id: "6M", label: "6M", days: 180 },
+    { id: "1Y", label: "1Y", days: 365 },
+    { id: "LIFE", label: "Lifetime", days: null },
+  ];
+  const [balanceRange, setBalanceRange] = useState("LIFE");
+
+  const rangedTotals = useMemo(() => {
+    if (balanceRange === "LIFE") {
+      return { income: totals.income, expenses: totals.expenses };
+    }
+    const cfg = BALANCE_RANGES.find((r) => r.id === balanceRange);
+    if (!cfg || !cfg.days) {
+      return { income: totals.income, expenses: totals.expenses };
+    }
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - (cfg.days - 1));
+    if (!Array.isArray(transactions)) return { income: 0, expenses: 0 };
+    return transactions.reduce(
+      (acc, t) => {
+        if (t.is_transfer) return acc;
+        const d = normalizeDate(t.date);
+        if (!d || d < cutoff) return acc;
+        const amt = parseFloat(t.amount || 0);
+        if (t.type === "income") acc.income += amt;
+        else if (t.type === "expense") acc.expenses += amt;
+        return acc;
+      },
+      { income: 0, expenses: 0 },
+    );
+  }, [balanceRange, transactions, totals.income, totals.expenses]);
+
+  const rangedBalance = rangedTotals.income - rangedTotals.expenses;
+
   const netWorth = useMemo(
     () =>
       wealthItems.reduce(
@@ -622,29 +675,20 @@ export default function App() {
         onConfirm={confirmModal.action}
         onCancel={() => setConfirmModal((p) => ({ ...p, isOpen: false }))}
       />
-      <div className="mx-auto min-h-screen relative z-10 max-w-6xl px-12 flex flex-col">
-        <header className="pt-10 mb-8 flex justify-between items-end">
-          <div>
+      <div className="mx-auto min-h-screen relative z-10 max-w-6xl px-4 sm:px-6 md:px-8 xl:px-12 flex flex-col">
+        <header className="pt-6 md:pt-10 mb-6 md:mb-8 flex justify-between items-center md:items-end gap-3">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-4 h-4 text-blue-500 fill-blue-500" />
               <span className="text-[10px] font-bold tracking-[0.3em] uppercase opacity-60">
                 Spendsy
               </span>
             </div>
-            <h1 className="text-5xl font-black">Hello, {firstName}</h1>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black truncate">Hello, {firstName}</h1>
           </div>
-          {/* <div className="flex gap-3">
-            <button
-              onClick={toggleTheme}
-              className="p-4 rounded-full bg-white/5 border border-white/10"
-            >
-              {theme === "dark" ? (
-                <Sun className="w-5 h-5 text-amber-400" />
-              ) : (
-                <Moon className="w-5 h-5 text-blue-600" />
-              )}
-            </button>
-          </div> */}
+          <div className="flex items-center gap-3 shrink-0">
+            <AlertsBell theme={theme} />
+          </div>
         </header>
 
         {[TABS.HOME, TABS.ADD, TABS.STATS, TABS.WEALTH, TABS.PLANNER].includes(activeTab) && (
@@ -652,59 +696,89 @@ export default function App() {
             whileHover={{ scale: 1.01, y: -2 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className={cn(
-              "relative overflow-hidden rounded-[2.5rem] p-10 mb-10 border transition-all duration-500",
+              "relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] p-6 sm:p-8 md:p-10 mb-6 md:mb-10 border transition-all duration-500",
               theme === "dark"
                 ? "bg-gradient-to-br from-white/[0.08] to-white/[0.02] border-white/10 shadow-xl"
                 : "bg-gradient-to-br from-white to-slate-50 border-white/60 shadow-xl",
             )}
           >
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-4 opacity-50">
-                <LayoutIcon className="w-4 h-4" />
-                <p className="text-xs font-bold uppercase tracking-widest">
-                  {activeTab === TABS.WEALTH
-                    ? "Net Valuation"
-                    : "Total Balance"}
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2 opacity-50">
+                  <LayoutIcon className="w-4 h-4" />
+                  <p className="text-xs font-bold uppercase tracking-widest">
+                    {activeTab === TABS.WEALTH
+                      ? "Net Valuation"
+                      : "Total Balance"}
+                  </p>
+                </div>
+
+                {activeTab !== TABS.WEALTH && (
+                  <div
+                    className={cn(
+                      "flex flex-wrap justify-start sm:justify-end gap-1 p-1 rounded-full border -mx-1 sm:mx-0",
+                      theme === "dark"
+                        ? "bg-white/5 border-white/10"
+                        : "bg-slate-100 border-slate-200",
+                    )}
+                  >
+                    {BALANCE_RANGES.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => setBalanceRange(r.id)}
+                        className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest px-2 sm:px-2.5 py-1 rounded-full transition-colors",
+                          balanceRange === r.id
+                            ? "bg-blue-600 text-white"
+                            : theme === "dark"
+                              ? "text-white/60 hover:text-white hover:bg-white/5"
+                              : "text-slate-500 hover:text-slate-800 hover:bg-white",
+                        )}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <h2
                 className={cn(
-                  "font-black mb-10 tracking-tighter text-7xl leading-tight",
+                  "font-black mb-6 md:mb-10 tracking-tighter text-4xl sm:text-5xl md:text-6xl xl:text-7xl leading-tight break-all",
                   theme === "dark" ? "text-white" : "text-slate-900",
                 )}
               >
                 {activeTab === TABS.WEALTH
                   ? formatIndianCompact(netWorth.assets - netWorth.liabilities)
-                  : `₹${balance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+                  : `₹${rangedBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
               </h2>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/20">
+              <div className="grid grid-cols-2 gap-3 sm:gap-6">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-emerald-500/10 border border-emerald-500/20">
                   <div className="flex items-center gap-2 mb-2 text-emerald-500">
                     <ArrowDown className="w-4 h-4" />
                     <span className="text-xs font-bold uppercase">
                       {activeTab === TABS.WEALTH ? "Assets" : "Income"}
                     </span>
                   </div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold break-all">
                     {activeTab === TABS.WEALTH
                       ? formatIndianCompact(netWorth.assets)
-                      : `₹${totals.income.toLocaleString("en-IN")}`}
+                      : `₹${rangedTotals.income.toLocaleString("en-IN")}`}
                   </p>
                 </div>
 
-                <div className="p-5 rounded-3xl bg-rose-500/10 border border-rose-500/20">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-rose-500/10 border border-rose-500/20">
                   <div className="flex items-center gap-2 mb-2 text-rose-500">
                     <ArrowUp className="w-4 h-4" />
                     <span className="text-xs font-bold uppercase">
                       {activeTab === TABS.WEALTH ? "Liabilities" : "Expense"}
                     </span>
                   </div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold break-all">
                     {activeTab === TABS.WEALTH
                       ? formatIndianCompact(netWorth.liabilities)
-                      : `₹${totals.expenses.toLocaleString("en-IN")}`}
+                      : `₹${rangedTotals.expenses.toLocaleString("en-IN")}`}
                   </p>
                 </div>
               </div>
@@ -729,6 +803,7 @@ export default function App() {
                   onDelete={requestDeleteTransaction}
                   onUpdate={updateTransaction}
                   settings={settings}
+                  totals={totals}
                   theme={theme}
                 />
               )}
@@ -739,6 +814,8 @@ export default function App() {
                   onDelete={requestDeleteTransaction}
                   onBulkDelete={requestBulkDelete}
                   onUpdate={updateTransaction}
+                  apiBaseUrl={API_BASE_URL}
+                  onRefresh={fetchHistory}
                 />
               )}
               {activeTab === TABS.ADD && (

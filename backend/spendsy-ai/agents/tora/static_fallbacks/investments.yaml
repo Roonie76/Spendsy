@@ -1,0 +1,78 @@
+updated_at: "2026-04-24"
+source: "AMFI NAV summary + RBI/SBI FD rates + NPS Trust + Income Tax Act provisions"
+notes: |
+  Index and FD rates are quarterly averages. MF returns are 5-year CAGRs
+  for category averages (not fund-specific). Tax rules are 2025-26 AY.
+
+facts:
+  index_values:
+    nifty50: 23850
+    sensex: 78400
+    nifty_midcap_100: 52600
+    nifty_smallcap_100: 17200
+  fd_rate_pct_pa:
+    sbi:
+      1y: 6.80
+      3y: 6.75
+      5y: 6.50
+    hdfc:
+      1y: 7.00
+      3y: 7.10
+      5y: 7.00
+    icici:
+      1y: 7.00
+      3y: 7.00
+      5y: 6.90
+    senior_citizen_premium_pct: 0.5
+  mf_category_5y_cagr_pct:
+    large_cap: 13.8
+    mid_cap: 21.2
+    small_cap: 26.4
+    flexi_cap: 16.5
+    elss_tax_saver: 17.1
+    hybrid_aggressive: 14.2
+    debt_short_duration: 6.2
+    debt_corporate_bond: 7.1
+    index_nifty50: 14.5
+  sip_min_amount_inr: 500
+  ppf:
+    current_rate_pct_pa: 7.1
+    max_annual_inr: 150000
+    tenure_years: 15
+    tax_benefit_section: "80C"
+    interest_taxable: false
+  nps:
+    tier1_equity_5y_return_pct: 12.8
+    tier1_corporate_bond_5y_return_pct: 8.5
+    additional_tax_benefit_inr: 50000
+    tax_benefit_section: "80CCD(1B)"
+    withdrawal_age: 60
+    min_annuity_pct_at_60: 40
+  elss_lock_in_years: 3
+  govt_bonds_yield_pct:
+    10y_gsec: 7.15
+    soverign_gold_bond: 2.5
+  tax_rules:
+    ltcg_equity_pct: 10
+    ltcg_equity_exempt_limit_inr: 100000
+    stcg_equity_pct: 15
+    ltcg_debt_pct: 20
+    ltcg_debt_indexation_available: false
+    sec_80c_limit_inr: 150000
+    sec_80ccd_1b_limit_inr: 50000
+    sec_80d_limit_self_inr: 25000
+    sec_80d_limit_parents_inr: 50000
+  sebi_advisor_required_for: "personalised investment advice — TORA must disclaim."
+  asset_allocation_rule_of_thumb:
+    equity_pct: "100 - age"
+    debt_pct: "age"
+    gold_pct: "5 to 10"
+
+options: []
+
+constraints:
+  - "ALWAYS append SEBI disclaimer when discussing specific fund/stock recommendations."
+  - "Never recommend a fund by name — suggest categories (large-cap, flexi-cap) and redirect to SEBI-registered advisor."
+  - "Tax harvesting: LTCG up to ₹1L/year is exempt — surface this before year-end if user has capital gains."
+  - "Emergency fund (6 months expenses) must exist in liquid/FD before any equity investment is advised."
+  - "Never promise returns — past performance does not guarantee future results (SEBI rule)."

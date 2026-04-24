@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, IndianRupee, Type, ShieldAlert } from 'lucide-react';
+import { X, Calendar, IndianRupee, Type, ShieldAlert, ArrowLeftRight } from 'lucide-react';
 import { CATEGORIES } from '@shared/config/constants';
 import { normalizeDate } from '@shared/utils/helpers';
+import { apiFetch } from '../../api';
 
-const EditTransactionModal = ({ isOpen, onClose, transaction, onSave }) => {
+const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl, onTransferFlagChanged }) => {
     // 1. Better Initial State: Fallback to empty strings to prevent "Controlled to Uncontrolled" warnings
     const [formData, setFormData] = useState({
         amount: '',
@@ -15,6 +16,8 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave }) => {
     
     const isOriginalVerified = transaction?.confidence > 0;
     const [showWarning, setShowWarning] = useState(false);
+    const [isTransfer, setIsTransfer] = useState(false);
+    const [transferBusy, setTransferBusy] = useState(false);
 
     useEffect(() => {
         if (transaction && isOpen) {
@@ -36,8 +39,27 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave }) => {
                 date: dateStr
             });
             setShowWarning(false);
+            setIsTransfer(!!transaction.is_transfer);
         }
     }, [transaction, isOpen]);
+
+    const toggleTransferFlag = async () => {
+        if (!transaction?.uid || !apiBaseUrl || transferBusy) return;
+        const next = !isTransfer;
+        setTransferBusy(true);
+        try {
+            await apiFetch(`${apiBaseUrl}/transactions/${transaction.uid}/transfer-flag`, {
+                method: 'PATCH',
+                body: JSON.stringify({ is_transfer: next }),
+            });
+            setIsTransfer(next);
+            onTransferFlagChanged && onTransferFlagChanged();
+        } catch (err) {
+            console.error('Failed to toggle transfer flag', err);
+        } finally {
+            setTransferBusy(false);
+        }
+    };
 
     const handleAmountChange = (e) => {
         const newAmt = e.target.value;
@@ -166,8 +188,25 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave }) => {
                         </div>
                     </div>
 
-                    <button 
-                        type="submit" 
+                    {apiBaseUrl && transaction?.uid && (
+                        <button
+                            type="button"
+                            onClick={toggleTransferFlag}
+                            disabled={transferBusy}
+                            className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors ${isTransfer ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-200' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'} ${transferBusy ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+                        >
+                            <span className="flex items-center gap-2 text-sm font-semibold">
+                                <ArrowLeftRight className="w-4 h-4" />
+                                {isTransfer ? 'Transfer — excluded from totals' : 'Mark as inter-account transfer'}
+                            </span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isTransfer ? 'text-cyan-300' : 'text-slate-500'}`}>
+                                {isTransfer ? 'ON' : 'OFF'}
+                            </span>
+                        </button>
+                    )}
+
+                    <button
+                        type="submit"
                         className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-900/20 mt-4"
                     >
                         {showWarning ? 'Confirm & Mark Unverified' : 'Save Changes'}

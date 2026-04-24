@@ -1,0 +1,73 @@
+updated_at: "2026-04-24"
+source: "Amazon/Flipkart/brand site averages + BEE energy rating norms + seasonal sale calendar"
+notes: |
+  Prices are 5-star energy-rated mid-range. Seasonal timing is the single
+  most important factor for appliance buying in India.
+
+facts:
+  ac_inr:
+    window_1ton: {min: 25000, max: 38000}
+    split_1ton: {min: 32000, max: 48000}
+    split_1_5ton: {min: 38000, max: 60000}
+    split_2ton: {min: 50000, max: 80000}
+    inverter_premium: {min: 55000, max: 95000}
+  fridge_inr:
+    single_door: {min: 14000, max: 22000}
+    double_door: {min: 25000, max: 50000}
+    side_by_side: {min: 60000, max: 150000}
+    french_door: {min: 120000, max: 300000}
+  washing_machine_inr:
+    semi_automatic: {min: 12000, max: 22000}
+    top_load_fully_auto: {min: 22000, max: 45000}
+    front_load: {min: 30000, max: 75000}
+  tv_inr:
+    led_32in: {min: 15000, max: 25000}
+    led_43in: {min: 25000, max: 40000}
+    led_55in: {min: 38000, max: 70000}
+    qled_55in: {min: 60000, max: 110000}
+    oled_55in: {min: 110000, max: 250000}
+  geyser_inr:
+    instant_3L: {min: 3500, max: 7000}
+    storage_15L: {min: 8000, max: 15000}
+    storage_25L: {min: 12000, max: 20000}
+  microwave_inr:
+    solo: {min: 6000, max: 10000}
+    convection: {min: 12000, max: 25000}
+  chimney_inr: {min: 10000, max: 35000}
+  dishwasher_inr: {min: 32000, max: 75000}
+  cooler_inr: {min: 6000, max: 18000}
+  gst_pct: 18
+  seasonal_timing:
+    ac:
+      best_months: [10, 11, 12, 1, 2]
+      avoid_months: [3, 4, 5]
+      typical_off_season_discount_pct: 15
+      reason: "Pre-summer demand spike drives up AC prices March-May; year-end clearance is the cheapest window."
+    tv:
+      best_months: [9, 10, 11]
+      typical_discount_pct: 25
+      reason: "Festive-season TV discounts are the deepest of the year."
+    fridge:
+      best_months: [1, 2, 8, 9, 10]
+      typical_discount_pct: 12
+      reason: "New model launches in March; buying the previous generation in Jan-Feb gets 12-15% off."
+    washing_machine:
+      best_months: [10, 11, 12]
+      typical_discount_pct: 15
+      reason: "Diwali and year-end sales are the best windows."
+    geyser:
+      best_months: [8, 9]
+      typical_discount_pct: 10
+      reason: "Pre-winter discount window before demand picks up in Oct-Nov."
+  energy_star_savings_pct:
+    ac_5star_vs_3star: 25
+    fridge_5star_vs_3star: 20
+    washing_machine_5star_vs_3star: 15
+
+options: []
+
+constraints:
+  - "Always check seasonal_timing before recommending purchase — offering 'wait N months' is often the highest-value advice."
+  - "5-star BEE rating saves 15-25% electricity vs 3-star — payback is typically 2-3 years."
+  - "For ACs, ton capacity must match room size: 1T for <120 sqft, 1.5T for 120-180, 2T for >180."
+  - "Inverter ACs cost 10-15% more upfront but save 20-25% on power — recommend for users who run AC >4 hrs/day."

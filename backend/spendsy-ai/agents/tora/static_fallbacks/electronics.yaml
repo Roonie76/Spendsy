@@ -1,0 +1,64 @@
+updated_at: "2026-04-24"
+source: "SmartPrix/Amazon/Flipkart curated averages + Big Billion/Great Indian Festival sale calendar"
+notes: |
+  Prices are current-generation mid-range. Sale windows are the annual
+  historical minima — actual discounts vary by product.
+
+facts:
+  laptop_inr:
+    entry: {min: 35000, max: 55000}
+    mid_range: {min: 55000, max: 90000}
+    gaming: {min: 75000, max: 180000}
+    premium_ultrabook: {min: 90000, max: 200000}
+    macbook_air: {min: 95000, max: 140000}
+    macbook_pro: {min: 170000, max: 400000}
+  phone_inr:
+    budget: {min: 10000, max: 20000}
+    mid_range: {min: 20000, max: 35000}
+    upper_mid: {min: 35000, max: 60000}
+    flagship: {min: 60000, max: 150000}
+    iphone_current_gen: {min: 75000, max: 200000}
+  tablet_inr:
+    android: {min: 15000, max: 45000}
+    ipad: {min: 35000, max: 180000}
+  smartwatch_inr:
+    fitness_band: {min: 2500, max: 7000}
+    smartwatch: {min: 7000, max: 25000}
+    apple_watch: {min: 40000, max: 120000}
+  camera_inr:
+    dslr_entry: {min: 35000, max: 60000}
+    mirrorless_mid: {min: 70000, max: 150000}
+    premium: {min: 150000, max: 400000}
+  monitor_inr:
+    office: {min: 10000, max: 20000}
+    gaming: {min: 20000, max: 60000}
+    professional: {min: 35000, max: 150000}
+  gst_pct: 18
+  sale_windows:
+    big_billion_flipkart:
+      months: [9, 10]
+      typical_discount_pct: 20
+    great_indian_festival_amazon:
+      months: [9, 10]
+      typical_discount_pct: 22
+    republic_day_sale:
+      months: [1]
+      typical_discount_pct: 12
+    summer_sale:
+      months: [5]
+      typical_discount_pct: 10
+    end_of_season:
+      months: [12]
+      typical_discount_pct: 15
+  emi_options:
+    zero_cost_emi_tenure_months: [3, 6, 9]
+    typical_bank_emi_rate_pa_pct: 14
+    bajaj_finserv_tenure_months: [3, 6, 9, 12]
+
+options: []
+
+constraints:
+  - "If a major sale window is within 45 days, always surface 'wait and save' as an option."
+  - "Zero-cost EMI has hidden cost — merchant absorbs the interest in the sticker price. Still often the best option for cashflow, but not 'free'."
+  - "Never recommend flagship phones/laptops if the user's emergency fund is <3 months of expenses."
+  - "Price history matters: if the item is at its 90-day high, flag it; if at 90-day low, flag that too."

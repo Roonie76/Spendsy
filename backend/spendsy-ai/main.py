@@ -6,6 +6,7 @@ from config import settings
 from tiering import TieringConfig
 import httpx
 import logging
+logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,23 @@ class QuestionRequest(BaseModel):
     question: str
     model: str | None = None  # Optional; will be auto-selected based on tier if None
     tier: str | None = None   # Optional; will be auto-fetched if None
+
+
+class FeedbackRequest(BaseModel):
+    """Thumbs up/down from the chat UI.
+
+    `client_message_id` is whatever the frontend generated for the chat
+    bubble; we use it to dedupe repeat clicks and let users change their
+    vote without creating new bubble ids.
+    """
+    user_id: int
+    rating: str  # 'up' | 'down'
+    client_message_id: str | None = None
+    message_id: int | None = None
+    reason: str | None = None
+    comment: str | None = None
+    prompt: str | None = None
+    response_preview: str | None = None
 
 @app.get("/")
 def health_check():
@@ -92,6 +110,35 @@ async def handle_ask_tora(request: QuestionRequest):
     except Exception as e:
         logger.error(f"TORA endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/feedback")
+async def submit_feedback(payload: FeedbackRequest):
+    """Relay thumbs up/down to finance-service.
+
+    The UI calls this endpoint; we forward to the internal finance-service
+    route using the shared internal API key, so the chat panel doesn't
+    need to know about finance-service auth.
+    """
+    rating = (payload.rating or "").strip().lower()
+    if rating not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="rating must be 'up' or 'down'")
+    url = f"{settings.finance_service_url}/internal/tora-feedback/{payload.user_id}"
+    body = payload.model_dump(exclude={"user_id"})
+    body["rating"] = rating
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                url,
+                json=body,
+                headers={"X-Internal-API-Key": settings.internal_api_key},
+            )
+        if response.status_code >= 500:
+            raise HTTPException(status_code=502, detail="Feedback service unavailable")
+        return response.json()
+    except httpx.HTTPError as e:
+        logger.warning(f"Feedback relay failed for user {payload.user_id}: {e}")
+        raise HTTPException(status_code=502, detail="Feedback relay failed")
+
 
 if __name__ == "__main__":
     import uvicorn

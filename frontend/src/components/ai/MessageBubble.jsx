@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, TrendingUp, Target, Lightbulb, BarChart3 } from "lucide-react";
+import { ChevronDown, ChevronRight, TrendingUp, Target, Lightbulb, BarChart3, ThumbsUp, ThumbsDown } from "lucide-react";
 
 const SECTION_CONFIG = {
   "Financial Overview": { icon: BarChart3, color: "text-cyan-400", bg: "bg-cyan-500/10" },
@@ -182,7 +182,7 @@ function SectionCard({ title, content }) {
 }
 
 export default function MessageBubble({ message }) {
-  const { role, content, structured, toolCalls, onConfirmTool } = message;
+  const { role, content, structured, toolCalls, onConfirmTool, onFeedback, rating } = message;
 
   if (role === "user") {
     return (
@@ -215,6 +215,11 @@ export default function MessageBubble({ message }) {
         </div>
       )}
 
+      {/* Thumbs up/down feedback — shown on all assistant messages except welcome */}
+      {onFeedback && (
+        <FeedbackBar rating={rating} onFeedback={onFeedback} />
+      )}
+
       {/* Tool call confirmation cards */}
       {toolCalls && toolCalls.length > 0 && (
         <div className="space-y-1.5">
@@ -227,6 +232,37 @@ export default function MessageBubble({ message }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function FeedbackBar({ rating, onFeedback }) {
+  return (
+    <div className="flex items-center gap-1 pl-1">
+      <button
+        type="button"
+        onClick={() => onFeedback("up")}
+        aria-label="Helpful"
+        className={`group flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-all ${
+          rating === "up"
+            ? "bg-emerald-500/15 text-emerald-400"
+            : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
+        }`}
+      >
+        <ThumbsUp className={`h-3 w-3 ${rating === "up" ? "fill-emerald-400" : ""}`} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onFeedback("down")}
+        aria-label="Not helpful"
+        className={`group flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-all ${
+          rating === "down"
+            ? "bg-rose-500/15 text-rose-400"
+            : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
+        }`}
+      >
+        <ThumbsDown className={`h-3 w-3 ${rating === "down" ? "fill-rose-400" : ""}`} />
+      </button>
     </div>
   );
 }

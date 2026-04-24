@@ -1,0 +1,65 @@
+updated_at: "2026-04-24"
+source: "WeddingWire/ShaadiSaga city indices + Tanishq/CaratLane jewellery norms + vendor surveys"
+notes: |
+  Total costs are ranges for mid-tier urban weddings (150-300 guests).
+  Wedding season (Nov-Feb) adds 30-40% to all vendor costs.
+
+facts:
+  total_wedding_cost_inr_200_guests:
+    tier1_metro_mumbai_delhi: {min: 2500000, max: 8000000}
+    tier1_metro_bangalore_hyd_pune: {min: 1800000, max: 5500000}
+    tier2_city: {min: 900000, max: 2800000}
+    tier3_town: {min: 500000, max: 1500000}
+  cost_breakdown_pct:
+    venue_and_food: 35
+    jewellery: 20
+    attire: 10
+    photography_videography: 8
+    decor: 10
+    invitations_logistics: 5
+    music_entertainment: 4
+    miscellaneous: 8
+  venue_per_plate_inr:
+    banquet_tier1: {min: 1800, max: 4500}
+    banquet_tier2: {min: 900, max: 2200}
+    hotel_5star: {min: 3500, max: 8000}
+    destination_resort: {min: 4500, max: 12000}
+  photography_package_inr:
+    candid_tier1: {min: 150000, max: 450000}
+    candid_tier2: {min: 70000, max: 180000}
+    traditional_only: {min: 30000, max: 90000}
+  bridal_jewellery_inr:
+    moderate: {min: 500000, max: 1500000}
+    premium: {min: 1500000, max: 4000000}
+    ultra_premium_tanishq_etc: {min: 4000000, max: 10000000}
+  bridal_lehenga_inr:
+    designer_premium: {min: 200000, max: 800000}
+    mid_range: {min: 60000, max: 200000}
+    budget_rental: {min: 25000, max: 60000}
+  mehendi_decor_inr: {min: 30000, max: 150000}
+  sangeet_event_inr: {min: 150000, max: 800000}
+  destination_wedding_premium_pct: 40
+  season:
+    peak_months: [11, 12, 1, 2]
+    lean_months: [6, 7, 8]
+    peak_premium_pct: 35
+  honeymoon_budget_inr:
+    domestic_goa_kerala: {min: 80000, max: 200000}
+    international_southeast_asia: {min: 200000, max: 500000}
+    international_europe: {min: 500000, max: 1500000}
+    international_maldives: {min: 300000, max: 900000}
+  gold_for_wedding_grams_typical: {min: 150, max: 500}
+  anniversary_typical_budget_inr: {min: 8000, max: 40000}
+  birthday_party_inr:
+    home_small: {min: 8000, max: 25000}
+    venue_mid: {min: 40000, max: 120000}
+    destination: {min: 150000, max: 500000}
+
+options: []
+
+constraints:
+  - "Wedding cost of 3-6x annual income is common in India but often ruinous — always surface lower-cost alternatives."
+  - "Off-season wedding (Jun-Aug) saves 25-35% on all vendors. Monsoon risk is real but manageable with indoor venues."
+  - "Treat jewellery as separate from wedding budget — it has investment value; other costs don't."
+  - "Destination weddings look cheaper per-head but total cost is typically 30-40% higher due to logistics."
+  - "Never recommend taking a personal loan for wedding — rates are 14-18%, amortises no appreciating asset."

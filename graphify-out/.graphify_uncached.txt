@@ -1,0 +1,16 @@
+D:\Projects\Spendsy\PROJECT_LOG.md
+D:\Projects\Spendsy\README.md
+D:\Projects\Spendsy\requirements.txt
+D:\Projects\Spendsy\backend\spendsy-ai\fine_tuning\README.md
+D:\Projects\Spendsy\backend\spendsy-mcp\CLAUDE_CONFIG.md
+D:\Projects\Spendsy\backend\spendsy-mcp\GEMINI_SETUP.md
+D:\Projects\Spendsy\docs\ARCHITECTURAL_ANALYSIS.md
+D:\Projects\Spendsy\docs\ARCHITECTURE.md
+D:\Projects\Spendsy\docs\CONTRIBUTING.md
+D:\Projects\Spendsy\docs\SETUP_GUIDE.md
+D:\Projects\Spendsy\docs\SRS.md
+D:\Projects\Spendsy\frontend\index.html
+D:\Projects\Spendsy\infra\docker\userlist.txt
+D:\Projects\Spendsy\tests\fixtures\test_statement.pdf
+D:\Projects\Spendsy\frontend\public\logo.svg
+D:\Projects\Spendsy\frontend\public\vite.svg

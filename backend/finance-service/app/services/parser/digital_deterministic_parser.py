@@ -43,8 +43,29 @@ DESC_X_MIN      = 83     # description starts here
 AMOUNT_X_MIN    = 341    # all transaction amounts are right of this  ← BUG 1 FIX
 BALANCE_X_MIN   = 460    # when two numbers present, balance is right of this
 
-# Date regex — matches: 03Apr23, 03/07/2023, 01-07-2023 and corrupted "030072023", "[ 01072023 |"
-DATE_RE = re.compile(r"^\[?\s*\d{2}[A-Za-z0-9/.\- ]*\d{2,4}\s*(?:\||\])?$")
+# Date regex — matches:
+#   Full dates w/ year: 03Apr23, 03/07/2023, 01-07-2023, corrupted "030072023", "[ 01072023 |"
+#   Day+month only (credit card statements): 15APR, 15/04, 15-04
+DATE_RE = re.compile(
+    r"^\[?\s*"
+    r"(?:"
+    r"\d{2}[A-Za-z0-9/.\- ]*\d{2,4}"       # full date with year
+    r"|\d{2}\s*[A-Za-z]{3}"                 # day + 3-letter month, no year (credit cards)
+    r"|\d{2}\s*[/\-.]\s*\d{2}"              # day-month numeric, no year
+    r")"
+    r"\s*(?:\||\])?$"
+)
+
+# Matches day+month without year so we can tell when to take the year from
+# context (statement period or previous row) instead of calling it malformed.
+DATE_NO_YEAR_RE = re.compile(
+    r"^\[?\s*"
+    r"(?:"
+    r"\d{2}\s*[A-Za-z]{3}"
+    r"|\d{2}\s*[/\-.]\s*\d{2}"
+    r")"
+    r"\s*(?:\||\])?$"
+)
 
 # Numeric regex — valid amount token: must have decimal OR be ≥5 digits
 # Excludes masked card fragments like "4386", "7095"
@@ -99,6 +120,11 @@ class Transaction:
     type:        str            # "credit" | "debit"
     balance:     Optional[float] = None
     raw_date:    str = ""
+    # True when we couldn't read the exact day off the statement and
+    # inherited month/year from the previous dated row. The day is set
+    # to 01 purely so the date column can store a value — UIs should
+    # render these as "Mon YYYY" instead of a full date.
+    date_inferred: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -124,26 +150,70 @@ class ParseResult:
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+def extract_day_month_no_year(raw: str) -> Optional[tuple[int, int]]:
+    """Pull (day, month) from a token that's missing the year — e.g. '15APR'
+    or '15/04' on credit card statements. Returns None if unparseable."""
+    if not raw:
+        return None
+    s = re.sub(r'^[\[\s\|]+|[\]\s\|]+$', '', raw.strip())
+    if not s:
+        return None
+    # day + 3-letter month, e.g. 15APR or 15 APR
+    m = re.match(r"^(\d{2})\s*([A-Za-z]{3})$", s)
+    if m:
+        day = int(m.group(1))
+        month = MONTH_MAP.get(m.group(2).lower())
+        if month and 1 <= day <= 31:
+            return (day, int(month))
+    # day-month numeric, e.g. 15/04 or 15-04
+    m = re.match(r"^(\d{2})\s*[/\-.]\s*(\d{2})$", s)
+    if m:
+        day, mon = int(m.group(1)), int(m.group(2))
+        if 1 <= day <= 31 and 1 <= mon <= 12:
+            return (day, mon)
+    return None
+
+
 def normalise_date(raw: str) -> str:
-    """Convert DD-MMM-YY, DD/MM/YYYY or corrupted DDMMYYYY to YYYY-MM-DD."""
+    """Convert DD-MMM-YY, DD/MM/YYYY or corrupted DDMMYYYY to YYYY-MM-DD.
+
+    Returns "" (empty) when the date cannot be parsed, so downstream code
+    can detect the miss instead of silently stamping today's date.
+    """
     if not raw:
         return ""
-    
+
     # Remove surrounding brackets/pipes from corrupted extractions
     date_str = re.sub(r'^[\[\s\|]+|[\]\s\|]+$', '', raw.strip())
+    if not date_str:
+        return ""
     date_str = date_str.split()[0]
-    
+
+    # ISO passthrough: already YYYY-MM-DD
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        pass
+
     # Pad single-digit day (e.g., 3Apr23 -> 03Apr23)
     if len(date_str) >= 6 and date_str[0].isdigit() and not date_str[1].isdigit():
         date_str = "0" + date_str
 
-    for fmt in ("%d%b%y", "%d%b%Y", "%d/%m/%Y", "%d-%m-%Y"):
+    for fmt in (
+        "%d%b%y", "%d%b%Y",
+        "%d-%b-%y", "%d-%b-%Y",
+        "%d/%b/%y", "%d/%b/%Y",
+        "%d %b %y", "%d %b %Y",
+        "%d/%m/%y", "%d/%m/%Y",
+        "%d-%m-%y", "%d-%m-%Y",
+        "%d.%m.%y", "%d.%m.%Y",
+    ):
         try:
             return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
         except ValueError:
             pass
 
-    # Fallback for pdfplumber corrupted text layer Extractions (e.g. '030072023')
+    # Fallback for pdfplumber corrupted text layer extractions (e.g. '030072023', '03072023')
     digits = re.sub(r'\D', '', date_str)
     if len(digits) in (8, 9):
         year = digits[-4:]
@@ -153,8 +223,15 @@ def normalise_date(raw: str) -> str:
             return datetime.strptime(f"{day}{month}{year}", "%d%m%Y").strftime("%Y-%m-%d")
         except ValueError:
             pass
+    if len(digits) == 6:
+        # DDMMYY
+        try:
+            return datetime.strptime(digits, "%d%m%y").strftime("%Y-%m-%d")
+        except ValueError:
+            pass
 
-    return raw
+    # Unparseable — signal failure upstream
+    return ""
 
 
 def parse_amount(text: str, is_balance: bool = False) -> Optional[float]:
@@ -466,6 +543,49 @@ def parse_statement(pdf_path: str) -> ParseResult:
     result.opening_balance = summary.get("opening_balance")
     result.closing_balance = summary.get("closing_balance")
 
+    # Fill in dates for rows where the parser couldn't build a full ISO date.
+    # Two cases — common on credit card statements where rows lack a year:
+    #   (a) raw_date parses to day+month only (e.g. "15APR"): inherit year
+    #       from the last fully-dated row, keep the real day.
+    #   (b) raw_date is unreadable entirely: inherit full month/year from
+    #       the last fully-dated row, day=01, and flag date_inferred=True
+    #       so the UI renders "Mon YYYY" instead of a fake full date.
+    last_good_ymd: Optional[tuple[int, int, int]] = None  # (year, month, day)
+    for row in all_logical_rows:
+        if row.get("date"):
+            try:
+                dt = datetime.strptime(row["date"], "%Y-%m-%d")
+                last_good_ymd = (dt.year, dt.month, dt.day)
+                row["date_inferred"] = False
+            except ValueError:
+                pass
+            continue
+
+        # Try to rescue day+month from the raw token before falling back
+        dm = extract_day_month_no_year(row.get("raw_date", ""))
+        if dm is not None and last_good_ymd is not None:
+            day, month = dm
+            year = last_good_ymd[0]
+            # If month rolled backwards vs the last row, assume year rolled forward
+            # (e.g. last row Dec 2023, this row 05JAN → 2024).
+            if month < last_good_ymd[1]:
+                year += 1
+            try:
+                datetime(year, month, day)
+                row["date"] = f"{year:04d}-{month:02d}-{day:02d}"
+                row["date_inferred"] = False
+                last_good_ymd = (year, month, day)
+                continue
+            except ValueError:
+                pass  # invalid day for month — fall through to month/year infer
+
+        if last_good_ymd is not None:
+            y, m, _ = last_good_ymd
+            row["date"] = f"{y:04d}-{m:02d}-01"
+            row["date_inferred"] = True
+        else:
+            row["date_inferred"] = False  # still blank — skipped downstream
+
     # Convert logical rows → Transaction objects
     for row in all_logical_rows:
         description = " ".join(p for p in row["desc_parts"] if p).strip()
@@ -483,12 +603,13 @@ def parse_statement(pdf_path: str) -> ParseResult:
         tx_type = classify_type(description)
 
         tx = Transaction(
-            date        = row["date"],
-            description = description,
-            amount      = amount,
-            type        = tx_type,
-            balance     = row["balance"],
-            raw_date    = row["raw_date"],
+            date          = row["date"],
+            description   = description,
+            amount        = amount,
+            type          = tx_type,
+            balance       = row["balance"],
+            raw_date      = row["raw_date"],
+            date_inferred = bool(row.get("date_inferred")),
         )
         result.transactions.append(tx)
 

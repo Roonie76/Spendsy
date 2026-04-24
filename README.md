@@ -93,7 +93,11 @@ docker-compose down -v
 - **Profile & Settings**: Comprehensive user management, personal info updates, and app preference controls.
 - **AI-First Integration**:
     - **Finance Copilot**: Real-time insights and chat-based financial queries.
-    - **Spendsy AI Agent**: An autonomous agent (Tora) for complex reasoning and tool-calling.
+    - **TORA Intelligence 2.0**: A powerful autonomous reasoning agent featuring:
+        - **Persistent Obsidian Vault**: Automatic synchronization of financial plans and goals into a markdown-based knowledge vault.
+        - **Universal Intelligence Engine**: 12-category plugin registry with live market data fetchers (Gold, Forex, Investments).
+        - **Structural Reasoning**: Integrated **Graphify** knowledge graph for token-efficient codebase navigation.
+        - **High-Fidelity Resolver**: 4-stage entity resolution with fuzzy typo handling and Hinglish support (98.3% recall).
     - **MCP Support**: Native [Model Context Protocol](https://modelcontextprotocol.io/) server for external AI integration.
 - **Automated Statement Parsing**: High-fidelity deterministic extraction from digital PDF bank statements.
 - **Developer Experience**: Hybrid Windows development via `run-local.ps1` with local Vite hot reload, plus optional pure-Docker mode via `run.ps1`.
@@ -269,8 +273,8 @@ npm run dev
 ## Contributing
 
 We love contributions! Whether it's adding a new service, fixing a bug, or improving the documentation.
-1. Check out our [CONTRIBUTING.md](./CONTRIBUTING.md).
-2. Look for "Good First Issues".
+1. Check out our **[CONTRIBUTING.md](./docs/CONTRIBUTING.md)** for setup and guidelines.
+2. Review the **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** to understand how the platform works.
 3. Join our developer discussions!
 
 ---

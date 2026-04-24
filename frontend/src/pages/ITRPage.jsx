@@ -1224,7 +1224,7 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
                 {/* Advance Tax */}
                 <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6">
                   <SectionHeader icon={Calendar} title="Advance Tax Schedule" subtitle="Section 208-211 • Tax > ₹10,000 after TDS" />
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {(backendResult ? backendResult.advance_tax_schedule : ADVANCE_TAX_SCHEDULE).map((inst, i) => {
                       const amount = backendResult ? inst.amount : Math.round(selectedResult.totalTax * inst.cumPct / 100);
                       const isPast = new Date() > new Date(2025, [5, 8, 11, 2][i], 15);
@@ -1347,9 +1347,9 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
                 </div>
 
                 {/* Tax Summary Final */}
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl p-8 shadow-2xl text-center">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl p-5 sm:p-8 shadow-2xl text-center">
                   <p className="text-blue-100 text-[10px] uppercase font-black tracking-[0.3em] mb-3">Final Tax Liability</p>
-                  <h2 className="text-5xl font-black text-white tracking-tighter mb-4">{fmt(selectedResult.totalTax)}</h2>
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-4 break-all">{fmt(selectedResult.totalTax)}</h2>
                   <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-black/20 rounded-full border border-white/10 mb-4">
                     <span className="text-[9px] font-bold text-white uppercase">{taxRegime} Regime • {itrForm.form}</span>
                   </div>

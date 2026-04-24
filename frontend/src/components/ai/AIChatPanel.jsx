@@ -16,6 +16,7 @@ export default function AIChatPanel({
   model,
   setModel,
   onConfirmTool,
+  onFeedback,
 }) {
   const bottomRef = useRef(null);
 
@@ -109,6 +110,10 @@ export default function AIChatPanel({
                     onConfirmTool: msg.toolCalls
                       ? (tool) => onConfirmTool?.(idx, tool)
                       : undefined,
+                    onFeedback:
+                      msg.role === "assistant" && onFeedback
+                        ? (rating) => onFeedback(idx, rating)
+                        : undefined,
                   }}
                 />
               </motion.div>

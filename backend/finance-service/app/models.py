@@ -21,6 +21,13 @@ class UserProfile(Base):
     daily_budget = Column("dailyBudget", Numeric(15, 2), default=0)
     is_business = Column(Boolean, default=False)
     tier = Column(String(20), default="free")  # 'free', 'pro', 'enterprise'
+
+    # Personalization fields — drive life-stage- and risk-aware advice.
+    # Populated by onboarding questionnaire or user-facing profile editor.
+    risk_tolerance = Column(String(20), nullable=True)  # 'conservative' | 'balanced' | 'aggressive'
+    dependents = Column(Integer, default=0, nullable=False)
+    life_stage = Column(String(20), nullable=True)  # 'student' | 'early_career' | 'married' | 'parent' | 'pre_retirement' | 'retired'
+
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -41,6 +48,9 @@ class Transaction(Base):
     type = Column(String(10), nullable=False)
     category = Column(String(100), default="other")
     date = Column(Date, default=date.today)
+    # True when the parser couldn't read an exact day off the statement and
+    # inherited month/year from the previous dated row. Date stored with day=01.
+    date_inferred = Column(Boolean, default=False, nullable=False)
     balance = Column(Numeric(14, 2), nullable=True)
     source = Column(String(32), default="manual", nullable=False, index=True)
     statement_hash = Column(String(64), nullable=True, index=True)
@@ -51,6 +61,14 @@ class Transaction(Base):
     confidence = Column(Integer, default=100, nullable=False)
     status = Column(String(20), default="active", nullable=False)  # 'active', 'flagged'
     reconciliation_flags = Column(JSONB, default=list, nullable=False)
+
+    # Inter-account transfer linkage — used to mark e.g. a credit-card bill
+    # payment made from a debit account, so the same rupees aren't counted
+    # once as a debit expense and again as a credit-card refund/income.
+    # Both sides of a pair share the same transfer_group_id. is_transfer is
+    # the aggregation filter — all spend/income queries exclude these.
+    transfer_group_id = Column(String(36), nullable=True)
+    is_transfer = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
@@ -150,6 +168,15 @@ class CreditCard(Base):
     credit_limit = Column(Numeric(15, 2), default=0)
     billing_cycle = Column(Integer, default=1)
     due_day = Column(Integer, default=20)
+
+    # Balance tracking — updated by statement ingest or manual reconciliation.
+    # `outstanding_balance` is the running total; `last_statement_balance`
+    # freezes at the last cycle close; `payment_due_date` is the next
+    # due date derived from billing cycle (denormalized for quick UI access).
+    outstanding_balance = Column(Numeric(15, 2), default=0, nullable=False)
+    last_statement_balance = Column(Numeric(15, 2), default=0, nullable=False)
+    payment_due_date = Column(Date, nullable=True)
+
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -234,6 +261,33 @@ class ToraConversation(Base):
     recommended_strategy = Column(String(4000), nullable=True)
     expected_outcome = Column(String(2000), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+
+
+class ToraFeedback(Base):
+    """User reactions (thumbs up/down) on individual TORA responses.
+
+    One row per user feedback event. A user may change their rating by
+    POSTing a new row — we read the most recent per (user_id, message_id)
+    in aggregation queries.
+    """
+
+    __tablename__ = "tora_feedback"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    # Links to the ToraConversation row this feedback is about. Nullable
+    # for client-generated message ids that don't correspond to a stored row.
+    message_id = Column(BigInteger, nullable=True, index=True)
+    # Client-side id for the chat bubble (e.g. "msg-abc123"). Stored so we
+    # can dedupe and update even when message_id isn't available.
+    client_message_id = Column(String(64), nullable=True, index=True)
+    rating = Column(String(8), nullable=False)  # 'up' or 'down'
+    reason = Column(String(64), nullable=True)  # optional tag: 'wrong', 'slow', 'unhelpful', 'great'
+    comment = Column(String(500), nullable=True)  # optional free text
+    # Snapshot of what the user was reacting to, for offline analysis.
+    prompt = Column(String(500), nullable=True)
+    response_preview = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True)
 
 
 class SecurityAlert(Base):

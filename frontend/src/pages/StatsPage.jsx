@@ -229,6 +229,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
 
     transactions.forEach((t) => {
       const tDate = normalizeDate(t.date);
+      if (!tDate) return;
       const key = getKey(tDate, unit);
       if (dataMap.has(key)) {
         const entry = dataMap.get(key);
@@ -337,9 +338,9 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
   };
 
   return (
-    <div className="space-y-6 pb-4 animate-in fade-in">
+    <div className="space-y-4 sm:space-y-6 pb-4 animate-in fade-in">
       <div className="flex justify-between items-center px-1">
-        <h2 className="text-2xl font-bold text-white">Analytics</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-white">Analytics</h2>
       </div>
 
       {/* Watchdog Section */}
@@ -406,10 +407,12 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
       </div> */}
 
       {/* Category Breakdown */}
-      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-          <PieChart className="w-4 h-4" /> Category Breakdown
-          <div className="ml-auto flex bg-white/5 rounded-lg p-1 border border-white/10">
+      <div className="bg-white/5 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+            <PieChart className="w-4 h-4" /> Category Breakdown
+          </h3>
+          <div className="sm:ml-auto flex bg-white/5 rounded-lg p-1 border border-white/10 self-start sm:self-auto">
             <button
               onClick={() => setViewMode("expense")}
               className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === "expense" ? "bg-rose-500/20 text-rose-300" : "text-slate-400"}`}
@@ -423,7 +426,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
               Income
             </button>
           </div>
-        </h3>
+        </div>
         <div className="h-64 relative">
           {pieChartData.data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -486,7 +489,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
       </div>
 
       {/* Trend Analysis */}
-      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+      <div className="bg-white/5 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
             <BarChart3 className="w-4 h-4" /> Trend Analysis

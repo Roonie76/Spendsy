@@ -181,8 +181,8 @@ const AddPage = ({
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 group-hover:text-blue-400 transition-colors">
                   Amount
                 </label>
-                <div className="relative inline-block w-full">
-                  <span className="absolute left-1/2 -ml-20 top-1/2 -translate-y-1/2 text-slate-500 text-4xl font-light">
+                <div className="relative inline-flex items-baseline justify-center w-full gap-2">
+                  <span className="text-slate-500 text-2xl sm:text-3xl md:text-4xl font-light">
                     ₹
                   </span>
                   <input
@@ -191,12 +191,11 @@ const AddPage = ({
                     value={amount}
                     onChange={(e) => {
                       const val = e.target.value;
-                      // Allow only valid decimal numbers
                       if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
                         setAmount(val);
                       }
                     }}
-                    className="w-full text-center bg-transparent border-b-2 border-white/10 text-6xl font-black text-white py-4 outline-none focus:border-blue-500 transition-all placeholder:text-white/5"
+                    className="flex-1 min-w-0 text-center bg-transparent border-b-2 border-white/10 text-4xl sm:text-5xl md:text-6xl font-black text-white py-3 sm:py-4 outline-none focus:border-blue-500 transition-all placeholder:text-white/5"
                     placeholder="0"
                     required
                   />
@@ -209,7 +208,7 @@ const AddPage = ({
               />
             </div>
 
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
               {CATEGORIES.map((c) => (
                 <motion.button
                   whileHover={{ scale: 1.05 }}

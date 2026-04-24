@@ -13,9 +13,9 @@ To use the Spendsy Financial Assistant in Claude Desktop, add the following to y
 {
   "mcpServers": {
     "spendsy": {
-      "command": "/home/rohinvengatesh04/Spendsy/Spendsy/venv/bin/python",
+      "command": "python",
       "args": [
-        "/home/rohinvengatesh04/Spendsy/Spendsy/backend/spendsy-mcp/server.py"
+        "d:/Projects/Spendsy/backend/spendsy-mcp/server.py"
       ],
       "env": {
         "FINANCE_SERVICE_URL": "http://localhost:8002",

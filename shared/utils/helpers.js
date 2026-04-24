@@ -13,10 +13,14 @@ export const generateId = () => {
 };
 
 // --- DATE NORMALIZER ---
+// Returns a valid Date or null. Callers must handle null (show "Unknown")
+// rather than silently stamping today — that's what masked the parser miss
+// where every parsed row displayed 4/23/2026.
 export const normalizeDate = (d) => {
-  if (!d) return new Date();
+  if (!d) return null;
   if (d.seconds) return new Date(d.seconds * 1000); // Handle Firestore Timestamp
-  return new Date(d);
+  const parsed = new Date(d);
+  return isNaN(parsed.getTime()) ? null : parsed;
 };
 
 // --- SCRIPT LOADER (For PDF.js / Tesseract) ---

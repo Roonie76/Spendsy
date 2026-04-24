@@ -1,77 +1,104 @@
-# Spendsy Architecture
+# Spendsy: Architecture & Requirements
 
-This document describes the high-level architecture of the Spendsy platform, its components, and how they interact.
+This document describes the high-level architecture of the Spendsy platform, its core requirements (SRS), and the technical breakdown of its services.
 
-## 📱 Overview
+---
 
-Spendsy is built as a set of distributed microservices that communicate primarily via HTTP APIs, with Redis used for cross-cutting concerns like rate-limiting and session invalidation. A dedicated connection pooler (PgBouncer) is used to manage database connections efficiently.
+## 📱 System Overview
 
+Spendsy is built as a set of distributed microservices that communicate via high-performance REST APIs. It follows a modern **Microservices Architecture**, decoupled by domain and secured by an Nginx Gateway.
+
+### 🏗️ Component Diagram
 ```mermaid
 graph TD
-    User((User)) -->|HTTPS| Nginx[Nginx Gateway]
-    Nginx -->|/auth| Auth[Auth Service]
-    Nginx -->|/finance| Finance[Finance Service]
-    Nginx -->|/ai| AI[AI Service]
+    subgraph Client Layer
+        Web[React / Vite SPA]
+    end
+
+    subgraph API Gateway
+        Nginx[Nginx Reverse Proxy]
+    end
+
+    subgraph Service Layer
+        Auth[Auth Service: 8001]
+        Finance[Finance Service: 8002]
+        AI[AI Service: 8004]
+        Tora[Tora Agent: 8005]
+        MCP[MCP Server: 8006]
+    end
+
+    subgraph Data Layer
+        DB[(PostgreSQL 15)]
+        Cache[(Redis)]
+        Bouncer[PgBouncer]
+    end
+
+    Web -->|HTTPS| Nginx
+    Nginx --> Auth
+    Nginx --> Finance
+    Nginx --> AI
+    Nginx --> Tora
     
-    Auth -->|Stores Sessions| Redis[(Redis)]
-    AI -->|Fetches Context| Finance
-    
-    Auth -->|Requests| PgBouncer[PgBouncer Pooler]
-    Finance -->|Requests| PgBouncer
-    PgBouncer -->|Transaction Pooling| DB[(PostgreSQL)]
-    
-    Frontend[React App] -->|Interacts| Nginx
+    AI -->|Context Request| Finance
+    Tora -->|Strategy Generation| AI
+    Finance -->|Requests| Bouncer
+    Bouncer -->|Transaction Pooling| DB
+    Auth -->|Sessions| Cache
 ```
 
-## 🏗️ Components
+---
 
-### 1. Nginx Gateway (`infra/docker/nginx.conf`)
-The entry point for all API traffic. It handles:
-- Reverse proxying to internal services.
-- Path-based routing (`/auth`, `/finance`, etc.).
-- Standardizing header injection.
+## 🎯 Core Requirements (SRS)
 
-### 2. Auth Service (`backend/auth-service`)
-Responsible for identity management.
+### 1. Automated Financial Tracking
+- **Smart Parsing**: 100% accurate deterministic extraction from digital PDFs using coordinate-based analysis.
+- **Fingerprinting**: SHA-256 deduplication to prevent double-counting transactions.
+- **Wealth Monitoring**: Unified tracking of assets (Gold, Equity) and liabilities (Loans).
+
+### 2. TORA Intelligence 2.0
+- **Natural Language Querying**: High-fidelity intent resolution (98.3% recall) using a 4-stage fuzzy resolver.
+- **Universal Intelligence**: Live market data from 12 plugin categories (Gold, Forex, Investments).
+- **Persistent Vault**: Long-term memory stored in a local **Obsidian Vault**.
+- **Structural Awareness**: Uses **Graphify** to navigate codebase logic with minimal token usage.
+
+### 3. Security & Reliability
+- **Auth**: HttpOnly cookie-based JWT with instant Redis revocation.
+- **Integrity**: Absolute financial accuracy enforced by Python `Decimal` type.
+- **Resilience**: Transaction-mode pooling via PgBouncer and `tenacity` retries.
+
+---
+
+## 🛠️ Service Breakdown
+
+### 1. Auth Service (`backend/auth-service`)
 - **Tech**: FastAPI, SQLAlchemy, Redis.
-- **Features**: JWT issue/refresh, Password hashing (Argon2), IDOR prevention.
-- **Security**: Uses HttpOnly cookies to prevent XSS-based token theft. Honors global token revocation via Redis. Secure password hashing via `passlib` (BCrypt).
+- **Role**: Identity management, JWT issuance, and session invalidation.
 
-### 3. Finance Service (`backend/finance-service`)
-The core domain service.
-- **Tech**: FastAPI, PostgreSQL (via PgBouncer).
-- **Entities**: Transactions, Wealth Records, User Profiles, Bank Accounts (Debit/Credit).
-- **Parsing**: Implements a high-accuracy **Deterministic Parser** for digital PDFs using `pdfplumber` word-grouping and column detection.
-- **Accuracy**: Uses `Decimal` type for all financial calculations and achieved 100% extraction accuracy on digital statements.
+### 2. Finance Service (`backend/finance-service`)
+- **Tech**: FastAPI, PostgreSQL, `pdfplumber`.
+- **Role**: Core ledger, bank account management, and deterministic PDF parsing.
+- **Key Logic**: Uses hashing of {user, date, amount, title} to manage statement overlaps.
 
-For a deep-dive into the reverse-engineered system lifecycle, API catalog, and CRUD mappings, see [ARCHITECTURAL_ANALYSIS.md](./docs/ARCHITECTURAL_ANALYSIS.md).
+### 3. AI Service & Tora (`backend/spendsy-ai`)
+- **Tech**: FastAPI, Gemini 1.5 Pro, local Ollama (Gemma 4 E2B).
+- **Resolver**: 4-stage entity resolution: **Exact → Synonym → Fuzzy → Fallback**.
+- **Memory**: Synchronizes all goals and plans to a local Markdown vault.
 
-### 5. AI Service (`backend/ai-service`)
-Intelligence layer.
-- **Tech**: FastAPI, Gemini integration.
-- **Role**: Provides natural language querying of financial data.
+### 4. Nginx Gateway (`infra/docker/nginx.conf`)
+- Entry point for all traffic. Handles path-based routing (`/auth`, `/finance`, etc.) and header standardization.
 
-### 6. Frontend (`frontend`)
-Single Page Application (SPA).
-- **Tech**: React, Vite, Tailwind CSS.
-- **Pattern**: Uses a centralized `apiFetch` wrapper for all network requests.
-- **UI**: Premium dark-mode aesthetic with interactive charts.
+---
 
-## 🔒 Security Model
+## 📊 CRUD & Data Mapping
 
-- **Authentication**: Stateless JWT with a Redis-backed blacklist check on every request for instant revocation.
-- **Validation**: Strict Pydantic schemas for all API inputs and outputs.
-- **Database**: Parameterized queries via SQLAlchemy to prevent SQL injection. Connections are proxied through PgBouncer in transaction mode.
-- **Environment**: Sensitive data is managed via `.env` files.
+| Entity | Service | Storage |
+| :--- | :--- | :--- |
+| **User** | Auth | PostgreSQL (`auth_user`) |
+| **Transaction** | Finance | PostgreSQL (`finance_transaction`) |
+| **Wealth Item** | Finance | PostgreSQL (`finance_wealth`) |
+| **Plan/Goal** | AI | Obsidian Vault (.md) |
+| **Sessions** | Auth | Redis |
 
-## 🛡️ System Reliability
+---
 
-- **Connection Pooling**: PgBouncer enforces transaction-level pooling, preventing microservices from exhausting database connections.
-- **Resilient Communication**: All inter-service HTTP calls implement exponential backoff retries (via `tenacity`) and explicit timeouts.
-- **Transactional Safety**: Every database commit is protected by a global error handler and manual rollback logic to prevent data corruption.
-
-## 📊 Data Flow
-
-1. **Transaction Upload**: Frontend sends PDF -> Gateway -> Finance Service (Internal Deterministic Parser).
-2. **Analysis**: Finance Service processes data -> PostgreSQL.
-3. **Query**: User asks AI -> Gateway -> AI Service -> Finance Service (Internal API) -> AI response.
+*For the legacy deep-dive analysis including full API routes, see the archived `ARCHITECTURAL_ANALYSIS.md`.*

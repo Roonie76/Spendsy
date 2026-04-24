@@ -1,0 +1,77 @@
+updated_at: "2026-04-24"
+source: "Skyscanner/MakeMyTrip averages + RBI reference forex rates + IRDAI travel insurance benchmarks"
+notes: |
+  Flight and hotel prices are per-person round trip / per-night averages for
+  economy/mid-tier. Forex is spot, refreshed monthly.
+
+facts:
+  domestic_flight_rt_inr:
+    short_haul: {min: 4500, max: 9000}
+    medium_haul: {min: 6500, max: 14000}
+    long_haul: {min: 8500, max: 18000}
+  international_flight_rt_inr_per_person:
+    southeast_asia: {min: 22000, max: 55000}
+    middle_east: {min: 18000, max: 40000}
+    europe: {min: 55000, max: 110000}
+    usa: {min: 75000, max: 160000}
+    uk: {min: 60000, max: 120000}
+    australia: {min: 70000, max: 140000}
+    japan: {min: 55000, max: 110000}
+  hotel_per_night_inr:
+    domestic_budget: {min: 1800, max: 3500}
+    domestic_mid: {min: 3500, max: 8000}
+    domestic_luxury: {min: 8000, max: 25000}
+    international_budget: {min: 3500, max: 7000}
+    international_mid: {min: 7000, max: 15000}
+    international_luxury: {min: 15000, max: 50000}
+  daily_expense_inr_per_person:
+    domestic_budget: 1500
+    domestic_mid: 3000
+    international_southeast_asia: 3500
+    international_europe: 8000
+    international_usa: 10000
+    international_uk: 9000
+    international_middle_east: 5000
+  visa_fee_inr:
+    schengen: 9500
+    usa_b1_b2: 15500
+    uk_standard: 12000
+    japan: 8500
+    singapore: 3000
+    thailand_evisa: 2500
+    uae: 6500
+  visa_processing_days:
+    schengen: 15
+    usa: 60
+    uk: 15
+    japan: 5
+    singapore: 3
+    thailand: 5
+    uae: 3
+  travel_insurance_inr:
+    per_week_domestic: 400
+    per_week_international_standard: 1800
+    per_week_usa_canada: 2800
+  forex_spot_inr:
+    usd: 83.12
+    eur: 90.45
+    gbp: 106.20
+    aed: 22.65
+    aud: 54.80
+    sgd: 62.10
+    thb: 2.38
+    jpy_per_100: 55.40
+  forex_markup_pct:
+    card_swipe: 3.5
+    atm_withdrawal: 5.0
+    forex_card: 1.5
+    cash_exchange: 2.0
+
+options: []
+
+constraints:
+  - "Always budget 15% above base estimate for unexpected expenses (shopping, tips, upgrades)."
+  - "Book international flights 8-12 weeks ahead; domestic 3-6 weeks — later bookings cost 25-50% more."
+  - "Forex cards beat debit/credit cards abroad — 2% markup vs 3.5% + dynamic currency conversion fraud risk."
+  - "Travel insurance is non-negotiable for international trips — USA medical emergencies can exceed ₹50L."
+  - "Off-season travel (e.g. Europe Nov-Mar, Goa Jun-Sep) cuts costs 30-50% but check monsoon/weather."

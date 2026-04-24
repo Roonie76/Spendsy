@@ -1,0 +1,56 @@
+updated_at: "2026-04-24"
+source: "Manual curation from CarDekho/BikeWale averages + SBI/HDFC auto loan rates"
+notes: |
+  Review monthly. On-road prices include ~10% for RTO/insurance/road tax.
+  Fuel prices are metro-average; vary by state.
+
+facts:
+  car_on_road_inr:
+    hatchback: {min: 550000, max: 950000}
+    sedan: {min: 950000, max: 2200000}
+    suv_compact: {min: 1100000, max: 2200000}
+    suv_mid: {min: 2100000, max: 4500000}
+    suv_premium: {min: 4500000, max: 10000000}
+  bike_on_road_inr:
+    commuter: {min: 80000, max: 140000}
+    mid_segment: {min: 140000, max: 250000}
+    premium: {min: 250000, max: 600000}
+    superbike: {min: 600000, max: 2500000}
+  scooter_on_road_inr:
+    entry: {min: 75000, max: 105000}
+    premium: {min: 105000, max: 180000}
+  ev_car_on_road_inr:
+    entry: {min: 850000, max: 1500000}
+    mid: {min: 1500000, max: 2500000}
+    premium: {min: 2500000, max: 6000000}
+  ev_scooter_on_road_inr: {min: 90000, max: 180000}
+  auto_loan_rate_pct_pa:
+    public_bank: 8.75
+    private_bank: 9.50
+    nbfc: 11.00
+  max_ltv_pct: 90
+  typical_tenure_months_range: [36, 84]
+  first_year_insurance_inr:
+    car: {min: 18000, max: 45000}
+    bike: {min: 4500, max: 12000}
+    ev_car: {min: 15000, max: 35000}
+  fuel_price_inr_per_litre:
+    petrol_metro_avg: 105
+    diesel_metro_avg: 93
+    cng_metro_avg: 78
+  ev_subsidy_fame_inr:
+    scooter_per_kwh: 10000
+    scooter_cap: 20000
+  annual_running_cost_inr:
+    petrol_car_avg: 85000
+    diesel_car_avg: 72000
+    ev_car_avg: 18000
+    bike_avg: 22000
+
+options: []
+
+constraints:
+  - "Do not recommend an EMI that exceeds 40% of the user's monthly surplus."
+  - "Always surface used-car option when new-car EMI breaches the surplus."
+  - "EVs have higher upfront cost but ~4x lower running cost — factor 5-year TCO when comparing."
+  - "First-year insurance + RTO is ~10% of ex-showroom; never quote ex-showroom as 'buying price'."

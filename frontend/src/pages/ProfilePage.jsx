@@ -92,33 +92,33 @@ const ProfilePage = ({
       variants={containerVariants}
       className="space-y-8 pb-32"
     >
-      <div className="bg-gradient-to-br from-indigo-900/60 to-slate-900/60 backdrop-blur-3xl border border-white/20 p-8 rounded-[3rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group">
+      <div className="bg-gradient-to-br from-indigo-900/60 to-slate-900/60 backdrop-blur-3xl border border-white/20 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/20 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-400/30 transition-colors duration-700"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2"></div>
-        
-        <div className="relative z-10 flex justify-between items-start">
-          <div className="flex items-center gap-8">
-            <div className="relative">
-              <motion.div 
+
+        <div className="relative z-10 flex justify-between items-start gap-3">
+          <div className="flex items-center gap-4 sm:gap-8 min-w-0">
+            <div className="relative shrink-0">
+              <motion.div
                 whileHover={{ scale: 1.05, rotate: 2 }}
-                className="w-28 h-28 rounded-3xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 flex items-center justify-center shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] relative z-10 overflow-hidden"
+                className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 flex items-center justify-center shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] relative z-10 overflow-hidden"
               >
-                <User className="w-14 h-14 text-white" />
+                <User className="w-10 h-10 sm:w-14 sm:h-14 text-white" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                    <Sparkles className="w-8 h-8 text-white/50" />
                 </div>
               </motion.div>
-              <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-emerald-500 rounded-2xl border-4 border-[#0f172a] shadow-lg flex items-center justify-center z-20">
-                 <ShieldCheck className="w-5 h-5 text-white" />
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 sm:w-10 sm:h-10 bg-emerald-500 rounded-xl sm:rounded-2xl border-2 sm:border-4 border-[#0f172a] shadow-lg flex items-center justify-center z-20">
+                 <ShieldCheck className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" />
               </div>
             </div>
 
-            <div>
-              <h2 className="text-3xl font-black text-white tracking-tight">{user?.username || "Admin"}</h2>
-              <p className="text-slate-400 font-bold flex items-center gap-2 mt-1">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight truncate">{user?.username || "Admin"}</h2>
+              <p className="text-slate-400 font-bold flex items-center gap-2 mt-1 text-xs sm:text-base truncate">
                 {user?.email || "user@example.com"}
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex gap-2 flex-wrap">
                  <TierBadge tier={user?.tier || "free"} showLabel={true} size="sm" />
                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">Verified</span>
               </div>
@@ -129,9 +129,9 @@ const ProfilePage = ({
             whileHover={{ rotate: 90, scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setActiveTab(TABS.SETTINGS)}
-            className="p-3 bg-white/5 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all shadow-xl"
+            className="shrink-0 p-2 sm:p-3 bg-white/5 rounded-xl sm:rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all shadow-xl"
           >
-            <SettingsIcon className="w-6 h-6" />
+            <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </motion.button>
         </div>
       </div>
@@ -140,7 +140,7 @@ const ProfilePage = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Health Score Component */}
-        <section className="bg-white/5 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/10 relative overflow-hidden flex flex-col items-center justify-center group">
+        <section className="bg-white/5 backdrop-blur-2xl p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-white/10 relative overflow-hidden flex flex-col items-center justify-center group">
           <div className="absolute -inset-px bg-gradient-to-b from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
           
           <div className="text-center mb-6">
@@ -241,7 +241,7 @@ const ProfilePage = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-gradient-to-br from-slate-900/50 to-slate-900/30 backdrop-blur-xl p-8 rounded-[3rem] border border-slate-700/50"
+          className="bg-gradient-to-br from-slate-900/50 to-slate-900/30 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-slate-700/50"
         >
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-slate-100 mb-2">Available Features by Tier</h3>

@@ -14,6 +14,7 @@ import { apiFetch } from "../../api";
 import { detectPdfType } from "../../utils/pdf/detectPdfType";
 import OcrUnsupportedModal from "../upload/OcrUnsupportedModal";
 import { parseDigitalPdfUpload } from "../../services/parser";
+import ReviewSkippedModal from "../upload/ReviewSkippedModal";
 
 const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
   const [history, setHistory] = useState([]);
@@ -21,6 +22,8 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [showUnsupportedPdfModal, setShowUnsupportedPdfModal] = useState(false);
   const [statementType, setStatementType] = useState("debit");
+  const [skippedItems, setSkippedItems] = useState([]);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   const fileRef = useRef(null);
 
@@ -93,6 +96,12 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
         showToast(`PDF processed! Synced ${savedCount} transactions.`, "success");
       }
 
+      // If there are skipped items (missing dates), prompt for review
+      if (parsedPayload.skipped_items && parsedPayload.skipped_items.length > 0) {
+        setSkippedItems(parsedPayload.skipped_items);
+        setIsReviewModalOpen(true);
+      }
+
       
       await Promise.all([
         fetchHistory(),
@@ -118,7 +127,7 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
         body: JSON.stringify({
           filename: file.name,
           status: "failed",
-          account_type: statementType === "debit" ? "Debit" : "Credit",
+          account_type: statementType === "debit" ? "debit" : "credit",
           tx_count: 0,
 
           reconciliation_score: 0
@@ -129,6 +138,38 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleSaveSkipped = async (reviewedItems) => {
+    try {
+      showToast(`Saving ${reviewedItems.length} reviewed transactions...`, "info");
+      
+      // We can use the existing /transactions endpoint for each, 
+      // or we could add a bulk endpoint. Since it's usually a small number (e.g. 4), 
+      // sequential posts are fine, but let's do it properly.
+      await Promise.all(reviewedItems.map(item => 
+        apiFetch(`${apiBaseUrl}/transactions`, {
+          method: "POST",
+          body: JSON.stringify({
+            title: item.description,
+            amount: item.amount,
+            type: item.type,
+            category: item.category,
+            date: item.date,
+            source: "manual",
+            account_type: item.account_type
+          })
+        })
+      ));
+
+      showToast("Reviewed transactions added successfully!", "success");
+      setSkippedItems([]);
+      fetchHistory();
+      refreshData?.();
+    } catch (e) {
+      console.error("Failed to save reviewed items", e);
+      showToast("Error saving reviewed items", "error");
     }
   };
 
@@ -278,18 +319,24 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
                       <span>{new Date(record.created_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       <span>•</span>
                       <span>{record.tx_count} transactions</span>
-                      {record.account_type && (
-                        <>
-                          <span>•</span>
-                          <span className={`uppercase tracking-tighter text-[9px] px-1.5 py-0.5 rounded ${
-                            record.account_type.toLowerCase() === 'credit' 
-                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
-                              : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          }`}>
-                            {record.account_type}
-                          </span>
-                        </>
-                      )}
+                      {record.account_type && (() => {
+                        const isCredit = record.account_type.toLowerCase() === 'credit';
+                        return (
+                          <>
+                            <span>•</span>
+                            <span
+                              title={isCredit ? 'Credit Card Transaction' : 'Debit Card Transaction'}
+                              className={`uppercase tracking-tighter text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                isCredit
+                                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              }`}
+                            >
+                              {isCredit ? 'CCT' : 'DCT'}
+                            </span>
+                          </>
+                        );
+                      })()}
                     </div>
 
                   </div>
@@ -308,6 +355,14 @@ const StatementHub = ({ user, apiBaseUrl, showToast, refreshData }) => {
           </div>
         )}
       </div>
+
+      <ReviewSkippedModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        items={skippedItems}
+        onSave={handleSaveSkipped}
+        statementType={statementType}
+      />
 
       <OcrUnsupportedModal
         open={showUnsupportedPdfModal}

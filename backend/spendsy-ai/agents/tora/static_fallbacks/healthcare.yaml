@@ -1,0 +1,65 @@
+updated_at: "2026-04-24"
+source: "IRDAI premium data + CGHS benchmark rates + PolicyBazaar averages + NHA data"
+notes: |
+  Insurance premiums are annual for ₹10L sum insured, individual/family.
+  Procedure costs are ranges across private hospitals, not CGHS rates
+  (which are typically 30-40% lower).
+
+facts:
+  health_insurance_annual_premium_inr:
+    age_25_individual_10L: {min: 6500, max: 12000}
+    age_35_individual_10L: {min: 9500, max: 16000}
+    age_45_individual_10L: {min: 14000, max: 25000}
+    age_55_individual_10L: {min: 25000, max: 50000}
+    age_65_individual_10L: {min: 45000, max: 90000}
+    family_floater_2a2c_10L: {min: 18000, max: 35000}
+    family_floater_2a2c_25L: {min: 28000, max: 55000}
+  senior_citizen_plans_annual_inr:
+    age_60_plus_5L: {min: 22000, max: 40000}
+    age_60_plus_10L: {min: 35000, max: 65000}
+  term_life_insurance_annual_premium_inr_1cr_cover:
+    age_25: {min: 8500, max: 14000}
+    age_35: {min: 13000, max: 22000}
+    age_45: {min: 24000, max: 42000}
+  procedure_cost_inr:
+    appendix_surgery: {min: 45000, max: 120000}
+    gallbladder_laparoscopic: {min: 60000, max: 180000}
+    cataract_single_eye: {min: 25000, max: 80000}
+    knee_replacement_single: {min: 200000, max: 450000}
+    hip_replacement: {min: 250000, max: 550000}
+    angioplasty_single_stent: {min: 200000, max: 400000}
+    bypass_surgery_cabg: {min: 300000, max: 600000}
+    normal_delivery: {min: 35000, max: 90000}
+    c_section_delivery: {min: 60000, max: 150000}
+    dental_root_canal: {min: 5000, max: 15000}
+    dental_implant: {min: 35000, max: 80000}
+    dental_braces: {min: 40000, max: 100000}
+    ivf_single_cycle: {min: 125000, max: 300000}
+    lasik_both_eyes: {min: 50000, max: 130000}
+  icu_per_day_inr:
+    tier1_city: {min: 15000, max: 40000}
+    tier2_city: {min: 8000, max: 20000}
+  ambulance_per_km_inr: 50
+  tax_deduction_sec_80d_inr:
+    self_family_below_60: 25000
+    self_family_above_60: 50000
+    parents_below_60: 25000
+    parents_above_60: 50000
+    preventive_checkup: 5000
+    max_combined_both_senior: 100000
+  critical_illness_rider_premium_pct_of_base: 15
+  room_rent_sublimit_note: "Most plans have room rent sublimit (1-2% of sum insured). Breach → proportionate deduction on entire claim."
+  waiting_periods:
+    pre_existing_diseases_years: [2, 4]
+    maternity_years: [2, 4]
+    specified_illnesses_years: 2
+  cashless_vs_reimbursement: "Cashless requires empanelled hospital. Reimbursement works anywhere but claims take 15-45 days."
+
+options: []
+
+constraints:
+  - "Mandatory: every working adult should have ₹10L+ health insurance and ₹1Cr+ term life."
+  - "Health insurance premium is deductible under 80D — up to ₹25K self + ₹50K parents (senior). Never skip."
+  - "Always check room rent sublimit and co-payment clauses — these gut claims more than low sum insured does."
+  - "Senior parents' premiums triple after age 60. Start early — ideally buy for them before they turn 55."
+  - "Never quote exact procedure prices without warning of variance — actual cost depends on hospital tier, complications, length of stay."

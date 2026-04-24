@@ -24,9 +24,10 @@ const HomePage = ({
   setActiveTab,
   onDelete,
   settings,
+  totals,
   theme = "dark",
 }) => {
-const metrics = useMemo(() => {
+  const metrics = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -35,15 +36,19 @@ const metrics = useMemo(() => {
     const fyStartYear = currentMonth < 3 ? currentYear - 1 : currentYear;
     const fyStartDate = new Date(fyStartYear, 3, 1);
 
-    // Monthly Expense Calculation
+    // Monthly Expense Calculation (Fallback if totals.monthExpense is missing)
     const monthlyData = transactions.filter((t) => {
       const d = normalizeDate(t.date);
+      if (!d) return false;
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
 
-    const expense = monthlyData
+    const localMonthExpense = monthlyData
       .filter((t) => t.type === "expense")
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+
+    // Use backend-calculated monthly totals if available, otherwise fallback to local calculation
+    const expense = totals?.monthExpense !== undefined ? totals.monthExpense : localMonthExpense;
 
     // Net Worth Calculation
     const netWorth = wealthItems.reduce((acc, curr) => {
@@ -57,35 +62,32 @@ const metrics = useMemo(() => {
     const totalGrossIncome = transactions
       .filter((t) => {
         const d = normalizeDate(t.date);
-        return t.type === "income" && d >= fyStartDate;
+        return t.type === "income" && d && d >= fyStartDate;
       })
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     // 2. APPLY NEW REGIME DEDUCTION (₹75,000)
-    // This makes the "Taxable" tile show 7.25L if income is 8L
     const taxableIncomeValue = Math.max(0, totalGrossIncome - 75000);
 
     // 3. CALCULATE ESTIMATED TAX (FY 2025-26 New Regime)
     let estimatedTax = 0;
-    
-    // Rebate Logic: No tax if taxable income <= 12,00,000
     if (taxableIncomeValue > 1200000) {
       let tempIncome = taxableIncomeValue;
       let taxBase = 0;
-
-      // New Slab Math
       if (tempIncome > 400000) taxBase += Math.min(tempIncome - 400000, 400000) * 0.05; // 4-8L
       if (tempIncome > 800000) taxBase += Math.min(tempIncome - 800000, 400000) * 0.10; // 8-12L
       if (tempIncome > 1200000) taxBase += Math.min(tempIncome - 1200000, 400000) * 0.15; // 12-16L
-      // ... higher slabs as needed ...
-
       estimatedTax = taxBase * 1.04; // Add 4% Cess
     }
 
     // Daily spend (today only)
     const todayStr = now.toISOString().slice(0, 10);
     const todayExpense = monthlyData
-      .filter((t) => t.type === "expense" && normalizeDate(t.date).toISOString().slice(0, 10) === todayStr)
+      .filter((t) => {
+        if (t.type !== "expense") return false;
+        const d = normalizeDate(t.date);
+        return d && d.toISOString().slice(0, 10) === todayStr;
+      })
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     return {
@@ -96,11 +98,12 @@ const metrics = useMemo(() => {
       estimatedTax,
       count: transactions.length,
     };
-  }, [transactions, wealthItems]);
+  }, [transactions, wealthItems, totals]);
 
   const budget = parseFloat(settings?.monthlyBudget) || 0;
   const percentage =
-    budget > 0 ? Math.min(100, (metrics.expense / budget) * 100) : 0;
+    budget > 0 ? (metrics.expense / budget) * 100 : 0;
+  const cappedPercentage = Math.min(100, percentage);
 
 const bouncySpring = { type: "spring", stiffness: 500, damping: 20, mass: 1 };
 
@@ -136,7 +139,7 @@ const MetricTile = ({
       transition={bouncySpring}
       onClick={() => setActiveTab(tab)}
       className={cn(
-        "relative overflow-hidden p-6 rounded-[2.5rem] border text-left w-full transition-shadow duration-300",
+        "relative overflow-hidden p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] md:rounded-[2.5rem] border text-left w-full transition-shadow duration-300",
         isSpecial
           ? "bg-blue-600 border-blue-400 shadow-blue-500/40"
           : theme === "dark"
@@ -167,7 +170,7 @@ const MetricTile = ({
         </p>
         <p
           className={cn(
-            "text-2xl font-black tracking-tighter",
+            "text-xl sm:text-2xl font-black tracking-tighter break-all",
             isSpecial
               ? "text-white"
               : theme === "dark"
@@ -183,23 +186,23 @@ const MetricTile = ({
 );
 
   return (
-    <div className="space-y-10">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="space-y-6 md:space-y-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         {/* LEFT COLUMN */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-4 md:space-y-6">
           {/* Monthly Spend */}
           <motion.div
             whileHover={{ y: -5 }}
             transition={bouncySpring}
             className={cn(
-              "relative overflow-hidden p-8 rounded-[3.5rem] border shadow-2xl",
+              "relative overflow-hidden p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] md:rounded-[3.5rem] border shadow-2xl",
               theme === "dark"
                 ? "bg-white/[0.03] border-white/10 backdrop-blur-3xl"
                 : "bg-white border-white",
             )}
           >
-            <div className="flex justify-between items-start mb-8">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6 md:mb-8">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   <Zap className="w-3.5 h-3.5 text-blue-500 fill-blue-500" />
                   <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">
@@ -208,7 +211,7 @@ const MetricTile = ({
                 </div>
                 <h3
                   className={cn(
-                    "text-5xl font-black tracking-tighter",
+                    "text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter break-all",
                     theme === "dark" ? "text-white" : "text-indigo-950",
                   )}
                 >
@@ -220,23 +223,33 @@ const MetricTile = ({
               </div>
               <div
                 className={cn(
-                  "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border",
-                  percentage >= 100
-                    ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
-                    : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+                  "self-start px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap",
+                  budget === 0
+                    ? metrics.expense > 0
+                      ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
+                      : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                    : percentage >= 100
+                      ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                      : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
                 )}
               >
-                {percentage >= 100 ? "Limit Reached" : "On Track"}
+                {budget === 0
+                  ? metrics.expense > 0
+                    ? "No Limit Set"
+                    : "On Track"
+                  : percentage >= 100
+                    ? "Limit Reached"
+                    : "On Track"}
               </div>
             </div>
             <div className="relative h-4 w-full bg-blue-500/5 rounded-full p-1">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${percentage}%` }}
+                animate={{ width: `${cappedPercentage}%` }}
                 transition={{ duration: 1.5, ease: "circOut" }}
                 className={cn(
                   "h-full rounded-full shadow-lg",
-                  percentage >= 100 ? "bg-rose-500" : "bg-blue-600",
+                  budget > 0 && percentage >= 100 ? "bg-rose-500" : "bg-blue-600",
                 )}
               />
             </div>
@@ -297,7 +310,7 @@ const MetricTile = ({
           />
 
           {/* Bottom Grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <MetricTile
               title="Taxable Income"
               // Corrected: formatIndianCompact adds symbol, so we don't add "₹"
@@ -337,10 +350,10 @@ const MetricTile = ({
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-7">
-          <div className="flex justify-between items-center mb-6 px-4">
+          <div className="flex justify-between items-center mb-4 md:mb-6 px-2 sm:px-4">
             <h3
               className={cn(
-                "font-black text-2xl tracking-tighter",
+                "font-black text-xl sm:text-2xl tracking-tighter",
                 theme === "dark" ? "text-white" : "text-indigo-950",
               )}
             >
@@ -350,14 +363,16 @@ const MetricTile = ({
               whileHover={{ x: 5, color: "#030303" }}
               transition={bouncySpring}
               onClick={() => setActiveTab(TABS.HISTORY)}
-              className="text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-50 hover:opacity-100"
+              className="text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-50 hover:opacity-100 whitespace-nowrap"
             >
-              Full History <ArrowRightLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Full History</span>
+              <span className="sm:hidden">All</span>
+              <ArrowRightLeft className="w-4 h-4" />
             </motion.button>
           </div>
           <motion.div
             className={cn(
-              "p-6 rounded-[3.5rem] border shadow-2xl transition-all",
+              "p-3 sm:p-6 rounded-[2rem] md:rounded-[3rem] lg:rounded-[3.5rem] border shadow-2xl transition-all",
               theme === "dark"
                 ? "bg-white/[0.02] border-white/5 backdrop-blur-md"
                 : "bg-white/80 border-white/50 backdrop-blur-xl",

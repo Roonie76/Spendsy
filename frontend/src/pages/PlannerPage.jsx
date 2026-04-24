@@ -158,7 +158,7 @@ export default function PlannerPage({ user, theme }) {
                     <Archive className="h-5 w-5" />
                     <h3 className="font-bold uppercase tracking-widest text-sm">Archived Plans</h3>
                   </div>
-                  <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-12 text-center backdrop-blur-sm">
+                  <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 sm:p-12 text-center backdrop-blur-sm">
                     <p className="text-sm text-slate-600 font-medium">Your completed and cancelled plans will be safely stored here.</p>
                   </div>
                 </div>

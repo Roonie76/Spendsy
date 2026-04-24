@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from "react";
 import { buildAuthHeader } from "@shared/utils/helpers";
-import { apiFetch } from "../../api"; // Centralized wrapper
+import { aiApi, apiFetch } from "../../api"; // Centralized wrapper
 import FloatingAIButton from "./FloatingAIButton";
 import AIChatPanel from "./AIChatPanel";
 
@@ -75,6 +75,36 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
     }
   }, [toraBaseUrl, userId, model]);
 
+  // Thumbs up/down feedback on an assistant bubble. Optimistic update,
+  // silent failure — we don't want a flaky feedback call to disrupt chat.
+  const handleFeedback = useCallback(async (msgIndex, rating) => {
+    setMessages((prev) => {
+      const next = [...prev];
+      const m = next[msgIndex];
+      if (!m || m.role !== "assistant") return prev;
+      // If the user clicks the same rating again, clear it (toggle off).
+      next[msgIndex] = { ...m, rating: m.rating === rating ? null : rating };
+      return next;
+    });
+
+    try {
+      const target = messages[msgIndex];
+      if (!target) return;
+      const preview = typeof target.content === "string"
+        ? target.content.slice(0, 500)
+        : JSON.stringify(target.content || target.structured || "").slice(0, 500);
+      await aiApi.sendFeedback({
+        user_id: userId || 1,
+        rating,
+        client_message_id: target.clientMessageId || null,
+        prompt: target.prompt ? String(target.prompt).slice(0, 500) : null,
+        response_preview: preview,
+      });
+    } catch (err) {
+      console.warn("Feedback submit failed:", err);
+    }
+  }, [messages, userId]);
+
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading || authMissing) return;
@@ -101,7 +131,18 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
       // Build the message object. TORA returns either:
       //   - Simple mode: { mode: "simple", content: "...markdown..." }
       //   - Structured mode: { "Financial Overview": ..., "Current Position": ..., ... }
-      const assistantMsg = { role: "assistant", content: "" };
+      // Stable id for this assistant bubble. Used as the feedback key so
+      // re-clicks update the same row instead of creating duplicates.
+      const clientMessageId =
+        (typeof crypto !== "undefined" && crypto.randomUUID)
+          ? `msg-${crypto.randomUUID()}`
+          : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const assistantMsg = {
+        role: "assistant",
+        content: "",
+        clientMessageId,
+        prompt: trimmed,
+      };
 
       if (data.answer && typeof data.answer === "object") {
         const a = data.answer;
@@ -179,6 +220,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         model={model}
         setModel={setModel}
         onConfirmTool={handleConfirmTool}
+        onFeedback={handleFeedback}
       />
     </>
   );

@@ -10,7 +10,7 @@ import { TABS } from '@shared/config/constants';
 import { normalizeDate } from '@shared/utils/helpers';
 import { downloadCSV } from "@shared/utils/exportUtils";
 
-const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpdate }) => {
+const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpdate, apiBaseUrl, onRefresh }) => {
     // UI State
     const [page, setPage] = useState(1);
     const PER_PAGE = 20;
@@ -62,12 +62,18 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
         if (filters.startDate) {
             const start = new Date(filters.startDate);
             start.setHours(0,0,0,0);
-            data = data.filter(t => normalizeDate(t.date) >= start);
+            data = data.filter(t => {
+                const d = normalizeDate(t.date);
+                return d && d >= start;
+            });
         }
         if (filters.endDate) {
             const end = new Date(filters.endDate);
             end.setHours(23,59,59,999);
-            data = data.filter(t => normalizeDate(t.date) <= end);
+            data = data.filter(t => {
+                const d = normalizeDate(t.date);
+                return d && d <= end;
+            });
         }
 
         // Amount Range
@@ -88,16 +94,25 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
             data = data.filter(t => filters.types.includes(t.type));
         }
 
-        // Account Types
+        // Account Types / MT Logic
         if (filters.accountTypes.length > 0) {
-            data = data.filter(t => filters.accountTypes.includes(t.account_type));
+            data = data.filter(t => {
+                const results = [];
+                if (filters.accountTypes.includes('debit')) results.push(t.account_type?.toLowerCase() === 'debit');
+                if (filters.accountTypes.includes('credit')) results.push(t.account_type?.toLowerCase() === 'credit');
+                if (filters.accountTypes.includes('manual')) results.push(t.source === 'manual' || (t.confidence !== undefined && t.confidence <= 0));
+                return results.some(r => r === true);
+            });
         }
 
         
         // Sorting
         data.sort((a, b) => {
-            const dateA = normalizeDate(a.date).getTime();
-            const dateB = normalizeDate(b.date).getTime();
+            // Sort undated rows to the bottom so they don't poison the ordering
+            const dA = normalizeDate(a.date);
+            const dB = normalizeDate(b.date);
+            const dateA = dA ? dA.getTime() : -Infinity;
+            const dateB = dB ? dB.getTime() : -Infinity;
             const amtA = parseFloat(a.amount);
             const amtB = parseFloat(b.amount);
 
@@ -117,11 +132,11 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
     const visible = filtered.slice(0, page * PER_PAGE);
 
     return (
-        <div className="space-y-6 pb-4 animate-in fade-in">
+        <div className="space-y-4 sm:space-y-6 pb-4 animate-in fade-in">
             {/* --- Header --- */}
-            <div className="flex justify-between items-center mb-2">
-                <h2 className="text-2xl font-bold text-white">All Transactions</h2>
-                <div className="flex gap-2">
+            <div className="flex justify-between items-center mb-2 gap-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-white truncate">All Transactions</h2>
+                <div className="flex gap-2 shrink-0">
                     {/* Custom Delete Button */}
                     <button
                         onClick={() => setShowCustomDelete((p) => !p)}
@@ -250,6 +265,8 @@ const HistoryPage = ({ transactions, onDelete, onBulkDelete, setActiveTab, onUpd
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
                 onSave={onUpdate}
+                apiBaseUrl={apiBaseUrl}
+                onTransferFlagChanged={onRefresh}
             />
         </div>
     );

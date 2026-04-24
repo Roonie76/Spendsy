@@ -57,6 +57,7 @@ test_*.py
 tests/test.db
 
 # System & Agentic
+# System & Agentic
 .gemini/
 .agents/
 .agent/
@@ -64,3 +65,8 @@ tests/test.db
 .system_generated/
 tmp/
 brain/
+
+# Graphify
+graphify-out/cache/
+graphify-out/manifest.json
+graphify-out/cost.json

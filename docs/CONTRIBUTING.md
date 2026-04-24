@@ -1,61 +1,81 @@
 # Contributing to Spendsy
 
-First off, thank you for considering contributing to Spendsy! It's people like you that make the open-source community such a great place to stay, learn, and create.
+Thank you for contributing! This document covers how to set up your environment, the development workflow, and our code standards.
 
-## 🚀 How Can I Help?
+---
 
-### Reporting Bugs
-If you find a bug, please open an issue and include:
-- A clear description of the problem.
-- Steps to reproduce.
-- Expected vs actual behavior.
-- Environment details (Browser, OS, Docker version).
+## 🚀 Quick Start (Development Setup)
 
-### Suggesting Enhancements
-We love new ideas! If you have a feature request:
-- Check if it's already been suggested in the issues.
-- Explain Why this feature would be useful.
+The easiest way to start Spendsy is using the provided orchestration scripts.
 
-### Pull Requests
-1. Fork the repo and create your branch from `main`.
-2. Follow the existing code style (PEP 8 for Python, Prettier for JS).
-3. Ensure all tests pass (`pytest` and `vitest`).
-4. Keep your PR small and focused on a single change.
+### 1. Prerequisites
+- **Git**, **Docker Desktop**, and **Python 3.11+**.
+- **Node.js v18+** (for frontend development).
+- **Ollama** (required for local TORA reasoning).
 
-## 🛠️ Development Setup
+### 2. Setup Commands
+
+**Windows (PowerShell):**
+```powershell
+# Clone and configure
+git clone https://github.com/Roonie76/Spendsy.git
+cd Spendsy
+cp .env.example .env
+
+# Start everything (Frontend + Backend + DB)
+.\run-local.ps1
+```
+
+**macOS/Linux (Bash):**
+```bash
+git clone https://github.com/Roonie76/Spendsy.git
+cd Spendsy
+cp .env.example .env
+
+# Start everything
+chmod +x run-local.sh
+./run-local.sh
+```
+
+### 3. TORA Intelligence Setup
+Ensure Ollama is running, then pull the required model:
+```powershell
+ollama pull gemma:7b
+```
+
+---
+
+## 🛠️ Development Workflow
 
 ### Backend (Python)
-We use a unified `requirements.txt` at the root, but each service also manages its own for containerization.
-```bash
-# Unified setup (recommended)
-pip install -r requirements.txt
-
-# Or per-service
-cd backend/finance-service
-pip install -r requirements.txt
-pytest
-```
+- **Standard**: `python -m venv venv` -> `pip install -r requirements.txt`.
+- **Testing**: Run `pytest` from the root or inside `backend/`.
+- **Style**: Follow PEP 8. Use type hints and Pydantic schemas.
 
 ### Frontend (React)
-```bash
-cd frontend
-npm install
-npm run dev
-```
+- **Standard**: `cd frontend` -> `npm install` -> `npm run dev`.
+- **Style**: Use functional components and the `apiFetch` wrapper.
 
-### Docker (Preferred)
-```bash
-docker compose -f infra/docker/docker-compose.dev.yml up --build
-```
+---
 
-## 📜 Code Style & Reliability Guidelines
-- **Python**: Use type hints, Pydantic for schemas, and docstrings for public functions. 
-- **Reliability**: 
-    - All inter-service calls MUST use `tenacity` retries and explicit timeouts.
-    - All database commits MUST be wrapped in `try/except` with `db.rollback()`.
-    - Avoid direct DB connections; always use the PgBouncer-pooled session.
-- **Javascript/React**: Use functional components, hooks, and descriptive variable names. Always use the `apiFetch` wrapper for network requests.
-- **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/).
+## 📜 Contribution Rules
 
-## ⚖️ License
-By contributing, you agree that your contributions will be licensed under the MIT License.
+1. **Reporting Bugs**: Open an issue with clear reproduction steps and environment details.
+2. **Pull Requests**:
+    - Create a branch from `main`.
+    - Keep PRs focused on a single change.
+    - Ensure all tests pass.
+3. **Reliability Guidelines**:
+    - Use `tenacity` retries for all inter-service calls.
+    - Wrap database commits in `try/except` with `db.rollback()`.
+    - Use the `Decimal` type for all financial calculations.
+
+---
+
+## 🔧 Troubleshooting
+- **Port Conflicts**: Ensure `8080` (Gateway) and `5432` (DB) are free.
+- **Database**: If schema is missing, run `alembic upgrade head` in `backend/finance-service`.
+- **Ollama**: If TORA is unresponsive, verify `OLLAMA_BASE_URL` in `.env`.
+
+---
+*By contributing, you agree that your work will be licensed under the MIT License.*

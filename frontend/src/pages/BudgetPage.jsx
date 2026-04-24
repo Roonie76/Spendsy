@@ -69,11 +69,11 @@ const BudgetPage = ({ settings, onUpdateSettings, triggerConfirm, onBack }) => {
 
        <form
           onSubmit={requestSaveSettings}
-          className="bg-black/20 p-8 rounded-[3rem] border border-white/10 space-y-8 relative overflow-hidden"
+          className="bg-black/20 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-white/10 space-y-6 sm:space-y-8 relative overflow-hidden"
         >
           <div className="absolute -inset-px bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
-          
-          <div className="grid grid-cols-1 gap-8 relative z-10">
+
+          <div className="grid grid-cols-1 gap-5 sm:gap-8 relative z-10">
             {[
               { id: "monthlyIncome", label: "Monthly Income", icon: TrendingUp, color: "text-emerald-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(52,211,153,0.3)]" },
               { id: "monthlyBudget", label: "Monthly Budget", icon: Briefcase, color: "text-violet-400", glow: "group-focus-within:shadow-[0_0_20px_-5px_rgba(167,139,250,0.3)]" },
@@ -84,9 +84,9 @@ const BudgetPage = ({ settings, onUpdateSettings, triggerConfirm, onBack }) => {
                   <field.icon className={`w-3.5 h-3.5 ${field.color}`} />
                   {field.label}
                 </label>
-                <div className={`relative group transition-all duration-300 rounded-[2.5rem] ${field.glow}`}>
-                  <div className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-white transition-colors z-20">
-                    <IndianRupee className="w-6 h-6" />
+                <div className={`relative group transition-all duration-300 rounded-[2rem] sm:rounded-[2.5rem] ${field.glow}`}>
+                  <div className="absolute left-4 sm:left-7 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-white transition-colors z-20">
+                    <IndianRupee className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <input
                     type="number"
@@ -94,12 +94,19 @@ const BudgetPage = ({ settings, onUpdateSettings, triggerConfirm, onBack }) => {
                     onChange={(e) =>
                       setLocalSettings({ ...localSettings, [field.id]: e.target.value })
                     }
-                    className="w-full pl-16 pr-36 py-6 bg-black/40 border-2 border-white/5 rounded-[2.5rem] text-2xl font-black text-white outline-none focus:border-white/20 focus:bg-white/5 transition-all placeholder:text-slate-800 shadow-inner relative z-10"
+                    className="w-full pl-11 sm:pl-16 pr-4 sm:pr-36 py-4 sm:py-6 bg-black/40 border-2 border-white/5 rounded-[2rem] sm:rounded-[2.5rem] text-lg sm:text-2xl font-black text-white outline-none focus:border-white/20 focus:bg-white/5 transition-all placeholder:text-slate-800 shadow-inner relative z-10"
                     placeholder="0"
                   />
                   {localSettings[field.id] > 0 && (
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-xl z-20 shadow-lg">
+                    <div className="hidden sm:block absolute right-6 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-xl z-20 shadow-lg">
                       <span className={`text-xs font-black ${field.color}`}>
+                        {getReadableUnit(localSettings[field.id])}
+                      </span>
+                    </div>
+                  )}
+                  {localSettings[field.id] > 0 && (
+                    <div className="sm:hidden mt-2 ml-11">
+                      <span className={`text-[10px] font-black ${field.color}`}>
                         {getReadableUnit(localSettings[field.id])}
                       </span>
                     </div>

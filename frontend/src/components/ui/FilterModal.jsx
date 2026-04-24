@@ -130,19 +130,33 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                     <div className="space-y-3">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Card Type</label>
                         <div className="flex gap-2">
-                            {['debit', 'credit'].map(type => {
-                                const isActive = localFilters.accountTypes.includes(type);
+                            {[
+                                { value: 'debit', code: 'DCT', label: 'Debit Card' },
+                                { value: 'credit', code: 'CCT', label: 'Credit Card' },
+                                { value: 'manual', code: 'MT', label: 'Manual' },
+                            ].map(({ value, code, label }) => {
+                                const isActive = localFilters.accountTypes.includes(value);
+                                const isCredit = value === 'credit';
+                                const isManual = value === 'manual';
+                                
+                                let colors = 'bg-white/5 border-transparent text-slate-400';
+                                if (isActive) {
+                                    if (isManual) colors = 'bg-amber-500/20 border-amber-500/50 text-amber-300';
+                                    else if (isCredit) colors = 'bg-purple-500/20 border-purple-500/50 text-purple-300';
+                                    else colors = 'bg-blue-500/20 border-blue-500/50 text-blue-300';
+                                }
+
                                 return (
                                     <button
-                                        key={type}
-                                        onClick={() => handleAccountTypeToggle(type)}
-                                        className={`flex-1 py-3 rounded-xl text-sm font-bold capitalize border transition-all flex items-center justify-center gap-2 ${
-                                            isActive
-                                            ? (type === 'credit' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'bg-blue-500/20 border-blue-500/50 text-blue-300')
-                                            : 'bg-white/5 border-transparent text-slate-400'
-                                        }`}
+                                        key={value}
+                                        onClick={() => handleAccountTypeToggle(value)}
+                                        className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 ${colors}`}
                                     >
-                                        {isActive && <Check className="w-3 h-3" />} {type} Card
+                                        <div className="flex items-center gap-1">
+                                            {isActive && <Check className="w-3 h-3" />}
+                                            <span className="font-black tracking-wider text-[11px] md:text-sm">{code}</span>
+                                        </div>
+                                        <span className="text-[9px] font-medium opacity-70 leading-tight">{label}</span>
                                     </button>
                                 );
                             })}

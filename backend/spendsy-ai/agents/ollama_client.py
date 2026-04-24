@@ -25,17 +25,21 @@ def call_ollama(
     context: Dict[str, Any],
     options: Dict[str, Any] | None = None,
     system_prompt: str | None = None,
+    thinking: bool = False,
 ) -> str:
     """
     Execute a chat completion request to the local Ollama API.
 
     Args:
-        model: The name of the Ollama model (e.g., 'phi3:mini', 'qwen2.5:7b')
+        model: The name of the Ollama model (e.g., 'gemma4:e2b', 'gemma:2b')
         prompt: The user-role content (the current question + grounded data)
         context: Financial context (unused in raw HTTP call but kept for interface consistency)
         options: Optional Ollama generation parameters
         system_prompt: Optional full system prompt (TORA rules, schema, etc). Falls
             back to a minimal default when not supplied.
+        thinking: If True, enable gemma4's thinking mode. Triples latency but
+            improves reasoning quality — gate on whether the query actually
+            needs it (track 2 decisions, comparisons, hypotheticals).
     """
     url = f"{settings.ollama_base_url}/api/chat"
 
@@ -48,16 +52,36 @@ def call_ollama(
             {"role": "user", "content": prompt}
         ],
         "stream": False,
-        "format": "json",
+        "format": {
+            "type": "object",
+            "properties": {
+                "reasoning": {"type": "string"},
+                "answer": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {"type": "string"},
+                        "content": {"type": "string"},
+                        "Financial Overview": {"type": "string"},
+                        "Current Position": {"type": "string"},
+                        "Recommended Strategy": {"type": "string"},
+                        "Expected Outcome": {"type": "string"}
+                    }
+                },
+                "tool_calls": {
+                    "type": "array"
+                }
+            },
+            "required": ["answer"]
+        },
         "keep_alive": f"{settings.ollama_keep_alive}s",  # Unload immediately if 0
         "options": options or {
             "temperature": 0.0,
             "top_p": 0.9,
-            "num_predict": 2048,
-            "num_ctx": 8192,
+            "num_predict": 1024,
+            "num_ctx": 4096,
             "seed": 42
         },
-        "think": False
+        "think": bool(thinking)
     }
     
     headers = {

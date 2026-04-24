@@ -55,11 +55,11 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
       </div>
 
       {/* Debt Summary */}
-      <div className="bg-gradient-to-br from-rose-900/40 to-slate-900/40 p-8 rounded-[2.5rem] border border-white/10 relative overflow-hidden group">
+      <div className="bg-gradient-to-br from-rose-900/40 to-slate-900/40 p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 blur-[80px] rounded-full pointer-events-none group-hover:bg-rose-500/20 transition-colors duration-700"></div>
         <div className="relative z-10">
           <p className="text-[10px] text-rose-300 font-black uppercase tracking-[0.3em] mb-2">Total Outstanding</p>
-          <h2 className="text-5xl font-black text-white tracking-tighter mb-4">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-4 break-all">
             ₹{totalDebt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </h2>
           <div className="flex gap-4 flex-wrap">

@@ -13,6 +13,7 @@ def call_llm(
     prompt: str,
     context: Dict[str, Any],
     system_prompt: str | None = None,
+    thinking: bool = False,
 ) -> str:
     """
     Route the prompt to specialized local models via Ollama with reasoning fallback.
@@ -21,8 +22,15 @@ def call_llm(
     - 'tora' -> primary local model (see settings.model_gemma)
     - 'tora_plus' -> DISABLED (pending fine-tuning)
     - Fallback -> settings.model_llama, then Mistral Cloud if configured
+
+    Args:
+        thinking: If True, enable gemma4's thinking mode on the primary model.
+            Gated by the caller based on query complexity (track 2 decisions).
+            Fallback model does NOT use thinking — when the primary failed,
+            we want the fastest-possible recovery path.
     """
     logger.info(f"Routing request to model branding: {model_branding}")
+    logger.info(f"LLM Prompt: {prompt}")
 
     branding = model_branding.lower()
 
@@ -32,7 +40,11 @@ def call_llm(
     primary_model = settings.model_gemma
 
     try:
-        response = call_ollama(primary_model, prompt, context, system_prompt=system_prompt)
+        response = call_ollama(
+            primary_model, prompt, context,
+            system_prompt=system_prompt, thinking=thinking,
+        )
+        logger.info(f"Primary model raw response: {response}")
         json.loads(response)
         logger.info(f"Successfully received valid JSON from {primary_model}")
         return response
@@ -48,8 +60,12 @@ def call_llm(
 
         try:
             fallback_response = call_ollama(settings.model_llama, prompt, context, system_prompt=system_prompt)
-            json.loads(fallback_response)
-            logger.info(f"Successfully received valid JSON from fallback model {settings.model_llama}")
+            logger.info(f"Fallback model raw response: {fallback_response}")
+            try:
+                json.loads(fallback_response)
+                logger.info(f"Successfully received valid JSON from fallback model {settings.model_llama}")
+            except json.JSONDecodeError:
+                logger.warning(f"Fallback model {settings.model_llama} returned invalid JSON, but returning it for agent recovery")
             return fallback_response
 
         except Exception as fe:

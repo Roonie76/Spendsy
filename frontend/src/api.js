@@ -314,6 +314,19 @@ export const financeApi = {
   deletePlan: (uid) => apiFetch(`${API_BASE}/plans/${uid}`, { method: "DELETE" }),
 };
 
+// ─── Alerts (proactive insights) ─────────────────────────────────────────────
+
+const PRODUCT_BASE = `${API_BASE}/product`;
+
+export const alertsApi = {
+  /** Fetch recent alerts. Pass { unreadOnly: false } to include read alerts. */
+  list: ({ unreadOnly = true } = {}) =>
+    apiFetch(`${PRODUCT_BASE}/alerts?unread_only=${unreadOnly}`),
+  /** Mark a single alert as read. */
+  markRead: (alertId) =>
+    apiFetch(`${PRODUCT_BASE}/alerts/${alertId}/read`, { method: "POST" }),
+};
+
 // ─── AI ───────────────────────────────────────────────────────────────────
 
 export const aiApi = {
@@ -321,5 +334,11 @@ export const aiApi = {
     apiFetch(`${AI_BASE}/chat`, {
       method: "POST",
       body: JSON.stringify({ message }),
+    }),
+  /** Submit thumbs up/down feedback on a TORA response. */
+  sendFeedback: (body) =>
+    apiFetch(`${AI_BASE}/feedback`, {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
 };

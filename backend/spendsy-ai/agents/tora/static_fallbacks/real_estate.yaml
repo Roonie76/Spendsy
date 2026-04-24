@@ -1,0 +1,57 @@
+updated_at: "2026-04-24"
+source: "NHB RESIDEX 2025 averages + MagicBricks/99acres city indices + SBI home loan rates"
+notes: |
+  Property prices are per sq ft for mid-segment, new construction.
+  Rent is monthly for 2BHK in mid-tier localities.
+
+facts:
+  price_per_sqft_inr:
+    mumbai: {min: 18000, max: 45000}
+    delhi_ncr: {min: 6500, max: 18000}
+    bangalore: {min: 7500, max: 16000}
+    hyderabad: {min: 5500, max: 11000}
+    pune: {min: 7000, max: 14000}
+    chennai: {min: 6000, max: 13000}
+    kolkata: {min: 4500, max: 9000}
+    ahmedabad: {min: 4000, max: 8000}
+    tier2_avg: {min: 3500, max: 6500}
+  rent_2bhk_monthly_inr:
+    mumbai: {min: 35000, max: 85000}
+    delhi_ncr: {min: 18000, max: 45000}
+    bangalore: {min: 22000, max: 55000}
+    hyderabad: {min: 15000, max: 32000}
+    pune: {min: 18000, max: 38000}
+    chennai: {min: 17000, max: 38000}
+    kolkata: {min: 12000, max: 25000}
+    tier2_avg: {min: 9000, max: 18000}
+  home_loan_rate_pct_pa:
+    public_bank: 8.50
+    private_bank: 9.00
+    lic_housing: 8.75
+    nbfc: 10.25
+  max_ltv_pct: 80
+  typical_tenure_months_range: [120, 360]
+  stamp_duty_pct_by_state:
+    maharashtra: 6
+    karnataka: 5
+    delhi: 6
+    tamil_nadu: 7
+    telangana: 5
+    gujarat: 4.9
+    uttar_pradesh: 7
+    west_bengal: 6
+    default: 6
+  registration_fee_pct: 1
+  gst_on_under_construction_pct: 5
+  gst_on_ready_possession: 0
+  pmay_subsidy_interest_pct: 6.5
+  pmay_max_loan_amount_inr: 1200000
+  rent_income_tax_note: "Rental income taxed under 'Income from House Property' — 30% standard deduction after municipal tax."
+
+options: []
+
+constraints:
+  - "Total EMI across all loans should not exceed 50% of monthly income (banks' cap)."
+  - "Factor stamp duty + registration + society charges — adds 7-9% to purchase price."
+  - "Never advise buying over renting without a 5+ year horizon — break-even is rarely sooner."
+  - "Under-construction attracts 5% GST + delay risk; ready possession has no GST."

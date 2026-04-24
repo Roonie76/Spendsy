@@ -29,7 +29,15 @@ logger = logging.getLogger("finance.main")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    yield
+    # Start the background scheduler (daily net-worth snapshots, nightly
+    # proactive insights). Controlled by FINANCE_SCHEDULER_ENABLED env var
+    # so tests and constrained envs can opt out.
+    from app.services.scheduler import start_scheduler, stop_scheduler
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
 
 
 app = FastAPI(title="Spendsy Finance Service", lifespan=lifespan)
@@ -101,3 +109,9 @@ app.include_router(internal_router)
 app.include_router(goals_router)
 app.include_router(product_router, prefix="/product")
 app.include_router(tax_router)
+    
+
+@app.get("/health", include_in_schema=False)
+async def health_check():
+    return {"ok": True}
+

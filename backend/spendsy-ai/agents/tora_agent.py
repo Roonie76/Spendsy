@@ -20,10 +20,27 @@ from memory import (
     get_tier_memory_limit,
     format_memory_stats
 )
-from .tora_personality import TORA_SYSTEM_PROMPT, detect_intent, get_greeting_response, get_fallback_response, get_capability_response, get_small_talk_response
+from .tora_personality import (
+    TORA_SYSTEM_PROMPT,
+    detect_ambiguous_goal,
+    detect_intent,
+    get_ambiguous_goal_response,
+    get_capability_response,
+    get_fallback_response,
+    get_greeting_response,
+    get_small_talk_response,
+)
 from .llm_router import call_llm
 from .tools.tool_registry import get_tool_registry
 from mcp_connector import fetch_context_via_mcp
+from vault.vault_sync import sync_vault_after_session, read_vault_context
+from .tora import (
+    resolve_and_fetch,
+    build_market_context_block,
+    audit_structured_output,
+    summarize_fetch_outcome,
+    should_enable_thinking,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +85,8 @@ async def fetch_financial_summary(user_id: int) -> Dict[str, Any]:
         "credit_cards": context.get("credit_cards", []),
         "goals": context.get("goals", []),
         "plans": context.get("plans", []),
-        "recent_transactions": context.get("recent_transactions", [])
+        "recent_transactions": context.get("recent_transactions", []),
+        "monthly_trends": context.get("monthly_trends", []),
     }
 
 
@@ -101,21 +119,27 @@ def run_financial_simulations(summary: Dict[str, Any], user_tier: str = "free") 
         for loan in loans:
             surplus = float(summary.get("monthly_surplus", 0))
             principal = float(loan.get("remaining_balance", 0))
-            rate = float(loan.get("interest_rate", 10.5)) / 100.0 / 12.0
+            monthly_rate = float(loan.get("interest_rate", 10.5)) / 100.0 / 12.0
             emi = float(loan.get("emi_amount", loan.get("principal_amount", principal) * 0.05))
-            
-            if principal <= 0 or surplus <= 0:
+
+            if principal <= 0 or surplus <= 0 or emi <= 0:
                 continue
-                
+
             try:
-                standard_months = principal / emi if emi > 0 else 0
-                accelerated_months = principal / (emi + surplus) if (emi + surplus) > 0 else 0
-                months_saved = max(0, int(standard_months - accelerated_months))
-                
+                standard_months = _months_to_payoff(principal, emi, monthly_rate)
+                accelerated_months = _months_to_payoff(principal, emi + surplus, monthly_rate)
+                months_saved = max(0, int(round(standard_months - accelerated_months)))
+                interest_saved = max(
+                    0.0,
+                    (standard_months * emi) - (accelerated_months * (emi + surplus))
+                )
+
                 simulations["loan_optimizations"].append({
                     "loan_type": loan.get("loan_type", "unknown"),
+                    "interest_rate_pct": round(monthly_rate * 12 * 100, 2),
                     "extra_payment_scenario": float(surplus),
                     "estimated_months_saved": months_saved,
+                    "estimated_interest_saved": round(interest_saved, 2),
                     "viability": "high" if months_saved > 6 else "moderate"
                 })
             except Exception as e:
@@ -200,45 +224,113 @@ def build_ai_context(
     question: str,
     user_tier: str = "free",
     conversation_history: List[Dict[str, Any]] | None = None,
+    user_id: int | None = None,
+    market_block: str = "",
 ) -> tuple[str, str]:
     """
     Build a (system_prompt, user_message) pair for the LLM.
 
-    The TORA persona + schema rules go into the system role (stable across turns).
-    The current financial data + question go into the user role — this keeps the
-    model's attention on the actual numbers it must cite, which is critical for
-    small local models that otherwise hallucinate figures.
+    Ordering strategy (matters a lot for small models):
+      1. Conversation history FIRST — sets the thread so follow-ups ("why?",
+         "for instance?") resolve correctly. Placed early so it's not
+         mistaken for the current question.
+      2. Financial numbers in the MIDDLE — stable reference the model will
+         quote verbatim.
+      3. Simulations + extras after the numbers.
+      4. Market/category enrichment (from universal intelligence engine)
+         before the question, so track 2 queries have grounded facts.
+      5. Current question LAST, immediately followed by a compact reasoning
+         checklist. Recency bias means the model pays most attention to
+         these final lines, so they steer the reply shape.
     """
 
     # === SYSTEM: persona, schema, capabilities ===
     tax_features = TieringConfig.get_tax_features(user_tier)
     system = TORA_SYSTEM_PROMPT + "\n\n"
     system += "CAPABILITIES:\n"
-    system += "- Autonomous Actions: YES\n"
-    system += "- Memory: Unlimited conversation history\n"
-    system += f"- Tax Features: {', '.join(tax_features)}\n"
-    system += f"- Simulations Available: {', '.join(TieringConfig.get_simulations(user_tier))}\n"
+    system += f"- Tier: {user_tier}\n"
+    system += f"- Autonomous Actions: {'YES' if TieringConfig.can_act_autonomously(user_tier) else 'NO (tool calls require user confirmation)'}\n"
+    system += "- Memory: persistent conversation history across sessions\n"
+    system += f"- Tax Features: {', '.join(tax_features) or 'none'}\n"
+    system += f"- Simulations Available: {', '.join(TieringConfig.get_simulations(user_tier)) or 'none'}\n"
 
-    # === USER: ground truth FIRST, then extras, then the question ===
-    category_totals = _aggregate_spending_by_category(summary.get("recent_transactions", []))
-    income = summary.get("monthly_income", 0) or 0
-    expenses = summary.get("monthly_expenses", 0) or 0
-    balance = summary.get("account_balance", 0) or 0
-    surplus = summary.get("monthly_surplus", 0) or 0
-    tx_count = len(summary.get("recent_transactions", []))
+    # === USER MESSAGE ===
+    user_msg = ""
 
-    user_msg = "=== MY FINANCIAL NUMBERS (authoritative — quote these exactly) ===\n"
-    user_msg += f"- Total Income: ₹{income:,.2f}\n"
-    user_msg += f"- Total Expenses: ₹{expenses:,.2f}\n"
-    user_msg += f"- Account Balance: ₹{balance:,.2f}\n"
-    user_msg += f"- Monthly Surplus: ₹{surplus:,.2f}\n"
-    user_msg += f"- Transactions on file: {tx_count}\n"
-    if category_totals:
-        user_msg += "- Spending by category:\n"
-        for cat, amt in category_totals:
-            user_msg += f"    • {cat}: ₹{amt:,.2f}\n"
-    user_msg += "\n"
+    # 1. Conversation history FIRST (so follow-ups resolve).
+    valid_history = [m for m in conversation_history if str(m.get("content", "")).strip() and str(m.get("content", "")).strip() != "{}"]
+    if valid_history:
+        user_msg += "=== RECENT CONVERSATION (for context / follow-ups) ===\n"
+        recent = valid_history[-6:]
+        for i, msg in enumerate(recent):
+            role = msg.get("role", "user").upper()
+            raw = str(msg.get("content", ""))
+            is_last = (i == len(recent) - 1)
+            if is_last:
+                content = raw
+            elif len(raw) > 500:
+                cutoff = raw.rfind(" ", 0, 500)
+                content = (raw[:cutoff] if cutoff > 0 else raw[:500]) + " …"
+            else:
+                content = raw
+            user_msg += f"{role}: {content}\n"
+        user_msg += "\n"
 
+    # 2. Vault-first context injection.
+    #    Structured prose with ₹ amounts already formatted is dramatically
+    #    easier for gemma4:e2b than nested JSON. Fall back to raw numbers
+    #    if the vault isn't populated yet.
+    vault_context = read_vault_context(user_id) if user_id else ""
+
+    if vault_context:
+        user_msg += "=== MY FINANCIAL PROFILE (from personal vault) ===\n"
+        user_msg += vault_context + "\n\n"
+    else:
+        # Fallback: build raw numbers block from summary dict
+        category_totals = _aggregate_spending_by_category(summary.get("recent_transactions", []))
+        income = summary.get("monthly_income", 0) or 0
+        expenses = summary.get("monthly_expenses", 0) or 0
+        balance = summary.get("account_balance", 0) or 0
+        surplus = summary.get("monthly_surplus", 0) or 0
+        tx_count = len(summary.get("recent_transactions", []))
+
+        user_msg += "=== MY FINANCIAL NUMBERS (authoritative — quote these exactly) ===\n"
+        user_msg += f"- Total Income: ₹{income:,.2f}\n"
+        user_msg += f"- Total Expenses: ₹{expenses:,.2f}\n"
+        user_msg += f"- Account Balance: ₹{balance:,.2f}\n"
+        user_msg += f"- Monthly Surplus: ₹{surplus:,.2f}\n"
+        user_msg += f"- Transactions on file: {tx_count}\n"
+        if category_totals:
+            user_msg += "- Spending by category:\n"
+            for cat, amt in category_totals:
+                user_msg += f"    • {cat}: ₹{amt:,.2f}\n"
+        user_msg += "\n"
+
+    # 2b. Recent Transactions (individual line items).
+    #     SURGICAL FIX: The AI was blind to specific payments because we only 
+    #     injected aggregates. Now injecting the top 15 most recent transactions
+    #     so TORA can answer "find my payment" or "what did I buy at X" queries.
+    recent_txs = summary.get("recent_transactions", [])
+    if recent_txs:
+        user_msg += "=== RECENT TRANSACTIONS (individual line items) ===\n"
+        # Sort by date if available, or just take first 15 (which are usually newest)
+        for tx in recent_txs[:15]:
+            title = tx.get("title", "Untitled")
+            amt = tx.get("amount", 0)
+            tx_type = tx.get("type", "expense")
+            date = tx.get("date", "")
+            sign = "+" if tx_type == "income" else "-"
+            date_str = f" [{date}]" if date else ""
+            user_msg += f"- {title}: {sign}₹{amt:,.2f}{date_str}\n"
+        user_msg += "\n"
+
+    # 2c. 6-month trend block (compact — MoM deltas and anomalies only).
+    trend_block = _summarize_trends(summary.get("monthly_trends", []) or [])
+    if trend_block:
+        user_msg += "=== 6-MONTH TRENDS (for detecting shifts; only cite numbers that appear above) ===\n"
+        user_msg += trend_block + "\n\n"
+
+    # 3. Extras + simulations.
     extras: Dict[str, Any] = {}
     for key in ("plans", "loans", "credit_cards", "goals"):
         val = summary.get(key)
@@ -252,22 +344,110 @@ def build_ai_context(
         user_msg += "SIMULATIONS:\n"
         user_msg += json.dumps(simulations, indent=2, default=str) + "\n\n"
 
-    if conversation_history:
-        user_msg += "RECENT CONVERSATION:\n"
-        for msg in conversation_history[-5:]:
-            role = msg.get("role", "user").upper()
-            content = str(msg.get("content", ""))[:500]
-            user_msg += f"{role}: {content}\n"
-        user_msg += "\n"
+    # 4. Market/category enrichment from the universal intelligence engine.
+    #    Only present for track 2 queries where a plugin matched; track 1
+    #    profile-only questions skip this block entirely.
+    if market_block:
+        user_msg += "=== MARKET & CATEGORY CONTEXT (use these grounded facts for decisions) ===\n"
+        user_msg += market_block + "\n\n"
 
+    # 5. Question + compact reasoning checklist last (recency-biased steering).
     user_msg += f"QUESTION: {question}\n\n"
     user_msg += (
-        "Answer using ONLY the numbers above. Do not invent any figure that is "
-        "not listed. Return a JSON object matching the schema from the system "
-        "instructions."
+        "Before you reply, think step-by-step in the 'reasoning' field of the JSON.\n"
+        "1. Every ₹ figure and % you quote MUST appear verbatim in a block above. "
+        "If it isn't there, DELETE the sentence — don't guess a number.\n"
+        "2. If the user asked a decision question (\"should I\", \"can I afford\", "
+        "\"is now a good time\"), your answer must be a clear decision or "
+        "recommendation, not a data dump. Use the Rules in the MARKET block.\n"
+        "3. Default to simple mode. Only use structured mode when asked to summarize, "
+        "analyze, plan, or review.\n"
+        "Return a single valid JSON object matching the schema."
     )
 
     return system, user_msg
+
+
+def _summarize_trends(trends: List[Dict[str, Any]]) -> str:
+    """Render 6-month trends as a compact text block for the prompt.
+
+    Design choice: raw `FinancialInsight` JSON is too verbose to send to a
+    small model. We surface only:
+      - month-over-month income / expense / savings deltas
+      - top 3 categories by latest-month expense
+      - categories that shifted ≥30% MoM (the anomaly trigger)
+
+    Returns "" when there's no trend data — the caller should skip the
+    section entirely so we don't waste tokens on empty headers.
+    """
+    if not trends or len(trends) < 2:
+        return ""
+
+    latest = trends[-1]
+    prior = trends[-2]
+
+    def _pct_delta(now: float, then: float) -> str:
+        if then == 0:
+            return "n/a" if now == 0 else "new"
+        return f"{((now - then) / then) * 100:+.0f}%"
+
+    lines = [f"Trend window: {trends[0]['period']} → {latest['period']} ({len(trends)} months)"]
+    lines.append(
+        f"Latest month ({latest['period']}): income ₹{latest['total_income']:,.0f}, "
+        f"expense ₹{latest['total_expense']:,.0f}, net ₹{latest['net_savings']:,.0f}"
+    )
+    lines.append(
+        f"  vs prior month: income {_pct_delta(latest['total_income'], prior['total_income'])}, "
+        f"expense {_pct_delta(latest['total_expense'], prior['total_expense'])}, "
+        f"net {_pct_delta(latest['net_savings'], prior['net_savings'])}"
+    )
+
+    latest_cats = latest.get("by_category") or {}
+    prior_cats = prior.get("by_category") or {}
+    top_cats = sorted(latest_cats.items(), key=lambda kv: float(kv[1] or 0), reverse=True)[:3]
+    if top_cats:
+        lines.append("Top categories this month:")
+        for cat, amt in top_cats:
+            lines.append(f"    • {cat}: ₹{float(amt or 0):,.0f}")
+
+    anomalies = []
+    for cat, now_amt in latest_cats.items():
+        now_f = float(now_amt or 0)
+        then_f = float(prior_cats.get(cat, 0) or 0)
+        if then_f <= 0:
+            continue
+        delta = (now_f - then_f) / then_f
+        if abs(delta) >= 0.30 and now_f >= 500:  # Ignore trivial absolute amounts
+            anomalies.append((cat, delta, now_f, then_f))
+    if anomalies:
+        anomalies.sort(key=lambda t: abs(t[1]), reverse=True)
+        lines.append("MoM shifts ≥30%:")
+        for cat, delta, now_f, then_f in anomalies[:4]:
+            lines.append(
+                f"    • {cat}: ₹{then_f:,.0f} → ₹{now_f:,.0f} ({delta*100:+.0f}%)"
+            )
+
+    return "\n".join(lines)
+
+
+def _months_to_payoff(principal: float, payment: float, monthly_rate: float) -> float:
+    """Months to fully repay `principal` at fixed `payment` and `monthly_rate`.
+
+    Uses the standard amortization inversion:
+        n = -log(1 - r*P/M) / log(1 + r)
+    Falls back to simple division when the rate is effectively zero, and
+    returns infinity when the payment can't cover the monthly interest
+    (loan would never be paid off at that payment level).
+    """
+    import math
+    if principal <= 0 or payment <= 0:
+        return 0.0
+    if monthly_rate <= 0:
+        return principal / payment
+    interest_only = principal * monthly_rate
+    if payment <= interest_only:
+        return float("inf")
+    return -math.log(1 - (monthly_rate * principal / payment)) / math.log(1 + monthly_rate)
 
 
 def _aggregate_spending_by_category(transactions: List[Dict[str, Any]]) -> List[tuple]:
@@ -336,21 +516,86 @@ def _humanize_offschema_json(data: Any, depth: int = 0) -> str:
     return str(data)
 
 
+# Matches "USD 1,234", "USD1234", "1,234 USD", "1,234 dollars", "500 dollar" etc.
+# Capture group isolates the number so we can reconstruct it with a ₹ prefix.
+_USD_NUM_PREFIX_RE = re.compile(r"\bUSD\s*([\d,]+(?:\.\d+)?)", re.IGNORECASE)
+_USD_NUM_SUFFIX_RE = re.compile(r"([\d,]+(?:\.\d+)?)\s*(?:USD|dollars?)\b", re.IGNORECASE)
 _USD_WORD_RE = re.compile(r"\b(?:USD|dollars?)\b", re.IGNORECASE)
 
 
 def _rupee_ize(value: Any) -> Any:
-    """Recursively replace $ / USD / 'dollars' with ₹ in any string value."""
+    """Recursively replace $ / USD / 'dollars' with the ₹ symbol in strings.
+
+    Order matters: resolve number-bearing phrases first so the number itself
+    gets the ₹ prefix, then strip any bare USD/dollar words that remain.
+    """
     if isinstance(value, str):
-        # $1,234 or $ 1234.5 -> ₹1,234 / ₹ 1234.5
+        # "$1,234" / "$ 1234.5" -> "₹1,234" / "₹1234.5"
         replaced = re.sub(r"\$\s?", "₹", value)
-        replaced = _USD_WORD_RE.sub("rupees", replaced)
+        # "USD 500" / "USD500" -> "₹500"
+        replaced = _USD_NUM_PREFIX_RE.sub(r"₹\1", replaced)
+        # "500 USD" / "500 dollars" -> "₹500"
+        replaced = _USD_NUM_SUFFIX_RE.sub(r"₹\1", replaced)
+        # Any remaining bare "USD" / "dollars" with no adjacent number
+        replaced = _USD_WORD_RE.sub("₹", replaced)
         return replaced
     if isinstance(value, dict):
         return {k: _rupee_ize(v) for k, v in value.items()}
     if isinstance(value, list):
         return [_rupee_ize(v) for v in value]
     return value
+
+
+_SEBI_KEYWORDS_RE = re.compile(
+    r"\b(?:invest(?:ment|ing|or)?|SIP|NPS|mutual\s+fund|equity|stock|share|portfolio|MF|ETF|index\s+fund|ELSS|bond|debenture|securities)\b",
+    re.IGNORECASE,
+)
+
+_SEBI_DISCLAIMER = (
+    "\n\n---\n*Disclaimer: This is general information, not investment advice. "
+    "Consult a SEBI-registered advisor before making investment decisions.*"
+)
+
+
+def _sebi_disclaim(output: Any) -> Any:
+    """Append a brief SEBI disclaimer if the response mentions investments.
+
+    Operates on the final_output dict. Only touches string `content` values
+    and the four structured-mode section values — never adds a disclaimer
+    to error messages or tool-call metadata.
+    """
+    if not isinstance(output, dict):
+        return output
+
+    # Collect all text values we should scan
+    texts_to_scan: list[str] = []
+    if output.get("mode") == "simple":
+        texts_to_scan.append(str(output.get("content", "")))
+    else:
+        for key in ("Financial Overview", "Recommended Strategy", "Expected Outcome"):
+            val = output.get(key)
+            if isinstance(val, str):
+                texts_to_scan.append(val)
+
+    combined = " ".join(texts_to_scan)
+    if not _SEBI_KEYWORDS_RE.search(combined):
+        return output
+
+    # Append disclaimer to the last visible text field
+    if output.get("mode") == "simple":
+        content = str(output.get("content", ""))
+        if _SEBI_DISCLAIMER.strip() not in content:
+            output["content"] = content + _SEBI_DISCLAIMER
+    else:
+        # Structured mode: append to the last non-empty section
+        for key in reversed(("Expected Outcome", "Recommended Strategy", "Current Position", "Financial Overview")):
+            val = output.get(key)
+            if isinstance(val, str) and val.strip() and val != "N/A":
+                if _SEBI_DISCLAIMER.strip() not in val:
+                    output[key] = val + _SEBI_DISCLAIMER
+                break
+
+    return output
 
 
 async def generate_financial_strategy(user_id: int, question: str, model: str = "tora", user_tier: str = "free") -> Dict[str, Any]:
@@ -380,15 +625,47 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
     except Exception as e:
         logger.warning(f"Could not load conversation history: {e}")
         conversation_history = []
-    
-    # 5. Contextualize (tier-aware with memory injection)
+
+    # 4b. Universal Intelligence Engine — resolve entities, fetch plugin data.
+    #     Track 1 queries ("how much did I spend on food") return no matches
+    #     and `market_block` stays empty; track 2 queries ("can I afford a
+    #     car") get ~200-500 tokens of grounded enrichment.
+    market_block = ""
+    try:
+        user_surplus = float(clean_summary.get("monthly_surplus", 0) or 0)
+        fetch_results = await resolve_and_fetch(question, user_surplus=user_surplus)
+        if fetch_results:
+            market_block = build_market_context_block(fetch_results)
+            logger.info(
+                "Universal Intelligence Engine resolved %s",
+                summarize_fetch_outcome(fetch_results),
+            )
+    except Exception as e:
+        logger.warning(f"Universal engine failed, continuing without enrichment: {e}")
+        market_block = ""
+
+    # 5. Contextualize (tier-aware with memory injection + market enrichment)
     system_prompt, user_message = build_ai_context(
-        clean_summary, simulations, question, user_tier, conversation_history
+        clean_summary, simulations, question, user_tier, conversation_history,
+        user_id=user_id,
+        market_block=market_block,
     )
 
     # 6. Execute
+    # Thinking mode is ON when the query is a track 2 decision (plugin matched)
+    # or the message shows comparison/hypothetical/planning language.
+    thinking_enabled = should_enable_thinking(
+        question, has_plugin_match=bool(market_block)
+    )
+    logger.info(
+        "Thinking mode %s for this query",
+        "ENABLED" if thinking_enabled else "disabled",
+    )
     try:
-        raw_response = call_llm(model, user_message, clean_summary, system_prompt=system_prompt)
+        raw_response = call_llm(
+            model, user_message, clean_summary,
+            system_prompt=system_prompt, thinking=thinking_enabled,
+        )
         
         # Clean and parse the structured JSON response
         try:
@@ -447,13 +724,14 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
 
             elif isinstance(answer_content, dict) and (
                 answer_content.get("mode") == "simple" or
-                (isinstance(answer_content.get("content"), str) and
-                 not any(k in answer_content for k in structured_keys))
+                (isinstance(answer_content.get("content"), str) or isinstance(answer_content.get("text"), str)) and
+                 not any(k in answer_content for k in structured_keys)
             ):
                 # (b) Explicit simple mode
+                content_str = answer_content.get("content") or answer_content.get("text") or ""
                 final_output = {
                     "mode": "simple",
-                    "content": str(answer_content.get("content", "")).strip(),
+                    "content": str(content_str).strip(),
                 }
 
             elif isinstance(answer_content, dict):
@@ -479,25 +757,43 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
             # Normalize currency: convert any $ / USD / dollars into ₹
             final_output = _rupee_ize(final_output)
 
+            # Audit every ₹/% figure in the response against the FULL
+            # injected context (vault + simulations + market block).
+            # Unverified numbers get hedged with "roughly"/"approximately"
+            # rather than stripped — hedging preserves the sentence
+            # structure while flagging uncertainty. Auditor only runs when
+            # enrichment was injected (i.e. track 2 queries); track 1
+            # vault-only answers rely on vault content which the auditor
+            # would over-flag due to prose formatting differences.
+            if market_block:
+                final_output, audit_warnings = audit_structured_output(
+                    final_output, user_message
+                )
+                if audit_warnings:
+                    logger.info(
+                        "Number auditor hedged %d figure(s): %s",
+                        len(audit_warnings),
+                        audit_warnings[:5],
+                    )
+
+            # Append SEBI disclaimer if the reply mentions investment products
+            final_output = _sebi_disclaim(final_output)
+
             return final_output
             
         except json.JSONDecodeError:
             logger.error(f"AI response was not valid JSON: {raw_response}")
             return {
-                "Financial Overview": "I encountered an error while processing your request. Could you please try again?",
-                "Current Position": "N/A",
-                "Recommended Strategy": "N/A",
-                "Expected Outcome": "N/A",
+                "mode": "simple",
+                "content": "I had trouble formatting that answer — could you rephrase or try again in a moment?",
                 "error": "AI returned malformed structured data."
             }
-            
+
     except Exception as e:
         logger.error(f"TORA execution failed: {e}")
         return {
-            "Financial Overview": f"I'm sorry, I encountered a technical difficulty: {str(e)}",
-            "Current Position": "N/A",
-            "Recommended Strategy": "N/A",
-            "Expected Outcome": "N/A"
+            "mode": "simple",
+            "content": "I hit a technical snag on my side. Give it another try in a moment — if it keeps happening, let me know what you were asking and I'll work around it."
         }
 
 
@@ -643,6 +939,18 @@ async def handle_user_question(user_id: int, question: str, model: str = "tora",
         _save_conversation(user_id, "assistant", _summary_text(response), response)
         return response
 
+    # Deterministic ambiguity pre-filter — catches obvious "I want to save more"
+    # style asks before we spend tokens on the LLM. Only fires on first-turn
+    # or non-follow-up messages so we don't short-circuit a legitimate thread.
+    if intent == "finance_query" and not is_short_followup:
+        canned = detect_ambiguous_goal(question)
+        if canned is not None:
+            logger.info(f"Ambiguous goal detected — returning clarifier: {question!r}")
+            response = json.loads(get_ambiguous_goal_response(question))
+            _save_conversation(user_id, "user", question)
+            _save_conversation(user_id, "assistant", _summary_text(response), response)
+            return response
+
     # Otherwise: the user is mid-conversation or asked a finance question —
     # fall through to the full LLM path with context + history injected.
 
@@ -655,6 +963,23 @@ async def handle_user_question(user_id: int, question: str, model: str = "tora",
         # Persist the assistant response
         save_content = strategy_json.get("Financial Overview") or strategy_json.get("content") or ""
         _save_conversation(user_id, "assistant", save_content, strategy_json)
+
+        # Sync vault (fire-and-forget — never blocks the response)
+        try:
+            raw_summary = await fetch_financial_summary(user_id)
+            if raw_summary:
+                clean = sanitize_financial_data(raw_summary, user_tier)
+                await sync_vault_after_session(
+                    user_id=user_id,
+                    clean_summary=clean,
+                    question=question,
+                    answer=strategy_json,
+                    intent=intent,
+                    user_tier=user_tier,
+                )
+        except Exception as ve:
+            logger.warning(f"Vault sync skipped: {ve}")
+
         return strategy_json
     except Exception as e:
         logger.error(f"TORA execution failed: {str(e)}")

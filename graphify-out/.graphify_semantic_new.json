@@ -1,0 +1,170 @@
+{
+  "nodes": [
+    {
+      "id": "spendsy_platform",
+      "label": "Spendsy Platform",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": 1
+    },
+    {
+      "id": "spendsy_tora",
+      "label": "TORA Intelligence Engine",
+      "file_type": "document",
+      "source_file": "PROJECT_LOG.md",
+      "source_location": 21
+    },
+    {
+      "id": "spendsy_auth_service",
+      "label": "Auth Service",
+      "file_type": "code",
+      "source_file": "backend/auth-service/app/main.py"
+    },
+    {
+      "id": "spendsy_finance_service",
+      "label": "Finance Service",
+      "file_type": "code",
+      "source_file": "backend/finance-service/app/main.py"
+    },
+    {
+      "id": "spendsy_ai_service",
+      "label": "AI Service",
+      "file_type": "code",
+      "source_file": "backend/ai-service/app/main.py"
+    },
+    {
+      "id": "spendsy_frontend",
+      "label": "Frontend App",
+      "file_type": "code",
+      "source_file": "frontend/src/App.jsx"
+    },
+    {
+      "id": "tora_plugin_registry",
+      "label": "TORA Plugin Registry",
+      "file_type": "code",
+      "source_file": "backend/spendsy-ai/agents/tora/fetch_registry.py"
+    },
+    {
+      "id": "tora_obsidian_vault",
+      "label": "TORA Obsidian Vault",
+      "file_type": "code",
+      "source_file": "backend/spendsy-ai/vault/vault_writer.py"
+    },
+    {
+      "id": "tora_thinking_gate",
+      "label": "Thinking Mode Gating",
+      "file_type": "code",
+      "source_file": "backend/spendsy-ai/agents/tora/thinking_gate.py"
+    },
+    {
+      "id": "finance_deterministic_parser",
+      "label": "Deterministic PDF Parser",
+      "file_type": "code",
+      "source_file": "backend/finance-service/app/services/parser/digital_deterministic_parser.py"
+    },
+    {
+      "id": "finance_transfer_reconciler",
+      "label": "Transfer Reconciler",
+      "file_type": "code",
+      "source_file": "backend/finance-service/app/services/transfer_reconciler.py"
+    },
+    {
+      "id": "gemma4_model",
+      "label": "Gemma 4 MoE",
+      "file_type": "document",
+      "source_file": "PROJECT_LOG.md",
+      "source_location": 102
+    }
+  ],
+  "edges": [
+    {
+      "source": "spendsy_platform",
+      "target": "spendsy_auth_service",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_platform",
+      "target": "spendsy_finance_service",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_platform",
+      "target": "spendsy_ai_service",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_ai_service",
+      "target": "spendsy_tora",
+      "relation": "integrates",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_tora",
+      "target": "tora_plugin_registry",
+      "relation": "uses",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_tora",
+      "target": "tora_obsidian_vault",
+      "relation": "persists_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_tora",
+      "target": "tora_thinking_gate",
+      "relation": "uses_for_gating",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_finance_service",
+      "target": "finance_deterministic_parser",
+      "relation": "uses",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_finance_service",
+      "target": "finance_transfer_reconciler",
+      "relation": "uses",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_tora",
+      "target": "gemma4_model",
+      "relation": "powered_by",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "spendsy_frontend",
+      "target": "spendsy_platform",
+      "relation": "interacts_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "microservices_core",
+      "label": "Core Microservices Architecture",
+      "nodes": ["spendsy_auth_service", "spendsy_finance_service", "spendsy_ai_service"],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9
+    }
+  ],
+  "input_tokens": 1500,
+  "output_tokens": 500
+}

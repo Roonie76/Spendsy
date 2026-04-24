@@ -1,0 +1,56 @@
+updated_at: "2026-04-24"
+source: "IBJA daily rate + MCX spot + typical jeweller making charges"
+notes: |
+  Spot prices are per 10g 22K and 24K; per kg for silver. Making charges
+  vary widely by jeweller tier — branded jewellers (Tanishq etc.) are at
+  the top of the range.
+
+facts:
+  spot_price_inr:
+    gold_per_10g_22k: 70800
+    gold_per_10g_24k: 77200
+    silver_per_kg: 94500
+    diamond_per_carat_gia_vs: {min: 95000, max: 450000}
+    platinum_per_10g: 31500
+  making_charges_pct_range:
+    unbranded: {min: 5, max: 12}
+    branded_midrange: {min: 8, max: 18}
+    branded_premium: {min: 15, max: 28}
+  hallmark_required: true
+  gst_pct:
+    jewellery: 3
+    making_charges: 5
+  wastage_pct_range: [0, 8]
+  bis_hallmark_note: "Mandatory since 2023. Never buy unhallmarked gold jewellery."
+  sovereign_gold_bond_features:
+    annual_interest_pct: 2.5
+    tenure_years: 8
+    exit_after_years: 5
+    capital_gain_tax_on_maturity: 0
+    making_charges_pct: 0
+    gst_pct: 0
+    tranches_per_year: 4
+    min_investment_g: 1
+    max_investment_g_per_fy: 4000
+  gold_etf_features:
+    expense_ratio_pct_range: [0.5, 1.0]
+    making_charges_pct: 0
+    gst_pct: 0
+    ltcg_tax_pct_after_3y: 20
+    demat_required: true
+  digital_gold_features:
+    min_investment_inr: 10
+    storage_fee_pct_pa: 0.5
+    gst_pct: 3
+    sell_back_spread_pct: 3
+  historical_trends:
+    gold_5y_return_cagr_pct: 11.5
+    silver_5y_return_cagr_pct: 14.2
+
+options: []
+
+constraints:
+  - "For pure investment intent, always prefer SGB > Gold ETF > Digital Gold > Physical gold — lower cost, better tax."
+  - "Making charges on jewellery are non-recoverable on resale — treat them as a cost, not an investment."
+  - "Silver has higher volatility than gold — suitable only for <10% of portfolio."
+  - "Never recommend gold as >15-20% of portfolio — it's a hedge, not a primary growth asset."

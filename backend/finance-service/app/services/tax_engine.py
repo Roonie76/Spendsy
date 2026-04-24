@@ -22,9 +22,14 @@ from decimal import Decimal
 from typing import Any
 
 
-# ─── Tax Constants (FY 2025-26) ────────────────────────────────────────────────
+# ─── Tax Constants ─────────────────────────────────────────────────────────────
+#
+# Each `*_BY_YEAR` dict is keyed by the assessment year tag ("FY25-26", "FY24-25").
+# Existing call sites that don't pass a year default to FY25-26 (current).
 
-NEW_REGIME_SLABS = [
+# FY 2025-26 (Union Budget 2025) — new regime slabs bumped to ₹4L/₹8L/…/₹24L,
+# rebate extended to ₹12L taxable (₹60k max rebate between ₹12L and ₹12.6L).
+NEW_REGIME_SLABS_FY25_26 = [
     (400_000, 0.00),
     (800_000, 0.05),
     (1_200_000, 0.10),
@@ -34,6 +39,18 @@ NEW_REGIME_SLABS = [
     (float("inf"), 0.30),
 ]
 
+# FY 2024-25 (Union Budget 2024 revision) — new regime slabs still ₹3L/₹7L/…/₹15L.
+# Rebate u/s 87A ≤ ₹7L taxable (₹25k max) under the new regime.
+NEW_REGIME_SLABS_FY24_25 = [
+    (300_000, 0.00),
+    (700_000, 0.05),
+    (1_000_000, 0.10),
+    (1_200_000, 0.15),
+    (1_500_000, 0.20),
+    (float("inf"), 0.30),
+]
+
+# Old regime slabs are unchanged across FY24-25 and FY25-26.
 OLD_REGIME_SLABS = [
     (250_000, 0.00),
     (500_000, 0.05),
@@ -53,6 +70,36 @@ OLD_REGIME_SLABS_SUPER_SENIOR = [
     (1_000_000, 0.20),
     (float("inf"), 0.30),
 ]
+
+# Back-compat alias — existing call sites that referenced NEW_REGIME_SLABS
+# keep working and implicitly use the current year (FY25-26).
+NEW_REGIME_SLABS = NEW_REGIME_SLABS_FY25_26
+
+# Year-indexed lookup. Add new FYs here as budgets are announced.
+NEW_REGIME_SLABS_BY_YEAR: dict[str, list[tuple[float, float]]] = {
+    "FY25-26": NEW_REGIME_SLABS_FY25_26,
+    "FY24-25": NEW_REGIME_SLABS_FY24_25,
+}
+
+NEW_REGIME_REBATE_BY_YEAR: dict[str, tuple[float, float]] = {
+    # (rebate_limit_taxable_income, rebate_max_amount)
+    "FY25-26": (1_200_000, 60_000),
+    "FY24-25": (700_000, 25_000),
+}
+
+# Old-regime standard deduction history (salary only).
+OLD_REGIME_STD_DED_BY_YEAR: dict[str, float] = {
+    "FY25-26": 50_000,
+    "FY24-25": 50_000,
+}
+
+# New-regime standard deduction — was ₹50k for FY24-25, raised to ₹75k in FY25-26.
+NEW_REGIME_STD_DED_BY_YEAR: dict[str, float] = {
+    "FY25-26": 75_000,
+    "FY24-25": 75_000,  # ₹75k introduced in Budget 2024 mid-year, applies to AY26
+}
+
+CURRENT_FY = "FY25-26"
 
 SURCHARGE_BRACKETS = [
     (5_000_000, 0.10),
@@ -142,6 +189,10 @@ class TaxInput:
     # Filing
     advance_tax_paid: float = 0
     tds_deducted: float = 0
+
+    # Financial year tag. Controls which slab table + 87A thresholds are used.
+    # Defaults to the current FY; older filings can set "FY24-25" etc.
+    fy: str = CURRENT_FY
 
 
 @dataclass
@@ -322,8 +373,12 @@ def compute_tax(tax_input: TaxInput, regime: str = "new") -> TaxBreakdown:
     # 4. Gross total income (excl capital gains — taxed separately)
     gti = gross_salary + hp_income + business + tax_input.other_income + tax_input.interest_income
 
-    # 5. Standard deduction
-    std_ded = 75_000 if regime == "new" else 50_000
+    # 5. Standard deduction (year- and regime-aware)
+    fy = tax_input.fy if tax_input.fy in NEW_REGIME_SLABS_BY_YEAR else CURRENT_FY
+    if regime == "new":
+        std_ded = NEW_REGIME_STD_DED_BY_YEAR[fy]
+    else:
+        std_ded = OLD_REGIME_STD_DED_BY_YEAR[fy]
     if gross_salary <= 0:
         std_ded = 0
 
@@ -361,10 +416,9 @@ def compute_tax(tax_input: TaxInput, regime: str = "new") -> TaxBreakdown:
 
     # 8. Pick slabs
     if regime == "new":
-        slabs = NEW_REGIME_SLABS
+        slabs = NEW_REGIME_SLABS_BY_YEAR[fy]
         max_surcharge_rate = 0.25
-        rebate_limit = 1_200_000
-        rebate_max = 60_000
+        rebate_limit, rebate_max = NEW_REGIME_REBATE_BY_YEAR[fy]
     else:
         age_cat = "super_senior" if tax_input.age >= 80 else ("senior" if tax_input.age >= 60 else "general")
         if age_cat == "super_senior":
@@ -620,6 +674,7 @@ def build_tax_input_from_itr_data(
     income_data: dict | None,
     deductions_data: dict | None,
     filing_details: dict | None,
+    fy: str = CURRENT_FY,
 ) -> TaxInput:
     """
     Construct a TaxInput from the JSONB dictionaries stored in the ITRData model.
@@ -662,4 +717,5 @@ def build_tax_input_from_itr_data(
         hra=f(ded.get("hra")),
         advance_tax_paid=f(fil.get("advanceTaxPaid")),
         tds_deducted=f(fil.get("tdsDeducted")),
+        fy=fy if fy in NEW_REGIME_SLABS_BY_YEAR else CURRENT_FY,
     )

@@ -9,8 +9,8 @@ import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile, status
-from sqlalchemy import func, text
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
+from sqlalchemy import extract, func, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,11 @@ from app.schemas import (
     NetWorthSnapshotPayload,
 )
 from app.services.parser.digital_deterministic_parser import parse_transactions
+from app.services.transfer_reconciler import (
+    detect_transfer_pairs,
+    unlink_peer_on_delete,
+    unlink_transfer_group,
+)
 from app.utils.files import sanitize_filename, validate_file_security
 from app.utils.response import error_response, success_response
 from app.utils.error_codes import ErrorCode
@@ -217,27 +222,62 @@ def _infer_category(description: str, tx_type: str) -> str:
 
 
 def _build_financial_summary(db: Session, user_id: int) -> dict:
+    # All aggregations exclude transfers so inter-account moves (e.g. a
+    # credit-card bill payment from a debit account) don't double-count.
+    not_transfer = Transaction.is_transfer.is_(False)
+
+    # Lifetime Totals
     income = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
-        Transaction.user_id == user_id, Transaction.type == "income"
+        Transaction.user_id == user_id, Transaction.type == "income", not_transfer
     ).scalar()
     expense = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
-        Transaction.user_id == user_id, Transaction.type == "expense"
+        Transaction.user_id == user_id, Transaction.type == "expense", not_transfer
     ).scalar()
     count = db.query(func.count(Transaction.id)).filter(Transaction.user_id == user_id).scalar()
 
+    # Current Month Totals
+    now = date.today()
+    month_income = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user_id,
+        Transaction.type == "income",
+        not_transfer,
+        extract('month', Transaction.date) == now.month,
+        extract('year', Transaction.date) == now.year
+    ).scalar()
+
+    month_expense = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user_id,
+        Transaction.type == "expense",
+        not_transfer,
+        extract('month', Transaction.date) == now.month,
+        extract('year', Transaction.date) == now.year
+    ).scalar()
+
     income_val = Decimal(str(income or 0))
     expense_val = Decimal(str(expense or 0))
+    m_income_val = Decimal(str(month_income or 0))
+    m_expense_val = Decimal(str(month_expense or 0))
 
     return {
         "income": str(income_val.quantize(Decimal("0.01"))),
         "expense": str(expense_val.quantize(Decimal("0.01"))),
+        "month_income": str(m_income_val.quantize(Decimal("0.01"))),
+        "month_expense": str(m_expense_val.quantize(Decimal("0.01"))),
         "balance": str((income_val - expense_val).quantize(Decimal("0.01"))),
         "transaction_count": int(count or 0),
     }
 
 
-def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions: list[dict]) -> int:
+def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions: list[dict]) -> tuple[int, int, list[dict]]:
+    """Persist parsed transactions. Returns (saved_count, skipped_no_date_count, skipped_items).
+
+    Rows whose date cannot be parsed are skipped — do not silently stamp
+    today's date, which masks parser misses and corrupts history views.
+    Instead, they are returned for manual user review.
+    """
     saved = 0
+    skipped_no_date = 0
+    skipped_items = []
     seen_in_batch: set[str] = set()
     imported_statement_hashes = {
         row_hash
@@ -265,7 +305,13 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
         title = normalize_title(raw_title)[:255] or "parsed transaction"
         tx_type = _safe_type(item.get("type"))
         tx_category = _safe_category(item.get("category"))
-        tx_date = _safe_date(item.get("date")) or date.today()
+        tx_date = _safe_date(item.get("date"))
+        if tx_date is None:
+            # Parser could not determine a real statement date for this row;
+            # skip from auto-persist but return for manual review.
+            skipped_no_date += 1
+            skipped_items.append(item)
+            continue
         fingerprint = _compute_transaction_fingerprint(user_id, tx_date, amount, tx_type, raw_title)
         tx_balance = item.get("balance")
         tx_source = _safe_source(item.get("source"))
@@ -332,6 +378,7 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
             category=tx_category,
             is_recurring=False,
             date=tx_date,
+            date_inferred=bool(item.get("date_inferred", False)),
             balance=balance_value,
             source=tx_source,
             statement_hash=statement_hash,
@@ -358,7 +405,7 @@ def _persist_parsed_transactions(db: Session, user_id: int, parsed_transactions:
     except Exception:
         db.rollback()
         raise
-    return saved
+    return saved, skipped_no_date, skipped_items
 
 
 def _enforce_ownership(user: UserContext, path_uid: str) -> None:
@@ -519,6 +566,18 @@ def add_transaction(
         db.rollback()
         raise
     db.refresh(tx)
+
+    # Manual add may complete a transfer pair (e.g. user adds the debit-side
+    # "CC Payment" row after the CC statement was already uploaded).
+    transfer_result = detect_transfer_pairs(db, user.id)
+    if transfer_result.pairs_linked:
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            logger.exception("transfer_reconcile_commit_failed user_id=%s", user.id)
+
+    clear_user_financial_cache(user.id)
     logger.info(f"add_transaction created transaction id={tx.id} with amount={tx.amount} (type: {type(tx.amount).__name__})")
     _audit(
         db,
@@ -584,6 +643,9 @@ def get_transaction_history(
                 "type": t.type,
                 "category": t.category,
                 "date": t.date.isoformat(),
+                "date_inferred": bool(getattr(t, "date_inferred", False)),
+                "is_transfer": bool(getattr(t, "is_transfer", False)),
+                "transfer_group_id": getattr(t, "transfer_group_id", None),
                 "balance": str(t.balance) if t.balance is not None else None,
                 "source": t.source,
                 "fingerprint": t.fingerprint,
@@ -640,12 +702,36 @@ def bulk_delete_transactions(
         return success_response(request, {"deleted_count": 0}, message="No transactions to delete")
 
     try:
-        # Perform bulk delete within a single transaction, filtering by integer ID
+        # Collect transfer groups we're about to break so we can unlink the
+        # surviving peer rows (otherwise they'd linger as is_transfer=True
+        # with a dangling group_id and stay out of aggregations).
+        doomed = (
+            db.query(Transaction.id, Transaction.transfer_group_id)
+            .filter(Transaction.user_id == user.id, Transaction.id.in_(payload.ids))
+            .all()
+        )
+        doomed_ids = {row.id for row in doomed}
+        broken_groups = {row.transfer_group_id for row in doomed if row.transfer_group_id}
+
         deleted_count = db.query(Transaction).filter(
             Transaction.user_id == user.id,
             Transaction.id.in_(payload.ids)
         ).delete(synchronize_session=False)
-        
+
+        if broken_groups:
+            survivors = (
+                db.query(Transaction)
+                .filter(
+                    Transaction.user_id == user.id,
+                    Transaction.transfer_group_id.in_(broken_groups),
+                    ~Transaction.id.in_(doomed_ids),
+                )
+                .all()
+            )
+            for s in survivors:
+                s.transfer_group_id = None
+                s.is_transfer = False
+
         db.commit()
         # Invalidate cache after bulk deletion
         clear_user_financial_cache(user.id)
@@ -680,7 +766,13 @@ def delete_transaction(
     if txn is None:
         return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=404)
 
+    group_id = txn.transfer_group_id
+    deleted_id = txn.id
     db.delete(txn)
+    if group_id:
+        # The surviving peer is no longer a valid transfer — restore it to
+        # a normal transaction so aggregations pick it back up.
+        unlink_peer_on_delete(db, user.id, group_id, deleted_id)
     try:
         db.commit()
         clear_user_financial_cache(user.id)
@@ -749,6 +841,96 @@ def update_transaction(
     _audit(db, request, action="transaction_updated", resource_type="transaction", resource_id=uid, status_code=200, user=user)
     clear_user_financial_cache(user.id)
     return success_response(request, {"id": txn.id, "title": _display_title(txn)}, message="Updated successfully")
+
+
+class TransferFlagPayload(BaseModel):
+    is_transfer: bool
+
+
+@router.patch("/transactions/{uid}/transfer-flag")
+def set_transfer_flag(
+    request: Request,
+    uid: str,
+    payload: TransferFlagPayload,
+    user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Manually flag or unflag a transaction as an inter-account transfer.
+
+    Use cases:
+      - User marks a row as a transfer when the auto-detector missed it
+        (e.g. description didn't contain the expected keywords).
+      - User un-marks a row the auto-detector wrongly classified — this
+        also unlinks the paired row if one exists, restoring both to
+        normal aggregation.
+    """
+    txn = db.query(Transaction).filter(Transaction.uid == uid, Transaction.user_id == user.id).first()
+    if txn is None and uid.isdigit():
+        txn = db.query(Transaction).filter(Transaction.id == int(uid), Transaction.user_id == user.id).first()
+    if txn is None:
+        return error_response(request, "Transaction not found", code=ErrorCode.NOT_FOUND, http_status=404)
+
+    if payload.is_transfer:
+        # Flag on — no peer to link to (that's what the reconciler does).
+        # User can manually link later via a dedicated pair endpoint if needed.
+        txn.is_transfer = True
+        if not txn.transfer_group_id:
+            txn.transfer_group_id = str(uuid.uuid4())
+    else:
+        # Flag off — unlink peer too so both sides return to normal.
+        if txn.transfer_group_id:
+            unlink_transfer_group(db, user.id, txn.transfer_group_id)
+        else:
+            txn.is_transfer = False
+
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+    clear_user_financial_cache(user.id)
+    _audit(
+        db, request,
+        action="transaction_transfer_flag",
+        resource_type="transaction",
+        resource_id=uid,
+        status_code=200,
+        user=user,
+        details={"is_transfer": payload.is_transfer},
+    )
+    return success_response(request, {"id": txn.id, "is_transfer": txn.is_transfer}, message="Transfer flag updated")
+
+
+@router.post("/transfers/reconcile")
+def reconcile_transfers(
+    request: Request,
+    user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """User-triggered full-scan for transfer pairs. Runs the same detector
+    that fires after statement uploads, but across the user's entire
+    transaction history. Idempotent — already-linked pairs are skipped."""
+    result = detect_transfer_pairs(db, user.id)
+    if result.pairs_linked:
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
+    clear_user_financial_cache(user.id)
+    _audit(
+        db, request,
+        action="transfers_reconciled",
+        resource_type="transaction",
+        status_code=200,
+        user=user,
+        details={"pairs_linked": result.pairs_linked, "ambiguous": result.ambiguous},
+    )
+    return success_response(
+        request,
+        {"pairs_linked": result.pairs_linked, "ambiguous": result.ambiguous},
+        message=f"Linked {result.pairs_linked} transfer pairs",
+    )
 
 
 @router.get("/wealth", responses={200: {"model": dict}})
@@ -822,6 +1004,7 @@ def wealth_list_create(
         raise
     db.refresh(item)
     _audit(db, request, action="wealth_created", resource_type="wealth", resource_id=item.uid, status_code=201, user=user)
+    clear_user_financial_cache(user.id)
     return success_response(
         request,
         {
@@ -854,6 +1037,7 @@ def delete_wealth_item(
         db.rollback()
         raise
     _audit(db, request, action="wealth_deleted", resource_type="wealth", resource_id=uid, status_code=200, user=user)
+    clear_user_financial_cache(user.id)
     return success_response(request, {"id": uid, "deleted": True}, message="Item deleted")
 
 
@@ -891,6 +1075,7 @@ def update_wealth_item(
         db.rollback()
         raise
     _audit(db, request, action="wealth_updated", resource_type="wealth", resource_id=uid, status_code=200, user=user)
+    clear_user_financial_cache(user.id)
     return success_response(
         request,
         {
@@ -1195,6 +1380,7 @@ def create_loan(
     db.add(loan)
     db.commit()
     db.refresh(loan)
+    clear_user_financial_cache(user.id)
     return success_response(request, LoanOut.model_validate(loan).model_dump(), message="Loan created")
 
 
@@ -1210,6 +1396,7 @@ def delete_loan(
         raise HTTPException(status_code=404, detail="Loan not found")
     db.delete(loan)
     db.commit()
+    clear_user_financial_cache(user.id)
     return success_response(request, {"id": uid, "deleted": True}, message="Loan deleted")
 
 
@@ -1231,6 +1418,7 @@ def update_loan(
     
     db.commit()
     db.refresh(loan)
+    clear_user_financial_cache(user.id)
     return success_response(request, LoanOut.model_validate(loan).model_dump(), message="Loan updated")
 
 
@@ -1315,7 +1503,7 @@ def create_statement_record(
 async def parse_digital_pdf_route(
     request: Request,
     file: UploadFile = File(...),
-    account_type: str | None = None,
+    account_type: str | None = Form(None),
     user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 
@@ -1328,6 +1516,11 @@ async def parse_digital_pdf_route(
     if not (file.content_type == "application/pdf" or file.filename.lower().endswith(".pdf")):
         return error_response(request, "Only PDF uploads are supported for statement parsing.", code=ErrorCode.BAD_REQUEST, http_status=400)
 
+    # Canonicalize account_type to "debit" | "credit" so UI badges/filters are consistent.
+    normalized_account_type = (account_type or "").strip().lower()
+    if normalized_account_type not in ("debit", "credit"):
+        normalized_account_type = "debit"
+
     content = await file.read()
     file_size = len(content)
     file_hash = hashlib.sha256(content).hexdigest()
@@ -1339,7 +1532,7 @@ async def parse_digital_pdf_route(
         status="processing",
         file_size=file_size,
         file_hash=file_hash,
-        account_type=account_type,
+        account_type=normalized_account_type,
     )
 
 
@@ -1379,6 +1572,7 @@ async def parse_digital_pdf_route(
             {
                 "id": tx_uuid.hex,
                 "date": tx.get("date"),
+                "date_inferred": bool(tx.get("date_inferred", False)),
                 "title": tx.get("description"),
                 "description": tx.get("description"),
                 "amount": amount,
@@ -1392,7 +1586,7 @@ async def parse_digital_pdf_route(
                 "is_valid": True,
                 "statement_hash": file_hash,
                 "statement_row_hash": row_hash,
-                "account_type": account_type,
+                "account_type": normalized_account_type,
                 "reference": None
             }
         )
@@ -1422,17 +1616,51 @@ async def parse_digital_pdf_route(
         },
     }
 
-    persisted_count = _persist_parsed_transactions(db, user.id, transactions)
+    persisted_count, skipped_no_date, skipped_items = _persist_parsed_transactions(db, user.id, transactions)
+
+    # After persisting, try to link inter-account transfers (e.g. a credit-
+    # card bill payment posted from a debit account). The reconciler is
+    # idempotent and keyword-gated so it's safe to run after every upload.
+    transfer_result = detect_transfer_pairs(db, user.id)
+    if transfer_result.pairs_linked:
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            logger.exception("transfer_reconcile_commit_failed user_id=%s", user.id)
+
     summary = _build_financial_summary(db, user.id)
 
+    if skipped_no_date:
+        parsed_payload["meta"]["warnings"].append(
+            f"{skipped_no_date} transaction(s) skipped: statement date could not be parsed."
+        )
+        parsed_payload["meta"]["requires_review"] = True
+        # Include the actual items so the frontend can show a review popup
+        parsed_payload["skipped_items"] = skipped_items
+
+    if transfer_result.pairs_linked:
+        parsed_payload["meta"]["warnings"].append(
+            f"{transfer_result.pairs_linked} inter-account transfer(s) detected and excluded from spend totals."
+        )
+    if transfer_result.ambiguous:
+        parsed_payload["meta"]["warnings"].append(
+            f"{transfer_result.ambiguous} ambiguous transfer candidate(s) — please review manually."
+        )
+
     parsed_payload["saved_count"] = persisted_count
+    parsed_payload["skipped_no_date"] = skipped_no_date
+    parsed_payload["transfer_pairs_linked"] = transfer_result.pairs_linked
     parsed_payload["financial_summary"] = summary
 
     try:
-        record.status = "success"
+        record.status = "partial" if skipped_no_date else "success"
         record.tx_count = len(transactions)
-        record.reconciliation_score = Decimal("1.0")
-        record.account_type = "generic"
+        record.reconciliation_score = Decimal("1.0") if not skipped_no_date else Decimal(
+            str(round(persisted_count / max(len(transactions), 1), 4))
+        )
+        # Preserve the user-selected card type so HistoryPage can badge DCT/CCT.
+        record.account_type = normalized_account_type
         db.commit()
     except Exception as e:
         logger.error(f"Failed to update statement record: {e}")
@@ -1448,6 +1676,7 @@ async def parse_digital_pdf_route(
         details={
             "parsed_transactions": len(transactions),
             "persisted_transactions": persisted_count,
+            "skipped_no_date": skipped_no_date,
             "file_size": file_size,
             "file_hash": file_hash,
         },
@@ -1511,6 +1740,7 @@ def create_user_plan(request: Request, payload: dict, user: UserContext = Depend
         raise
     db.refresh(plan)
     _audit(db, request, action="plan_created", resource_type="finance_plan", resource_id=str(plan.id), status_code=201, user=user)
+    clear_user_financial_cache(user.id)
     return success_response(request, {"id": plan.id, "uid": plan.uid}, http_status=201)
 
 @router.patch("/plans/{uid}")
@@ -1537,6 +1767,7 @@ def update_user_plan(request: Request, uid: str, payload: dict, user: UserContex
         db.rollback()
         raise
     _audit(db, request, action="plan_updated", resource_type="finance_plan", resource_id=str(plan.id), status_code=200, user=user)
+    clear_user_financial_cache(user.id)
     return success_response(request, {"id": plan.id, "uid": plan.uid}, message="Plan updated")
 
 @router.delete("/plans/{uid}")
@@ -1555,4 +1786,5 @@ def delete_user_plan(request: Request, uid: str, user: UserContext = Depends(get
         raise
         
     _audit(db, request, action="plan_deleted", resource_type="finance_plan", resource_id=str(plan_id), status_code=200, user=user)
+    clear_user_financial_cache(user.id)
     return success_response(request, None, message="Plan deleted")
