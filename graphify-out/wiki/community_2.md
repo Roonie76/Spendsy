@@ -1,0 +1,170 @@
+# Community 2
+
+**165 nodes**
+
+## Nodes
+- **tax_engine.py** (`backend/finance-service/app/services/tax_engine.py` L1) → tax_engine_taxinput, tax_engine_taxbreakdown, tax_engine_regimecomparison
+- **TaxInput** (`backend/finance-service/app/services/tax_engine.py` L142) → tax_engine_build_tax_input_from_itr_data, tax_engine_rationale_143, test_tax_engine_testslabtax
+- **TaxBreakdown** (`backend/finance-service/app/services/tax_engine.py` L199) → tax_engine_compute_tax, tax_engine_rationale_200, test_tax_engine_testslabtax
+- **RegimeComparison** (`backend/finance-service/app/services/tax_engine.py` L217) → tax_engine_compare_regimes, tax_engine_rationale_218, d_projects_spendsy_backend_finance_service_app_services_tax_engine_py
+- **_slab_tax()** (`backend/finance-service/app/services/tax_engine.py` L233) → tax_engine_compute_surcharge, tax_engine_compute_tax, tax_engine_rationale_234
+- **_compute_surcharge()** (`backend/finance-service/app/services/tax_engine.py` L247) → tax_engine_compute_tax, tax_engine_rationale_253, d_projects_spendsy_backend_finance_service_app_services_tax_engine_py
+- **_compute_house_property_income()** (`backend/finance-service/app/services/tax_engine.py` L282) → tax_engine_compute_tax, tax_engine_rationale_283, d_projects_spendsy_backend_finance_service_app_services_tax_engine_py
+- **_compute_capital_gains_tax()** (`backend/finance-service/app/services/tax_engine.py` L305) → tax_engine_compute_tax, tax_engine_rationale_306, test_tax_engine_testcapitalgains_test_no_cg
+- **compute_tax()** (`backend/finance-service/app/services/tax_engine.py` L337) → tax_engine_compare_regimes, tax_engine_rationale_338, test_tax_engine_testrebate_test_new_regime_rebate_under_12l
+- **compare_regimes()** (`backend/finance-service/app/services/tax_engine.py` L486) → tax_engine_determine_itr_form, tax_engine_run_audit_checks, tax_engine_compute_advance_tax_schedule
+- **determine_itr_form()** (`backend/finance-service/app/services/tax_engine.py` L522) → tax_engine_rationale_523, test_tax_engine_testitrform_test_salaried_under_50l, test_tax_engine_testitrform_test_capital_gains_itr2
+- **run_audit_checks()** (`backend/finance-service/app/services/tax_engine.py` L568) → tax_engine_rationale_569, test_tax_engine_testauditchecks_test_80c_over_limit, test_tax_engine_testauditchecks_test_hra_80gg_conflict
+- **compute_advance_tax_schedule()** (`backend/finance-service/app/services/tax_engine.py` L605) → tax_engine_rationale_606, test_tax_engine_testadvancetax_test_schedule_amounts, d_projects_spendsy_backend_finance_service_app_services_tax_engine_py
+- **generate_recommendations()** (`backend/finance-service/app/services/tax_engine.py` L620) → tax_engine_rationale_625, d_projects_spendsy_backend_finance_service_app_services_tax_engine_py
+- **build_tax_input_from_itr_data()** (`backend/finance-service/app/services/tax_engine.py` L673) → tax_engine_rationale_679, test_tax_engine_testbuildfromitrdata_test_basic_construction, test_tax_engine_testbuildfromitrdata_test_none_data
+- **Tax Computation Engine — Server-side source of truth for Indian Income Tax calcu** (`backend/finance-service/app/services/tax_engine.py` L1) → d_projects_spendsy_backend_finance_service_app_services_tax_engine_py
+- **All user inputs needed for tax computation.** (`backend/finance-service/app/services/tax_engine.py` L143)
+- **Detailed output of tax computation.** (`backend/finance-service/app/services/tax_engine.py` L200)
+- **Side-by-side comparison result.** (`backend/finance-service/app/services/tax_engine.py` L218)
+- **Compute tax from slab schedule.** (`backend/finance-service/app/services/tax_engine.py` L234)
+- **Compute surcharge with marginal relief. Returns (surcharge, rate).** (`backend/finance-service/app/services/tax_engine.py` L253)
+- **Compute net income from house property.** (`backend/finance-service/app/services/tax_engine.py` L283)
+- **Compute capital gains tax at special rates (computed separately from slab tax).** (`backend/finance-service/app/services/tax_engine.py` L306)
+- **Compute full tax liability under the specified regime.      Parameters     -----** (`backend/finance-service/app/services/tax_engine.py` L338)
+- **Compute tax under both regimes and return a full comparison.** (`backend/finance-service/app/services/tax_engine.py` L487)
+- **Choose the correct ITR form based on income profile.** (`backend/finance-service/app/services/tax_engine.py` L523)
+- **Pre-filing compliance audit. Returns (errors, warnings).** (`backend/finance-service/app/services/tax_engine.py` L569)
+- **Compute the 4 advance tax installments.** (`backend/finance-service/app/services/tax_engine.py` L606)
+- **Generate personalised tax-saving tips.** (`backend/finance-service/app/services/tax_engine.py` L625)
+- **Construct a TaxInput from the JSONB dictionaries stored in the ITRData model.** (`backend/finance-service/app/services/tax_engine.py` L679)
+- **test_tax_engine.py** (`backend/finance-service/tests/test_tax_engine.py` L1) → test_tax_engine_testslabtax, test_tax_engine_testrebate, test_tax_engine_testsurcharge
+- **TestSlabTax** (`backend/tests/test_tax_engine.py` L44) → test_tax_engine_testslabtax_test_zero_income, test_tax_engine_testslabtax_test_below_basic_exemption_new, test_tax_engine_testslabtax_test_at_basic_exemption_new
+- **.test_zero_income()** (`backend/finance-service/tests/test_tax_engine.py` L36)
+- **.test_below_basic_exemption_new()** (`backend/finance-service/tests/test_tax_engine.py` L39) → test_tax_engine_rationale_40
+- **.test_at_basic_exemption_new()** (`backend/finance-service/tests/test_tax_engine.py` L43) → test_tax_engine_rationale_44
+- **.test_simple_slab_new()** (`backend/finance-service/tests/test_tax_engine.py` L47) → test_tax_engine_rationale_48
+- **.test_full_slabs_new()** (`backend/finance-service/tests/test_tax_engine.py` L51) → test_tax_engine_rationale_52
+- **.test_old_regime_basic()** (`backend/finance-service/tests/test_tax_engine.py` L58) → test_tax_engine_rationale_59
+- **.test_income_10l_old()** (`backend/finance-service/tests/test_tax_engine.py` L64) → test_tax_engine_rationale_65
+- **.test_income_15l_old()** (`backend/finance-service/tests/test_tax_engine.py` L69) → test_tax_engine_rationale_70
+- **TestRebate** (`backend/finance-service/tests/test_tax_engine.py` L77) → test_tax_engine_testrebate_test_new_regime_rebate_under_12l, test_tax_engine_testrebate_test_old_regime_rebate_under_5l, test_tax_engine_testrebate_test_no_rebate_high_income
+- **.test_new_regime_rebate_under_12l()** (`backend/finance-service/tests/test_tax_engine.py` L78) → test_tax_engine_rationale_79
+- **.test_old_regime_rebate_under_5l()** (`backend/finance-service/tests/test_tax_engine.py` L85) → test_tax_engine_rationale_86
+- **.test_no_rebate_high_income()** (`backend/finance-service/tests/test_tax_engine.py` L92) → test_tax_engine_rationale_93
+- **TestSurcharge** (`backend/tests/test_tax_engine.py` L124) → test_tax_engine_testsurcharge_test_no_surcharge_below_50l, test_tax_engine_testsurcharge_test_surcharge_above_50l, backend_tests_test_tax_engine_py
+- **.test_no_surcharge_below_50L()** (`backend/tests/test_tax_engine.py` L125) → test_tax_engine_rationale_103
+- **.test_surcharge_above_50l()** (`backend/finance-service/tests/test_tax_engine.py` L108) → test_tax_engine_rationale_109
+- **TestCapitalGains** (`backend/tests/test_tax_engine.py` L165) → test_tax_engine_testcapitalgains_test_no_cg, test_tax_engine_testcapitalgains_test_stcg_111a, test_tax_engine_testcapitalgains_test_ltcg_exemption
+- **.test_no_cg()** (`backend/finance-service/tests/test_tax_engine.py` L119)
+- **.test_stcg_111a()** (`backend/finance-service/tests/test_tax_engine.py` L122) → test_tax_engine_rationale_123
+- **.test_ltcg_exemption()** (`backend/finance-service/tests/test_tax_engine.py` L127) → test_tax_engine_rationale_128
+- **.test_ltcg_above_exemption()** (`backend/finance-service/tests/test_tax_engine.py` L132) → test_tax_engine_rationale_133
+- **.test_crypto_flat_30()** (`backend/finance-service/tests/test_tax_engine.py` L138) → test_tax_engine_rationale_139
+- **TestDeductionLimits** (`backend/finance-service/tests/test_tax_engine.py` L146) → test_tax_engine_testdeductionlimits_test_80c_capped, test_tax_engine_testdeductionlimits_test_new_regime_ignores_old_deductions, test_tax_engine_testdeductionlimits_test_employer_nps_both_regimes
+- **.test_80c_capped()** (`backend/finance-service/tests/test_tax_engine.py` L147) → test_tax_engine_rationale_148
+- **.test_new_regime_ignores_old_deductions()** (`backend/finance-service/tests/test_tax_engine.py` L156) → test_tax_engine_rationale_157
+- **.test_employer_nps_both_regimes()** (`backend/finance-service/tests/test_tax_engine.py` L164) → test_tax_engine_rationale_165
+- **TestITRForm** (`backend/finance-service/tests/test_tax_engine.py` L178) → test_tax_engine_testitrform_test_salaried_under_50l, test_tax_engine_testitrform_test_capital_gains_itr2, test_tax_engine_testitrform_test_crypto_itr2
+- **.test_salaried_under_50l()** (`backend/finance-service/tests/test_tax_engine.py` L179)
+- **.test_capital_gains_itr2()** (`backend/finance-service/tests/test_tax_engine.py` L184)
+- **.test_crypto_itr2()** (`backend/finance-service/tests/test_tax_engine.py` L189)
+- **.test_business_itr3()** (`backend/finance-service/tests/test_tax_engine.py` L194)
+- **.test_presumptive_itr4()** (`backend/finance-service/tests/test_tax_engine.py` L199)
+- **.test_company_itr6()** (`backend/finance-service/tests/test_tax_engine.py` L204)
+- **.test_income_above_50l()** (`backend/finance-service/tests/test_tax_engine.py` L209)
+- **TestRegimeComparison** (`backend/tests/test_tax_engine.py` L282) → test_tax_engine_testregimecomparison_test_new_better_low_deductions, test_tax_engine_testregimecomparison_test_old_better_high_deductions, backend_tests_test_tax_engine_py
+- **.test_new_better_low_deductions()** (`backend/finance-service/tests/test_tax_engine.py` L218) → test_tax_engine_rationale_219
+- **.test_old_better_high_deductions()** (`backend/finance-service/tests/test_tax_engine.py` L224) → test_tax_engine_rationale_225
+- **TestAuditChecks** (`backend/tests/test_tax_engine.py` L348) → test_tax_engine_testauditchecks_test_80c_over_limit, test_tax_engine_testauditchecks_test_hra_80gg_conflict, test_tax_engine_testauditchecks_test_missing_interest
+- **.test_80c_over_limit()** (`backend/finance-service/tests/test_tax_engine.py` L243)
+- **.test_hra_80gg_conflict()** (`backend/finance-service/tests/test_tax_engine.py` L248)
+- **.test_missing_interest()** (`backend/finance-service/tests/test_tax_engine.py` L253)
+- **TestAdvanceTax** (`backend/finance-service/tests/test_tax_engine.py` L261) → test_tax_engine_testadvancetax_test_schedule_amounts, d_projects_spendsy_backend_finance_service_tests_test_tax_engine_py
+- **.test_schedule_amounts()** (`backend/finance-service/tests/test_tax_engine.py` L262)
+- **TestBuildFromITRData** (`backend/finance-service/tests/test_tax_engine.py` L273) → test_tax_engine_testbuildfromitrdata_test_basic_construction, test_tax_engine_testbuildfromitrdata_test_none_data, test_tax_engine_testbuildfromitrdata_test_capital_gains_detail
+- **.test_basic_construction()** (`backend/finance-service/tests/test_tax_engine.py` L274)
+- **.test_none_data()** (`backend/finance-service/tests/test_tax_engine.py` L282)
+- **.test_capital_gains_detail()** (`backend/finance-service/tests/test_tax_engine.py` L287)
+- **Unit tests for the India tax engine.  Run with:     cd backend && python -m pyte** (`backend/tests/test_tax_engine.py` L1) → backend_tests_test_tax_engine_py, d_projects_spendsy_backend_finance_service_tests_test_tax_engine_py, d_projects_spendsy_backend_tests_test_tax_engine_py
+- **Income ₹3L → fully in nil slab (new regime: ₹4L nil)** (`backend/finance-service/tests/test_tax_engine.py` L40)
+- **Income ₹4L → exactly at nil slab boundary** (`backend/finance-service/tests/test_tax_engine.py` L44)
+- **Income ₹6L → ₹4L (nil) + ₹2L at 5% = ₹10,000** (`backend/finance-service/tests/test_tax_engine.py` L48)
+- **Income ₹30L → complex multi-slab** (`backend/finance-service/tests/test_tax_engine.py` L52)
+- **Income ₹8L old regime: 0-2.5L nil, 2.5-5L 5%, 5-8L 20%** (`backend/finance-service/tests/test_tax_engine.py` L59)
+- **Income ₹10L: 0 + 12,500 + 1,00,000 = 1,12,500** (`backend/finance-service/tests/test_tax_engine.py` L65)
+- **Income ₹15L: 0 + 12,500 + 1,00,000 + 1,50,000 = 2,62,500** (`backend/finance-service/tests/test_tax_engine.py` L70)
+- **Income ≤ ₹12L in new regime → zero tax after rebate** (`backend/finance-service/tests/test_tax_engine.py` L79)
+- **Income ≤ ₹5L in old regime → zero tax after rebate** (`backend/finance-service/tests/test_tax_engine.py` L86)
+- **Income ₹20L → no rebate** (`backend/finance-service/tests/test_tax_engine.py` L93)
+- **Old regime 87A: ≤ ₹5L taxable → full rebate up to ₹12,500.** (`backend/tests/test_tax_engine.py` L103) → test_tax_engine_testrebate87a_test_old_regime_5l_fully_rebated
+- **Income ₹60L → 10% surcharge bracket** (`backend/finance-service/tests/test_tax_engine.py` L109)
+- **STCG ₹1L → 20% = ₹20,000 + 4% cess** (`backend/finance-service/tests/test_tax_engine.py` L123)
+- **LTCG ₹1L → within ₹1.25L exemption → zero** (`backend/finance-service/tests/test_tax_engine.py` L128)
+- **LTCG ₹2.25L → taxable ₹1L at 12.5%** (`backend/finance-service/tests/test_tax_engine.py` L133)
+- **Crypto ₹5L → 30% = ₹1.5L + cess** (`backend/finance-service/tests/test_tax_engine.py` L139)
+- **Section 80C capped at ₹1.5L even if ₹2L claimed** (`backend/finance-service/tests/test_tax_engine.py` L148)
+- **New regime ignores 80C, 80D etc.** (`backend/finance-service/tests/test_tax_engine.py` L157)
+- **80CCD(2) employer NPS should apply in both regimes** (`backend/finance-service/tests/test_tax_engine.py` L165)
+- **Low deductions → New regime should be better** (`backend/finance-service/tests/test_tax_engine.py` L219)
+- **High deductions → Old regime should be better** (`backend/finance-service/tests/test_tax_engine.py` L225)
+- **test_tax_engine.py** (`backend/tests/test_tax_engine.py` L1) → test_tax_engine_testrebate87a, test_tax_engine_teststandarddeduction, test_tax_engine_testdeductions
+- **.test_income_below_first_slab_is_zero()** (`backend/tests/test_tax_engine.py` L45)
+- **.test_new_regime_fy25_7L()** (`backend/tests/test_tax_engine.py` L48)
+- **.test_new_regime_fy25_12L()** (`backend/tests/test_tax_engine.py` L52)
+- **.test_new_regime_fy24_7L()** (`backend/tests/test_tax_engine.py` L56)
+- **.test_old_regime_10L()** (`backend/tests/test_tax_engine.py` L60)
+- **.test_old_regime_50L()** (`backend/tests/test_tax_engine.py` L64)
+- **TestRebate87A** (`backend/tests/test_tax_engine.py` L74) → test_tax_engine_testrebate87a_test_new_regime_fy25_12l_salary_fully_rebated, test_tax_engine_testrebate87a_test_new_regime_fy25_just_above_rebate_marginal_relief, test_tax_engine_testrebate87a_test_new_regime_fy24_7l_fully_rebated
+- **.test_new_regime_fy25_12L_salary_fully_rebated()** (`backend/tests/test_tax_engine.py` L75) → test_tax_engine_rationale_76
+- **.test_new_regime_fy25_just_above_rebate_marginal_relief()** (`backend/tests/test_tax_engine.py` L84) → test_tax_engine_rationale_85
+- **.test_new_regime_fy24_7L_fully_rebated()** (`backend/tests/test_tax_engine.py` L95) → test_tax_engine_rationale_96
+- **.test_old_regime_5L_fully_rebated()** (`backend/tests/test_tax_engine.py` L102)
+- **.test_old_regime_just_above_5L_no_rebate()** (`backend/tests/test_tax_engine.py` L109) → test_tax_engine_rationale_110
+- **.test_10pct_surcharge_at_60L()** (`backend/tests/test_tax_engine.py` L131)
+- **.test_new_regime_capped_at_25pct_surcharge()** (`backend/tests/test_tax_engine.py` L137) → test_tax_engine_rationale_138
+- **.test_old_regime_allows_37pct_surcharge()** (`backend/tests/test_tax_engine.py` L143)
+- **.test_surcharge_marginal_relief_at_50L_boundary()** (`backend/tests/test_tax_engine.py` L148) → test_tax_engine_rationale_149
+- **.test_ltcg_112a_below_exemption_zero_tax()** (`backend/tests/test_tax_engine.py` L166)
+- **.test_ltcg_112a_above_exemption()** (`backend/tests/test_tax_engine.py` L170)
+- **.test_stcg_111a_20pct()** (`backend/tests/test_tax_engine.py` L175)
+- **.test_crypto_vda_flat_30pct()** (`backend/tests/test_tax_engine.py` L180)
+- **.test_non_equity_ltcg_12_5pct()** (`backend/tests/test_tax_engine.py` L185)
+- **TestStandardDeduction** (`backend/tests/test_tax_engine.py` L196) → test_tax_engine_teststandarddeduction_test_no_std_ded_without_salary, test_tax_engine_teststandarddeduction_test_new_regime_std_ded_75k, test_tax_engine_teststandarddeduction_test_old_regime_std_ded_50k
+- **.test_no_std_ded_without_salary()** (`backend/tests/test_tax_engine.py` L197) → test_tax_engine_rationale_198
+- **.test_new_regime_std_ded_75k()** (`backend/tests/test_tax_engine.py` L204)
+- **.test_old_regime_std_ded_50k()** (`backend/tests/test_tax_engine.py` L209)
+- **TestDeductions** (`backend/tests/test_tax_engine.py` L220) → test_tax_engine_testdeductions_test_80c_capped_at_150k, test_tax_engine_testdeductions_test_80c_ignored_in_new_regime, test_tax_engine_testdeductions_test_80d_age_aware_senior
+- **.test_80c_capped_at_150k()** (`backend/tests/test_tax_engine.py` L221)
+- **.test_80c_ignored_in_new_regime()** (`backend/tests/test_tax_engine.py` L227)
+- **.test_80d_age_aware_senior()** (`backend/tests/test_tax_engine.py` L233)
+- **.test_80d_non_senior_capped_at_25k()** (`backend/tests/test_tax_engine.py` L240)
+- **.test_employer_nps_allowed_in_both_regimes()** (`backend/tests/test_tax_engine.py` L246)
+- **TestPresumptive** (`backend/tests/test_tax_engine.py` L261) → test_tax_engine_testpresumptive_test_44ada_half_deemed_profit, test_tax_engine_testpresumptive_test_44ada_over_3cr_no_presumptive, d_projects_spendsy_backend_tests_test_tax_engine_py
+- **.test_44ada_half_deemed_profit()** (`backend/tests/test_tax_engine.py` L262)
+- **.test_44ada_over_3cr_no_presumptive()** (`backend/tests/test_tax_engine.py` L270)
+- **.test_low_income_rebated_salary_both_zero()** (`backend/tests/test_tax_engine.py` L283) → test_tax_engine_rationale_284
+- **.test_high_deductions_old_wins()** (`backend/tests/test_tax_engine.py` L290) → test_tax_engine_rationale_291
+- **TestITRFormSelection** (`backend/tests/test_tax_engine.py` L311) → test_tax_engine_testitrformselection_test_itr1_salaried_under_50l, test_tax_engine_testitrformselection_test_itr2_for_capital_gains, test_tax_engine_testitrformselection_test_itr2_for_income_over_50l
+- **.test_itr1_salaried_under_50L()** (`backend/tests/test_tax_engine.py` L312)
+- **.test_itr2_for_capital_gains()** (`backend/tests/test_tax_engine.py` L317)
+- **.test_itr2_for_income_over_50L()** (`backend/tests/test_tax_engine.py` L322)
+- **.test_itr3_for_business_income()** (`backend/tests/test_tax_engine.py` L327)
+- **.test_itr4_presumptive_under_5cr()** (`backend/tests/test_tax_engine.py` L332)
+- **.test_itr6_company()** (`backend/tests/test_tax_engine.py` L337)
+- **.test_80c_over_limit_flagged()** (`backend/tests/test_tax_engine.py` L349)
+- **.test_hra_and_80gg_mutually_exclusive()** (`backend/tests/test_tax_engine.py` L354)
+- **.test_high_income_no_advance_tax_warning()** (`backend/tests/test_tax_engine.py` L359)
+- **TestFYSelection** (`backend/tests/test_tax_engine.py` L370) → test_tax_engine_testfyselection_test_default_fy_is_current, test_tax_engine_testfyselection_test_bogus_fy_falls_back_to_current, test_tax_engine_testfyselection_test_fy24_vs_fy25_new_regime_different
+- **.test_default_fy_is_current()** (`backend/tests/test_tax_engine.py` L371)
+- **.test_bogus_fy_falls_back_to_current()** (`backend/tests/test_tax_engine.py` L375) → test_tax_engine_rationale_376
+- **.test_fy24_vs_fy25_new_regime_different()** (`backend/tests/test_tax_engine.py` L382) → test_tax_engine_rationale_383
+- **₹12,75,000 salary → ₹12L taxable after ₹75k std ded → fully rebated.** (`backend/tests/test_tax_engine.py` L76)
+- **₹12,85,000 salary → ₹12,10,000 taxable → marginal relief kicks in.** (`backend/tests/test_tax_engine.py` L85)
+- **Under FY24-25 new regime, ₹7L taxable → fully rebated.** (`backend/tests/test_tax_engine.py` L96)
+- **Old regime: one rupee above ₹5L → no rebate, full tax applies.** (`backend/tests/test_tax_engine.py` L110)
+- **New regime caps surcharge at 25% even for income > ₹5 Cr.** (`backend/tests/test_tax_engine.py` L138)
+- **At income just above ₹50L, total tax+surcharge can't exceed         (tax at ₹50L** (`backend/tests/test_tax_engine.py` L149)
+- **Std ded applies only to salaried income.** (`backend/tests/test_tax_engine.py` L198)
+- **At ₹10L salary with 0 deductions, new regime should win handily.** (`backend/tests/test_tax_engine.py` L284)
+- **Maxed deductions should tilt toward old regime at some incomes.** (`backend/tests/test_tax_engine.py` L291)
+- **An unknown FY tag shouldn't crash — should silently use CURRENT_FY.** (`backend/tests/test_tax_engine.py` L376)
+- **A mid-income salary produces different tax under FY24 vs FY25 new regime.** (`backend/tests/test_tax_engine.py` L383)
+- **tax_engine.py** (`backend/finance-service/app/services/tax_engine.py` L1)
+- **test_tax_engine.py** (`backend/finance-service/tests/test_tax_engine.py` L1)
+- **test_tax_engine.py** (`backend/tests/test_tax_engine.py` L1)

@@ -1,0 +1,193 @@
+# Community 1
+
+**188 nodes**
+
+## Nodes
+- **BaseModel** (`` ) → schemas_chatresponse, schemas_healthresponse, schemas_airequest
+- **UserContext** (`backend/finance-service/app/core/security.py` L19) → security_get_current_user, backend_finance_service_app_core_security_py, security_usercontext_init
+- **Base** (`` ) → models_apiauditlog, models_securityalert, models_refreshtoken
+- **ApiAuditLog** (`backend/finance-service/app/models.py` L128) → backend_finance_service_app_models_py, database_base, routes_auth_rationale_162
+- **SecurityAlert** (`backend/finance-service/app/models.py` L293) → backend_finance_service_app_models_py, database_base, routes_auth_rationale_162
+- **database.py** (`backend/auth-service/app/core/database.py` L1) → database_base, database_get_db
+- **Base** (`backend/finance-service/app/core/database.py` L19) → declarativebase, backend_finance_service_app_core_database_py, models_userprofile
+- **DeclarativeBase** (`` )
+- **get_db()** (`backend/finance-service/app/core/database.py` L23) → backend_finance_service_app_core_database_py, d_projects_spendsy_backend_auth_service_app_core_database_py, d_projects_spendsy_backend_finance_service_app_core_database_py
+- **models.py** (`backend/finance-service/app/models.py` L1) → models_userprofile, models_transaction, models_wealthitem
+- **UserProfile** (`backend/finance-service/app/models.py` L13) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **Transaction** (`backend/finance-service/app/models.py` L34) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **WealthItem** (`backend/finance-service/app/models.py` L76) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **TaxProfile** (`backend/finance-service/app/models.py` L89) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **ITRData** (`backend/finance-service/app/models.py` L115) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **DebitCard** (`backend/finance-service/app/models.py` L146) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **CreditCard** (`backend/finance-service/app/models.py` L159) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **Loan** (`backend/finance-service/app/models.py` L184) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **StatementRecord** (`backend/finance-service/app/models.py` L202) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **NetWorthSnapshot** (`backend/finance-service/app/models.py` L218) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **FinanceGoal** (`backend/finance-service/app/models.py` L230) → models_rationale_231, routes_goals_rationale_1, routes_goals_rationale_27
+- **ToraConversation** (`backend/finance-service/app/models.py` L249) → models_rationale_250, routes_internal_toramsgpayload, routes_internal_internalgoalpayload
+- **ToraFeedback** (`backend/finance-service/app/models.py` L266) → models_rationale_267, routes_internal_toramsgpayload, routes_internal_internalgoalpayload
+- **Document** (`backend/finance-service/app/models.py` L306) → models_rationale_307, d_projects_spendsy_backend_finance_service_app_models_py
+- **FinancialHealth** (`backend/finance-service/app/models.py` L322) → models_rationale_323, routes_product_rationale_23, routes_product_rationale_75
+- **FinancialInsight** (`backend/finance-service/app/models.py` L336) → models_rationale_337, routes_internal_toramsgpayload, routes_internal_internalgoalpayload
+- **SmartRecommendation** (`backend/finance-service/app/models.py` L353) → models_rationale_354, routes_product_rationale_23, routes_product_rationale_75
+- **UserAlert** (`backend/finance-service/app/models.py` L369) → models_rationale_370, routes_product_rationale_23, routes_product_rationale_75
+- **FinancePlan** (`backend/finance-service/app/models.py` L384) → models_rationale_385, routes_finance_bulkdeletepayload, routes_finance_transferflagpayload
+- **Saving goals — e.g. 'Emergency Fund', 'New Car', 'Down Payment'.** (`backend/finance-service/app/models.py` L231)
+- **Stores TORA chat history per user for persistent conversational memory.** (`backend/finance-service/app/models.py` L250)
+- **User reactions (thumbs up/down) on individual TORA responses.      One row per** (`backend/finance-service/app/models.py` L267)
+- **Generic document storage tracking (Phase 5 requirement).** (`backend/finance-service/app/models.py` L307)
+- **Stores computed financial health scores and high-level metrics.** (`backend/finance-service/app/models.py` L323)
+- **Stores monthly aggregated financial snapshots for the dashboard.** (`backend/finance-service/app/models.py` L337)
+- **Stores Tora Engine generated financial tips and recommendations.** (`backend/finance-service/app/models.py` L354)
+- **Stores proactive financial alerts for the user.** (`backend/finance-service/app/models.py` L370)
+- **Detailed financial plans — e.g. 'Retirement', 'House Purchase', 'Debt Payoff'.** (`backend/finance-service/app/models.py` L385)
+- **schemas.py** (`backend/finance-service/app/schemas.py` L1) → enum, schemas_transactioncategory, schemas_errorresponse
+- **TransactionCategory** (`backend/finance-service/app/schemas.py` L11) → str, enum, routes_finance_bulkdeletepayload
+- **Enum** (`` ) → schemas_goalcategory, backend_finance_service_app_core_product_tiers_py, product_tiers_usertier
+- **ErrorResponse** (`backend/finance-service/app/schemas.py` L33) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **UserProfilePayload** (`backend/finance-service/app/schemas.py` L41) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **TransactionPayload** (`backend/finance-service/app/schemas.py` L51) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **validate_amount()** (`backend/finance-service/app/schemas.py` L66) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **validate_type()** (`backend/finance-service/app/schemas.py` L73) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **validate_date()** (`backend/finance-service/app/schemas.py` L83) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **validate_source()** (`backend/finance-service/app/schemas.py` L90) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **TransactionOut** (`backend/finance-service/app/schemas.py` L99) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **PaginatedTransactions** (`backend/finance-service/app/schemas.py` L119) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **WealthPayload** (`backend/finance-service/app/schemas.py` L124) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **WealthOut** (`backend/finance-service/app/schemas.py` L149) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **TaxProfilePayload** (`backend/finance-service/app/schemas.py` L158) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **ITRPayload** (`backend/finance-service/app/schemas.py` L176) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **validate_tax_regime()** (`backend/finance-service/app/schemas.py` L184) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **ParsedTransaction** (`backend/finance-service/app/schemas.py` L193) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **ParserMeta** (`backend/finance-service/app/schemas.py` L207) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **StatementMetadata** (`backend/finance-service/app/schemas.py` L218) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **ParseStatementResponse** (`backend/finance-service/app/schemas.py` L229) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **DebitCardPayload** (`backend/finance-service/app/schemas.py` L240) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **DebitCardOut** (`backend/finance-service/app/schemas.py` L249) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **CreditCardPayload** (`backend/finance-service/app/schemas.py` L260) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **CreditCardOut** (`backend/finance-service/app/schemas.py` L271) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **LoanPayload** (`backend/finance-service/app/schemas.py` L285) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **LoanUpdatePayload** (`backend/finance-service/app/schemas.py` L296) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **LoanOut** (`backend/finance-service/app/schemas.py` L307) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **StatementRecordPayload** (`backend/finance-service/app/schemas.py` L322) → schemas_statementrecordout, routes_finance_bulkdeletepayload, routes_finance_transferflagpayload
+- **DocumentOut** (`backend/finance-service/app/schemas.py` L332) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **StatementRecordOut** (`backend/finance-service/app/schemas.py` L346) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **NetWorthSnapshotPayload** (`backend/finance-service/app/schemas.py` L354) → schemas_networthsnapshotout, routes_finance_bulkdeletepayload, routes_finance_transferflagpayload
+- **NetWorthSnapshotOut** (`backend/finance-service/app/schemas.py` L361) → routes_finance_bulkdeletepayload, routes_finance_transferflagpayload, routes_finance_rationale_272
+- **GoalCategory** (`backend/finance-service/app/schemas.py` L371) → d_projects_spendsy_backend_finance_service_app_schemas_py
+- **GoalPayload** (`backend/finance-service/app/schemas.py` L381) → routes_goals_rationale_1, routes_goals_rationale_27, routes_goals_rationale_68
+- **GoalUpdatePayload** (`backend/finance-service/app/schemas.py` L390) → routes_goals_rationale_1, routes_goals_rationale_27, routes_goals_rationale_68
+- **GoalOut** (`backend/finance-service/app/schemas.py` L400) → routes_goals_rationale_1, routes_goals_rationale_27, routes_goals_rationale_68
+- **FinancialHealthOut** (`backend/finance-service/app/schemas.py` L418) → routes_product_rationale_23, routes_product_rationale_75, routes_product_rationale_90
+- **FinancialInsightOut** (`backend/finance-service/app/schemas.py` L429) → routes_product_rationale_23, routes_product_rationale_75, routes_product_rationale_90
+- **SmartRecommendationOut** (`backend/finance-service/app/schemas.py` L440) → routes_product_rationale_23, routes_product_rationale_75, routes_product_rationale_90
+- **UserAlertOut** (`backend/finance-service/app/schemas.py` L450) → routes_product_rationale_23, routes_product_rationale_75, routes_product_rationale_90
+- **DashboardOverview** (`backend/finance-service/app/schemas.py` L461) → routes_product_rationale_23, routes_product_rationale_75, routes_product_rationale_90
+- **BulkDeletePayload** (`backend/finance-service/app/api/routes_finance.py` L689) → error_codes_errorcode, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **TransferFlagPayload** (`backend/finance-service/app/api/routes_finance.py` L846) → error_codes_errorcode, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **Persist parsed transactions. Returns (saved_count, skipped_no_date_count, skippe** (`backend/finance-service/app/api/routes_finance.py` L272) → error_codes_errorcode
+- **Raise HTTP 403 immediately if URL uid != token uid and != token id.** (`backend/finance-service/app/api/routes_finance.py` L412) → error_codes_errorcode
+- **Cursor-based paginated transaction list. cursor is the last transaction id (enco** (`backend/finance-service/app/api/routes_finance.py` L609) → error_codes_errorcode
+- **Delete multiple transactions in a single atomic database transaction.** (`backend/finance-service/app/api/routes_finance.py` L700) → error_codes_errorcode
+- **Manually flag or unflag a transaction as an inter-account transfer.      Use c** (`backend/finance-service/app/api/routes_finance.py` L858) → error_codes_errorcode
+- **User-triggered full-scan for transfer pairs. Runs the same detector     that fi** (`backend/finance-service/app/api/routes_finance.py` L910) → error_codes_errorcode
+- **Fetch all financial plans for the authenticated user.** (`backend/finance-service/app/api/routes_finance.py` L1692) → error_codes_errorcode
+- **Create a new plan manually from the frontend.** (`backend/finance-service/app/api/routes_finance.py` L1715) → error_codes_errorcode
+- **Update or adjust an existing plan.** (`backend/finance-service/app/api/routes_finance.py` L1748) → error_codes_errorcode
+- **Delete a financial plan.** (`backend/finance-service/app/api/routes_finance.py` L1775) → error_codes_errorcode
+- **routes_goals.py – Finance Service Goal Management CRUD endpoints for user Savin** (`backend/finance-service/app/api/routes_goals.py` L1) → error_codes_errorcode, d_projects_spendsy_backend_finance_service_app_api_routes_goals_py
+- **Serialize a FinanceGoal to a clean dict with computed progress fields.** (`backend/finance-service/app/api/routes_goals.py` L27) → error_codes_errorcode
+- **Return all goals for the authenticated user, sorted by most recent.** (`backend/finance-service/app/api/routes_goals.py` L68) → error_codes_errorcode
+- **Create a new saving goal.** (`backend/finance-service/app/api/routes_goals.py` L87) → error_codes_errorcode
+- **Partially update a goal: amount saved, title, completion flag, etc.** (`backend/finance-service/app/api/routes_goals.py` L124) → error_codes_errorcode
+- **Delete a goal permanently.** (`backend/finance-service/app/api/routes_goals.py` L171) → error_codes_errorcode
+- **_ToraMsgPayload** (`backend/finance-service/app/api/routes_internal.py` L287) → security_requirerole, d_projects_spendsy_backend_finance_service_app_api_routes_internal_py
+- **_InternalGoalPayload** (`backend/finance-service/app/api/routes_internal.py` L365) → security_requirerole, d_projects_spendsy_backend_finance_service_app_api_routes_internal_py
+- **_ToraFeedbackPayload** (`backend/finance-service/app/api/routes_internal.py` L377) → routes_internal_rationale_378, security_requirerole, d_projects_spendsy_backend_finance_service_app_api_routes_internal_py
+- **_InternalPlanPayload** (`backend/finance-service/app/api/routes_internal.py` L542) → security_requirerole, d_projects_spendsy_backend_finance_service_app_api_routes_internal_py
+- **_InternalPlanAdjustPayload** (`backend/finance-service/app/api/routes_internal.py` L595) → security_requirerole, d_projects_spendsy_backend_finance_service_app_api_routes_internal_py
+- **_TaxProfileUpdatePayload** (`backend/finance-service/app/api/routes_internal.py` L683) → security_requirerole, d_projects_spendsy_backend_finance_service_app_api_routes_internal_py
+- **Trigger the transfer-pair detector for a user. Matches inter-account     transf** (`backend/finance-service/app/api/routes_internal.py` L28) → security_requirerole
+- **Persist a single TORA conversation turn (user or assistant).** (`backend/finance-service/app/api/routes_internal.py` L304) → security_requirerole
+- **Fetch the N most recent TORA conversation turns for a user.** (`backend/finance-service/app/api/routes_internal.py` L334) → security_requirerole
+- **Client → ai-service → here. Any field except `rating` may be omitted.** (`backend/finance-service/app/api/routes_internal.py` L378) → security_requirerole
+- **Persist a single thumbs up/down event on a TORA response.      Rows are append** (`backend/finance-service/app/api/routes_internal.py` L396) → security_requirerole
+- **Roll up TORA ratings for the last `days` days.      Returns totals, up/down sp** (`backend/finance-service/app/api/routes_internal.py` L435) → security_requirerole
+- **Create a goal on behalf of the user (used by TORA AI).** (`backend/finance-service/app/api/routes_internal.py` L484) → security_requirerole
+- **Delete a goal on behalf of the user (used by TORA AI).** (`backend/finance-service/app/api/routes_internal.py` L523) → security_requirerole
+- **Create a detailed finance plan (used by TORA AI or Dashboard).** (`backend/finance-service/app/api/routes_internal.py` L563) → security_requirerole
+- **Adjust an existing finance plan.** (`backend/finance-service/app/api/routes_internal.py` L612) → security_requirerole
+- **List all finance plans for a user.** (`backend/finance-service/app/api/routes_internal.py` L656) → security_requirerole
+- **Manually fire a scheduled job. Allowed ids:         net_worth_snapshot, proacti** (`backend/finance-service/app/api/routes_internal.py` L698) → security_requirerole
+- **Assemble a TaxInput from the user's stored ITRData + TaxProfile.** (`backend/finance-service/app/api/routes_internal.py` L736) → security_requirerole
+- **Compare Old vs New regime for a user using stored ITR + tax profile.      Used** (`backend/finance-service/app/api/routes_internal.py` L783) → security_requirerole
+- **Run a what-if tax simulation by overlaying `profile_snapshot` fields.      Exp** (`backend/finance-service/app/api/routes_internal.py` L833) → security_requirerole
+- **Fetch user's tax profile for TORA AI (internal use only).** (`backend/finance-service/app/api/routes_internal.py` L886) → security_requirerole
+- **Update tax profile with changes proposed by TORA AI.     Implements the "Confir** (`backend/finance-service/app/api/routes_internal.py` L931) → security_requirerole
+- **routes_product.py** (`backend/finance-service/app/api/routes_product.py` L1) → routes_product_get_dashboard, routes_product_get_financial_health, routes_product_get_recommendations
+- **get_dashboard()** (`backend/finance-service/app/api/routes_product.py` L19) → routes_product_rationale_23, product_engines_compute_score, product_engines_generate_monthly_insight
+- **get_financial_health()** (`backend/finance-service/app/api/routes_product.py` L69) → routes_product_rationale_75, product_engines_compute_score, d_projects_spendsy_backend_finance_service_app_api_routes_product_py
+- **get_recommendations()** (`backend/finance-service/app/api/routes_product.py` L85) → routes_product_rationale_90, product_engines_refresh_recommendations, d_projects_spendsy_backend_finance_service_app_api_routes_product_py
+- **get_alerts()** (`backend/finance-service/app/api/routes_product.py` L100) → routes_product_rationale_105, d_projects_spendsy_backend_finance_service_app_api_routes_product_py
+- **mark_alert_as_read()** (`backend/finance-service/app/api/routes_product.py` L112) → routes_product_rationale_117, d_projects_spendsy_backend_finance_service_app_api_routes_product_py
+- **Get high-level financial overview for the user.** (`backend/finance-service/app/api/routes_product.py` L23) → product_engines_healthengine, product_engines_insightengine, product_engines_toraengine
+- **Detailed financial health score and metrics (PRO only).** (`backend/finance-service/app/api/routes_product.py` L75) → product_engines_healthengine, product_engines_insightengine, product_engines_toraengine
+- **Tora Smart Engine recommendations (PRO only).** (`backend/finance-service/app/api/routes_product.py` L90) → product_engines_healthengine, product_engines_insightengine, product_engines_toraengine
+- **User-facing financial alerts.** (`backend/finance-service/app/api/routes_product.py` L105) → product_engines_healthengine, product_engines_insightengine, product_engines_toraengine
+- **Mark a specific alert as read.** (`backend/finance-service/app/api/routes_product.py` L117) → product_engines_healthengine, product_engines_insightengine, product_engines_toraengine
+- **TaxComputeRequest** (`backend/finance-service/app/api/routes_tax.py` L42) → routes_tax_rationale_43, tax_engine_taxinput, d_projects_spendsy_backend_finance_service_app_api_routes_tax_py
+- **ITRFormRequest** (`backend/finance-service/app/api/routes_tax.py` L50) → routes_tax_rationale_51, tax_engine_taxinput, d_projects_spendsy_backend_finance_service_app_api_routes_tax_py
+- **Request payload for on-demand tax computation.** (`backend/finance-service/app/api/routes_tax.py` L43) → tax_engine_taxinput
+- **Request payload for ITR form determination.** (`backend/finance-service/app/api/routes_tax.py` L51) → tax_engine_taxinput
+- **Compute tax liability under both Old and New regimes.      Accepts income, deduc** (`backend/finance-service/app/api/routes_tax.py` L65) → tax_engine_taxinput
+- **Compute tax from the user's saved ITR data in the database.     This uses the da** (`backend/finance-service/app/api/routes_tax.py` L144) → tax_engine_taxinput
+- **Determine the appropriate ITR form based on income profile.** (`backend/finance-service/app/api/routes_tax.py` L208) → tax_engine_taxinput
+- **Run pre-filing audit checks on the provided data.** (`backend/finance-service/app/api/routes_tax.py` L233) → tax_engine_taxinput
+- **Standardized security alerting for finance-service.** (`backend/finance-service/app/core/audit.py` L29)
+- **Standardized audit logging for finance-service.     Persists to finance_apiaudi** (`backend/finance-service/app/core/audit.py` L61)
+- **database.py** (`backend/finance-service/app/core/database.py` L1) → database_check_database_connection
+- **product_tiers.py** (`backend/finance-service/app/core/product_tiers.py` L1) → product_tiers_usertier, product_tiers_tierconfig, product_tiers_tierenforcer
+- **UserTier** (`backend/finance-service/app/core/product_tiers.py` L13) → product_tiers_get_tier, d_projects_spendsy_backend_finance_service_app_core_product_tiers_py
+- **TierConfig** (`backend/finance-service/app/core/product_tiers.py` L18) → d_projects_spendsy_backend_finance_service_app_core_product_tiers_py
+- **TierEnforcer** (`backend/finance-service/app/core/product_tiers.py` L33) → product_tiers_rationale_34, d_projects_spendsy_backend_finance_service_app_core_product_tiers_py
+- **get_tier()** (`backend/finance-service/app/core/product_tiers.py` L38) → product_tiers_check_upload_limit, product_tiers_require_pro, d_projects_spendsy_backend_finance_service_app_core_product_tiers_py
+- **check_upload_limit()** (`backend/finance-service/app/core/product_tiers.py` L48) → golden_questions_count, d_projects_spendsy_backend_finance_service_app_core_product_tiers_py
+- **require_pro()** (`backend/finance-service/app/core/product_tiers.py` L67) → d_projects_spendsy_backend_finance_service_app_core_product_tiers_py
+- **Gates access to product features based on user tier.** (`backend/finance-service/app/core/product_tiers.py` L34)
+- **.__init__()** (`backend/finance-service/app/core/security.py` L22)
+- **RequireRole** (`backend/finance-service/app/core/security.py` L66) → security_requirerole_init, security_requirerole_call, d_projects_spendsy_backend_finance_service_app_core_security_py
+- **.__init__()** (`backend/finance-service/app/core/security.py` L67)
+- **.__call__()** (`backend/finance-service/app/core/security.py` L70)
+- **product_engines.py** (`backend/finance-service/app/services/product_engines.py` L1) → product_engines_healthengine, product_engines_compute_score, product_engines_insightengine
+- **HealthEngine** (`backend/finance-service/app/services/product_engines.py` L15) → product_engines_rationale_16, d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **compute_score()** (`backend/finance-service/app/services/product_engines.py` L20) → d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **InsightEngine** (`backend/finance-service/app/services/product_engines.py` L72) → product_engines_rationale_73, d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **generate_monthly_insight()** (`backend/finance-service/app/services/product_engines.py` L77) → d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **ToraEngine** (`backend/finance-service/app/services/product_engines.py` L118) → product_engines_rationale_119, d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **refresh_recommendations()** (`backend/finance-service/app/services/product_engines.py` L123) → conftest_dummyredisclient_delete, d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **AlertManager** (`backend/finance-service/app/services/product_engines.py` L171) → product_engines_rationale_172, d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **check_for_alerts()** (`backend/finance-service/app/services/product_engines.py` L176) → d_projects_spendsy_backend_finance_service_app_services_product_engines_py
+- **Computes Financial Health Score (FHS) based on savings, debt, and stability.** (`backend/finance-service/app/services/product_engines.py` L16)
+- **Aggregates transactions into monthly snapshots for the dashboard.** (`backend/finance-service/app/services/product_engines.py` L73)
+- **Generates personalized recommendations (Tora Smart Engine).** (`backend/finance-service/app/services/product_engines.py` L119)
+- **Scans for anomalies and risk events.** (`backend/finance-service/app/services/product_engines.py` L172)
+- **net_worth_snapshot.py** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L1) → net_worth_snapshot_candidate_user_ids, net_worth_snapshot_snapshot_for_user, net_worth_snapshot_run_daily_net_worth_snapshot
+- **_candidate_user_ids()** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L34) → net_worth_snapshot_run_daily_net_worth_snapshot, net_worth_snapshot_rationale_35, d_projects_spendsy_backend_finance_service_app_services_jobs_net_worth_snapshot_py
+- **_snapshot_for_user()** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L45) → net_worth_snapshot_run_daily_net_worth_snapshot, net_worth_snapshot_rationale_46, d_projects_spendsy_backend_finance_service_app_services_jobs_net_worth_snapshot_py
+- **run_daily_net_worth_snapshot()** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L107) → net_worth_snapshot_rationale_108, d_projects_spendsy_backend_finance_service_app_services_jobs_net_worth_snapshot_py
+- **Daily net-worth snapshot job.  For every user with any finance data, write exact** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L1) → d_projects_spendsy_backend_finance_service_app_services_jobs_net_worth_snapshot_py
+- **Every user with at least one finance row worth snapshotting.** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L35)
+- **Compute and insert a snapshot for the user. Returns True if a row was written.** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L46)
+- **Entry point called by the scheduler.** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L108)
+- **error_codes.py** (`backend/finance-service/app/utils/error_codes.py` L1) → error_codes_errorcode
+- **ErrorCode** (`backend/finance-service/app/utils/error_codes.py` L1) → d_projects_spendsy_backend_finance_service_app_utils_error_codes_py
+- **SQLite can't compile JSONB columns. Swap them for generic JSON in tests.** (`backend/tests/test_proactive_insights.py` L41)
+- **database.py** (`backend/auth-service/app/core/database.py` L1)
+- **models.py** (`backend/finance-service/app/models.py` L1)
+- **schemas.py** (`backend/finance-service/app/schemas.py` L1)
+- **routes_product.py** (`backend/finance-service/app/api/routes_product.py` L1)
+- **database.py** (`backend/finance-service/app/core/database.py` L1)
+- **product_tiers.py** (`backend/finance-service/app/core/product_tiers.py` L1)
+- **product_engines.py** (`backend/finance-service/app/services/product_engines.py` L1)
+- **net_worth_snapshot.py** (`backend/finance-service/app/services/jobs/net_worth_snapshot.py` L1)
+- **error_codes.py** (`backend/finance-service/app/utils/error_codes.py` L1)

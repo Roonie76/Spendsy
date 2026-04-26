@@ -1,0 +1,71 @@
+# Community 7
+
+**66 nodes**
+
+## Nodes
+- **adjust_plan.py** (`backend/spendsy-ai/agents/tools/adjust_plan.py` L1) → adjust_plan_adjust_plan, backend_spendsy_ai_agents_tools_tool_registry_py
+- **adjust_plan()** (`backend/spendsy-ai/agents/tools/adjust_plan.py` L7) → adjust_plan_rationale_8, d_projects_spendsy_backend_spendsy_ai_agents_tools_adjust_plan_py
+- **Send a POST request to finance-service to adjust an existing financial plan.** (`backend/spendsy-ai/agents/tools/adjust_plan.py` L8)
+- **compare_tax_regimes.py** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L1) → compare_tax_regimes_call_tax_engine_compare, compare_tax_regimes_simulate_tax_profile_change, compare_tax_regimes_compare_tax_regimes
+- **call_tax_engine_compare()** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L14) → compare_tax_regimes_compare_tax_regimes, compare_tax_regimes_simulate_tax_whatif, compare_tax_regimes_rationale_15
+- **simulate_tax_profile_change()** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L35) → compare_tax_regimes_simulate_tax_whatif, compare_tax_regimes_rationale_41, d_projects_spendsy_backend_spendsy_ai_agents_tools_compare_tax_regimes_py
+- **compare_tax_regimes()** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L73) → compare_tax_regimes_rationale_74, d_projects_spendsy_backend_spendsy_ai_agents_tools_compare_tax_regimes_py
+- **simulate_tax_whatif()** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L147) → compare_tax_regimes_rationale_153, d_projects_spendsy_backend_spendsy_ai_agents_tools_compare_tax_regimes_py
+- **Tax Regime Comparison & Simulation Tool - Enables TORA to run "What-if" scenario** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_compare_tax_regimes_py
+- **Call the tax-service compare_regimes endpoint to get Old vs New regime compariso** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L15)
+- **Simulate tax liability change if the user applies the proposed tax profile chang** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L41)
+- **Main tool function - Compare Old vs New tax regimes for a user.          Pro t** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L74)
+- **Pro tier feature: Simulate custom "What-if" tax scenarios.          Examples:** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L153)
+- **create_loan_repayment_plan.py** (`backend/spendsy-ai/agents/tools/create_loan_repayment_plan.py` L1) → create_loan_repayment_plan_create_loan_repayment_plan, backend_spendsy_ai_agents_tools_tool_registry_py
+- **create_loan_repayment_plan()** (`backend/spendsy-ai/agents/tools/create_loan_repayment_plan.py` L7) → create_loan_repayment_plan_rationale_8, d_projects_spendsy_backend_spendsy_ai_agents_tools_create_loan_repayment_plan_py
+- **Send a POST request to finance-service to create a new financial plan specifical** (`backend/spendsy-ai/agents/tools/create_loan_repayment_plan.py` L8)
+- **create_plan.py** (`backend/spendsy-ai/agents/tools/create_plan.py` L1) → create_plan_create_plan, backend_spendsy_ai_agents_tools_tool_registry_py
+- **create_plan()** (`backend/spendsy-ai/agents/tools/create_plan.py` L7) → create_plan_rationale_8, d_projects_spendsy_backend_spendsy_ai_agents_tools_create_plan_py
+- **Send a POST request to finance-service to create a new financial plan.     Hand** (`backend/spendsy-ai/agents/tools/create_plan.py` L8)
+- **simulate_loan_repayment.py** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L1) → simulate_loan_repayment_calculate_loan_amortization, simulate_loan_repayment_simulate_extra_payment_impact, simulate_loan_repayment_simulate_multi_loan_payoff_strategy
+- **calculate_loan_amortization()** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L14) → simulate_loan_repayment_rationale_20, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_loan_repayment_py
+- **simulate_extra_payment_impact()** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L53) → simulate_loan_repayment_simulate_loan_repayment, simulate_loan_repayment_rationale_59, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_loan_repayment_py
+- **simulate_multi_loan_payoff_strategy()** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L113) → simulate_loan_repayment_simulate_loan_repayment, simulate_loan_repayment_rationale_118, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_loan_repayment_py
+- **simulate_loan_consolidation()** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L186) → simulate_loan_repayment_simulate_loan_repayment, simulate_loan_repayment_rationale_191, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_loan_repayment_py
+- **simulate_loan_repayment()** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L242) → simulate_loan_repayment_rationale_243, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_loan_repayment_py
+- **Loan Repayment Simulation Tool - Enables TORA to run multi-loan scenarios and h** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_loan_repayment_py
+- **Calculate detailed amortization schedule for a loan.          Returns list of** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L20)
+- **Calculate impact of making extra monthly payments toward a loan.     Shows mont** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L59)
+- **Simulate different multi-loan payoff strategies.          Strategies:     - d** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L118)
+- **Pro tier feature: Simulate impact of consolidating multiple loans into one.** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L191)
+- **Main tool function for loan repayment simulations.          Available simulati** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L243)
+- **simulate_tax_efficient_investment.py** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L1) → simulate_tax_efficient_investment_calculate_investment_allocation, simulate_tax_efficient_investment_calculate_tax_impact_of_investments, simulate_tax_efficient_investment_simulate_sip_growth_with_tax
+- **calculate_investment_allocation()** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L14) → simulate_tax_efficient_investment_simulate_tax_efficient_investment_plan, simulate_tax_efficient_investment_rationale_20, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_tax_efficient_investment_py
+- **calculate_tax_impact_of_investments()** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L78) → simulate_tax_efficient_investment_simulate_tax_efficient_investment_plan, simulate_tax_efficient_investment_rationale_83, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_tax_efficient_investment_py
+- **simulate_sip_growth_with_tax()** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L150) → simulate_tax_efficient_investment_rationale_156, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_tax_efficient_investment_py
+- **simulate_tax_efficient_investment_plan()** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L236) → simulate_tax_efficient_investment_rationale_244, d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_tax_efficient_investment_py
+- **Investment & Tax Optimization Simulation Tool - Pro tier feature Enables TORA t** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_simulate_tax_efficient_investment_py
+- **Recommend tax-efficient investment allocation based on income and risk profile.** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L20)
+- **Calculate how different investment strategies impact tax liability.          C** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L83)
+- **Simulate SIP growth with tax optimization.          Shows post-tax returns for** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L156)
+- **Comprehensive investment x tax optimization simulation (Pro tier).          Co** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L244)
+- **sync_credit_card_payments.py** (`backend/spendsy-ai/agents/tools/sync_credit_card_payments.py` L1) → sync_credit_card_payments_sync_credit_card_payments, backend_spendsy_ai_agents_tools_tool_registry_py
+- **sync_credit_card_payments()** (`backend/spendsy-ai/agents/tools/sync_credit_card_payments.py` L7) → sync_credit_card_payments_rationale_8, d_projects_spendsy_backend_spendsy_ai_agents_tools_sync_credit_card_payments_py
+- **Sync tool wrapper for TORA.     This calls the MCP tool asynchronously.** (`backend/spendsy-ai/agents/tools/sync_credit_card_payments.py` L8)
+- **tool_registry.py** (`backend/spendsy-ai/agents/tools/tool_registry.py` L1) → backend_spendsy_ai_agents_tools_update_tax_profile_py, tool_registry_get_tool_registry
+- **get_tool_registry()** (`backend/spendsy-ai/agents/tools/tool_registry.py` L10) → tool_registry_rationale_11, d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **Returns a dictionary mapping tool names to functions.** (`backend/spendsy-ai/agents/tools/tool_registry.py` L11)
+- **update_tax_profile.py** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L1) → update_tax_profile_get_current_tax_profile, update_tax_profile_suggest_tax_profile_updates, update_tax_profile_apply_tax_profile_update
+- **get_current_tax_profile()** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L14) → update_tax_profile_update_tax_profile, update_tax_profile_rationale_15, d_projects_spendsy_backend_spendsy_ai_agents_tools_update_tax_profile_py
+- **suggest_tax_profile_updates()** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L32) → update_tax_profile_update_tax_profile, update_tax_profile_rationale_33, d_projects_spendsy_backend_spendsy_ai_agents_tools_update_tax_profile_py
+- **apply_tax_profile_update()** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L107) → update_tax_profile_rationale_108, d_projects_spendsy_backend_spendsy_ai_agents_tools_update_tax_profile_py
+- **update_tax_profile()** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L166) → update_tax_profile_rationale_167, d_projects_spendsy_backend_spendsy_ai_agents_tools_update_tax_profile_py
+- **Tax Profile Update Tool - Enables TORA to suggest and apply tax profile changes.** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_update_tax_profile_py
+- **Fetch the user's current tax profile from finance-service.** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L15)
+- **Build a "Confirmation Shield" response that presents proposed tax profile change** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L33)
+- **Actually persist the tax profile changes to the database.     Called only AFTER** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L108)
+- **Main tool function called by TORA agent.          Workflow:     1. Fetch curr** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L167)
+- **adjust_plan.py** (`backend/spendsy-ai/agents/tools/adjust_plan.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **compare_tax_regimes.py** (`backend/spendsy-ai/agents/tools/compare_tax_regimes.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **create_loan_repayment_plan.py** (`backend/spendsy-ai/agents/tools/create_loan_repayment_plan.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **create_plan.py** (`backend/spendsy-ai/agents/tools/create_plan.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **simulate_loan_repayment.py** (`backend/spendsy-ai/agents/tools/simulate_loan_repayment.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **simulate_tax_efficient_investment.py** (`backend/spendsy-ai/agents/tools/simulate_tax_efficient_investment.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **sync_credit_card_payments.py** (`backend/spendsy-ai/agents/tools/sync_credit_card_payments.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **tool_registry.py** (`backend/spendsy-ai/agents/tools/tool_registry.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tools_update_tax_profile_py
+- **update_tax_profile.py** (`backend/spendsy-ai/agents/tools/update_tax_profile.py` L1)

@@ -30,6 +30,7 @@ from . import (
     real_estate,
     travel,
     wedding,
+    browser_fetch,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ _ALL_PLUGIN_MODULES = [
     wedding,
     furniture,
     lifestyle,
+    browser_fetch,
 ]
 
 

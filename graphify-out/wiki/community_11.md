@@ -1,0 +1,52 @@
+# Community 11
+
+**47 nodes**
+
+## Nodes
+- **digital_deterministic_parser.py** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L1) → digital_deterministic_parser_transaction, digital_deterministic_parser_parseresult, digital_deterministic_parser_extract_day_month_no_year
+- **Transaction** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L116) → digital_deterministic_parser_transaction_to_dict, digital_deterministic_parser_parse_statement, test_proactive_insights_tx
+- **.to_dict()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L129)
+- **ParseResult** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L134) → digital_deterministic_parser_parseresult_to_dict, digital_deterministic_parser_parse_statement, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **.to_dict()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L143) → digital_deterministic_parser_parse_transactions
+- **extract_day_month_no_year()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L153) → digital_deterministic_parser_parse_statement, digital_deterministic_parser_rationale_154, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **normalise_date()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L177) → digital_deterministic_parser_parse_page, digital_deterministic_parser_rationale_178, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **parse_amount()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L237) → digital_deterministic_parser_resolve_amount_balance, digital_deterministic_parser_extract_summary, digital_deterministic_parser_rationale_238
+- **is_valid_amount_token()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L279) → digital_deterministic_parser_extract_row_parts, digital_deterministic_parser_rationale_280, golden_questions_count
+- **classify_type()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L291) → digital_deterministic_parser_parse_statement, digital_deterministic_parser_rationale_292, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **is_noise()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L298) → digital_deterministic_parser_parse_page, digital_deterministic_parser_parse_statement, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **group_words_by_row()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L302) → digital_deterministic_parser_parse_page, digital_deterministic_parser_rationale_303, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **check_digital()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L315) → digital_deterministic_parser_parse_statement, digital_deterministic_parser_rationale_316, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **extract_row_parts()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L336) → digital_deterministic_parser_parse_page, digital_deterministic_parser_rationale_337, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **resolve_amount_balance()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L377) → digital_deterministic_parser_parse_page, digital_deterministic_parser_rationale_378, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **extract_summary()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L404) → digital_deterministic_parser_parse_statement, digital_deterministic_parser_rationale_405, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **parse_page()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L420) → digital_deterministic_parser_parse_statement, digital_deterministic_parser_rationale_421, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **parse_statement()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L508) → digital_deterministic_parser_parse_transactions, digital_deterministic_parser_rationale_509, conftest_dummyredisclient_exists
+- **parse_transactions()** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L633) → digital_deterministic_parser_rationale_634, conftest_dummyredisclient_exists, d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **digital_deterministic_parser.py ================================ Coordinate-aw** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L1) → d_projects_spendsy_backend_finance_service_app_services_parser_digital_deterministic_parser_py
+- **Pull (day, month) from a token that's missing the year — e.g. '15APR'     or '1** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L154)
+- **Convert DD-MMM-YY, DD/MM/YYYY or corrupted DDMMYYYY to YYYY-MM-DD.      Return** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L178)
+- **Parse Indian-formatted amounts robustly.     Handles: 1,23,456.78 | 902.00 | 60** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L238)
+- **True if the word looks like a transaction amount, not a card number or noise.** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L280)
+- **Determine credit/debit from description keywords. BUG 4 FIX.** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L292)
+- **Group pdfplumber word dicts by their vertical (top) position.** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L303)
+- **Return True if the PDF has extractable text (digital).     Checks up to 10 page** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L316)
+- **Given words from one visual row (sorted by x), split into:       date_str, desc** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L337)
+- **Given list of (raw_text, x0) sorted ascending by x0:       - 0 nums  → (None, N** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L378)
+- **Pull opening and closing balances from free text.** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L405)
+- **Parse one page. Returns:       (logical_rows, raw_page_text)      Each logica** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L421)
+- **Parse a digital bank statement PDF.      Returns ParseResult with all transact** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L509)
+- **Compatibility wrapper for routes_finance.py.     Accepts bytes, parses via temp** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L634)
+- **export.py** (`backend/spendsy-ai/fine_tuning/export.py` L1) → export_to_gemma, export_to_llama, export_to_openai
+- **to_gemma()** (`backend/spendsy-ai/fine_tuning/export.py` L25) → export_rationale_26, d_projects_spendsy_backend_spendsy_ai_fine_tuning_export_py
+- **to_llama()** (`backend/spendsy-ai/fine_tuning/export.py` L36) → export_rationale_37, d_projects_spendsy_backend_spendsy_ai_fine_tuning_export_py
+- **to_openai()** (`backend/spendsy-ai/fine_tuning/export.py` L46) → export_rationale_47, d_projects_spendsy_backend_spendsy_ai_fine_tuning_export_py
+- **estimate_tokens()** (`backend/spendsy-ai/fine_tuning/export.py` L64) → export_main, export_rationale_65, d_projects_spendsy_backend_spendsy_ai_fine_tuning_export_py
+- **main()** (`backend/spendsy-ai/fine_tuning/export.py` L69) → conftest_dummyredisclient_exists, d_projects_spendsy_backend_spendsy_ai_fine_tuning_export_py
+- **export.py — Convert collected TORA training data into model-specific formats.  T** (`backend/spendsy-ai/fine_tuning/export.py` L1) → d_projects_spendsy_backend_spendsy_ai_fine_tuning_export_py
+- **Convert to Gemma chat template.** (`backend/spendsy-ai/fine_tuning/export.py` L26)
+- **Convert to LLaMA instruct format.** (`backend/spendsy-ai/fine_tuning/export.py` L37)
+- **Convert to OpenAI fine-tuning format.** (`backend/spendsy-ai/fine_tuning/export.py` L47)
+- **Rough token estimate: ~4 chars per token for English text.** (`backend/spendsy-ai/fine_tuning/export.py` L65)
+- **.exists()** (`tests/conftest.py` L77)
+- **digital_deterministic_parser.py** (`backend/finance-service/app/services/parser/digital_deterministic_parser.py` L1)
+- **export.py** (`backend/spendsy-ai/fine_tuning/export.py` L1)

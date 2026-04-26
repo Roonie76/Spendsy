@@ -1,0 +1,341 @@
+# Community 0
+
+**336 nodes**
+
+## Nodes
+- **memory.py** (`backend/spendsy-ai/memory.py` L1) → abc, memory_conversationstore, memory_load_history
+- **ConversationStore** (`backend/spendsy-ai/memory.py` L18) → abc, memory_freetierstore, memory_protierstore
+- **ABC** (`` ) → d_projects_spendsy_backend_spendsy_ai_memory_py
+- **load_history()** (`backend/spendsy-ai/memory.py` L22) → d_projects_spendsy_backend_spendsy_ai_memory_py
+- **save_turn()** (`backend/spendsy-ai/memory.py` L27) → d_projects_spendsy_backend_spendsy_ai_memory_py
+- **get_memory_limit()** (`backend/spendsy-ai/memory.py` L32) → d_projects_spendsy_backend_spendsy_ai_memory_py
+- **FreeTierStore** (`backend/spendsy-ai/memory.py` L37) → memory_freetierstore_init, memory_freetierstore_load_history, memory_freetierstore_save_turn
+- **.__init__()** (`backend/spendsy-ai/memory.py` L45) → memory_rationale_46
+- **.load_history()** (`backend/spendsy-ai/memory.py` L52) → memory_rationale_53
+- **.save_turn()** (`backend/spendsy-ai/memory.py` L72) → memory_rationale_73
+- **.get_memory_limit()** (`backend/spendsy-ai/memory.py` L80) → memory_rationale_81
+- **ProTierStore** (`backend/spendsy-ai/memory.py` L85) → memory_protierstore_init, memory_protierstore_load_history, memory_protierstore_save_turn
+- **.__init__()** (`backend/spendsy-ai/memory.py` L95) → memory_rationale_96
+- **.load_history()** (`backend/spendsy-ai/memory.py` L102) → memory_rationale_103
+- **.save_turn()** (`backend/spendsy-ai/memory.py` L122) → memory_rationale_123
+- **.get_memory_limit()** (`backend/spendsy-ai/memory.py` L129) → memory_rationale_130
+- **EnterpriseTierStore** (`backend/spendsy-ai/memory.py` L134) → memory_enterprisetierstore_init, memory_enterprisetierstore_load_history, memory_enterprisetierstore_save_turn
+- **.__init__()** (`backend/spendsy-ai/memory.py` L143) → memory_rationale_144
+- **.load_history()** (`backend/spendsy-ai/memory.py` L150) → memory_load_user_conversation_history, memory_rationale_151, test_memory_and_authorization_testfreetiermemory_test_load_history_respects_limit
+- **.save_turn()** (`backend/spendsy-ai/memory.py` L171) → memory_rationale_172
+- **.get_memory_limit()** (`backend/spendsy-ai/memory.py` L178) → memory_rationale_179
+- **get_memory_store()** (`backend/spendsy-ai/memory.py` L183) → memory_load_user_conversation_history, memory_rationale_184, test_memory_and_authorization_testmemorystoreselection_test_free_tier_store_selection
+- **build_conversation_context()** (`backend/spendsy-ai/memory.py` L205) → memory_inject_memory_into_system_prompt, memory_rationale_206, test_integration_tora_tiering_testmemorysystemintegration_test_memory_injection_in_prompt
+- **inject_memory_into_system_prompt()** (`backend/spendsy-ai/memory.py` L233) → memory_rationale_234, d_projects_spendsy_backend_spendsy_ai_memory_py
+- **load_user_conversation_history()** (`backend/spendsy-ai/memory.py` L254) → memory_rationale_255, d_projects_spendsy_backend_spendsy_ai_memory_py
+- **get_tier_memory_limit()** (`backend/spendsy-ai/memory.py` L270) → memory_format_memory_stats, memory_rationale_271, tora_agent_load_recent_conversation
+- **format_memory_stats()** (`backend/spendsy-ai/memory.py` L284) → memory_rationale_285, tora_agent_load_recent_conversation, test_memory_and_authorization_testmemorystats_test_stats_free_tier
+- **Conversation Memory Management for TORA Agent Handles tier-based conversation h** (`backend/spendsy-ai/memory.py` L1) → d_projects_spendsy_backend_spendsy_ai_memory_py
+- **Abstract base class for conversation storage backends.** (`backend/spendsy-ai/memory.py` L19)
+- **Free Tier Memory: 5-turn window (last 5 user+assistant pairs = 10 messages)** (`backend/spendsy-ai/memory.py` L38)
+- **Args:             db_backend: Function that calls database/API (e.g., call_fina** (`backend/spendsy-ai/memory.py` L46)
+- **Load last 5 conversation turns for Free tier user.** (`backend/spendsy-ai/memory.py` L53)
+- **Save conversation turn to database.** (`backend/spendsy-ai/memory.py` L73)
+- **Free tier memory window is 5 turns.** (`backend/spendsy-ai/memory.py` L81)
+- **Pro Tier Memory: Unlimited persistent conversation history     Full context for** (`backend/spendsy-ai/memory.py` L86)
+- **Args:             db_backend: Function that calls database/API** (`backend/spendsy-ai/memory.py` L96)
+- **Load all conversation turns for Pro tier user (up to MAX_LIMIT).** (`backend/spendsy-ai/memory.py` L103)
+- **Save conversation turn to database.** (`backend/spendsy-ai/memory.py` L123)
+- **Pro tier has unlimited memory.** (`backend/spendsy-ai/memory.py` L130)
+- **Enterprise Tier Memory: Unlimited + Real-time Anomaly Tracking     Maintains fu** (`backend/spendsy-ai/memory.py` L135)
+- **Args:             db_backend: Function that calls database/API** (`backend/spendsy-ai/memory.py` L144)
+- **Load all conversation turns with extended metadata.** (`backend/spendsy-ai/memory.py` L151)
+- **Save conversation turn with audit metadata.** (`backend/spendsy-ai/memory.py` L172)
+- **Enterprise tier has unlimited memory.** (`backend/spendsy-ai/memory.py` L179)
+- **Factory function to get appropriate memory store for user tier.          Args:** (`backend/spendsy-ai/memory.py` L184)
+- **Convert conversation history list into a formatted context string for LLM prompt** (`backend/spendsy-ai/memory.py` L206)
+- **Inject conversation history into the system prompt for LLM context.          A** (`backend/spendsy-ai/memory.py` L234)
+- **Load conversation history respecting user tier limits.          Args:** (`backend/spendsy-ai/memory.py` L255)
+- **Get conversation history limit for user tier.          Args:         user_tie** (`backend/spendsy-ai/memory.py` L271)
+- **Return memory usage statistics for logging/debugging.          Args:** (`backend/spendsy-ai/memory.py` L285)
+- **tiering.py** (`backend/spendsy-ai/tiering.py` L1) → tiering_torausertier, tiering_tieringconfig, tiering_get_model_for_tier
+- **ToraUserTier** (`backend/spendsy-ai/tiering.py` L10) → tiering_get_model_for_tier, tiering_rationale_11, test_tora_tiering_testtieringconfig
+- **TieringConfig** (`backend/spendsy-ai/tiering.py` L17) → tiering_rationale_18, tora_agent_rationale_66, tora_agent_rationale_94
+- **get_model_for_tier()** (`backend/spendsy-ai/tiering.py` L96) → test_integration_tora_tiering_testfreetierendtoend_test_free_tier_question_flow, test_integration_tora_tiering_testprotierendtoend_test_pro_tier_question_flow, test_integration_tora_tiering_testmodelrouting_test_free_tier_cost_optimization
+- **can_act_autonomously()** (`backend/spendsy-ai/tiering.py` L105) → tora_agent_build_ai_context, tora_agent_generate_financial_strategy, test_integration_tora_tiering_testfreetierendtoend_test_free_tier_question_flow
+- **get_memory_limit()** (`backend/spendsy-ai/tiering.py` L110) → test_integration_tora_tiering_testfreetierendtoend_test_free_tier_question_flow, test_integration_tora_tiering_testprotierendtoend_test_pro_tier_question_flow, test_integration_tora_tiering_testtierprogression_test_memory_hierarchy
+- **get_simulations()** (`backend/spendsy-ai/tiering.py` L115) → tora_agent_run_financial_simulations, tora_agent_build_ai_context, test_integration_tora_tiering_testfreetierendtoend_test_free_tier_simulation_restricted
+- **get_tax_features()** (`backend/spendsy-ai/tiering.py` L120) → tora_agent_build_ai_context, test_integration_tora_tiering_testprotierendtoend_test_pro_tier_tax_what_if, test_tora_tiering_testtieringconfig_test_tax_features_free_tier
+- **should_expose_pii()** (`backend/spendsy-ai/tiering.py` L125) → tora_agent_sanitize_financial_data, test_integration_tora_tiering_testfreetierendtoend_test_free_tier_data_sanitization, test_integration_tora_tiering_testprotierendtoend_test_pro_tier_pii_exposure
+- **requires_action_confirmation()** (`backend/spendsy-ai/tiering.py` L130) → tora_agent_generate_financial_strategy, test_integration_tora_tiering_testfreetierendtoend_test_free_tier_requires_confirmation, test_integration_tora_tiering_testprotierendtoend_test_pro_tier_can_auto_create_plans
+- **TORA Tiering Configuration - Defines feature access and model selection by tier.** (`backend/spendsy-ai/tiering.py` L1) → d_projects_spendsy_backend_spendsy_ai_tiering_py
+- **User subscription tiers for TORA access.** (`backend/spendsy-ai/tiering.py` L11)
+- **Feature matrix for each tier.** (`backend/spendsy-ai/tiering.py` L18)
+- **tora_agent.py** (`backend/spendsy-ai/agents/tora_agent.py` L1) → backend_spendsy_ai_agents_tora_personality_py, backend_spendsy_ai_agents_tools_tool_registry_py, tora_agent_fetch_financial_summary
+- **fetch_financial_summary()** (`backend/spendsy-ai/agents/tora_agent.py` L65) → tora_agent_generate_financial_strategy, tora_agent_handle_user_question, tora_agent_rationale_66
+- **run_financial_simulations()** (`backend/spendsy-ai/agents/tora_agent.py` L93) → tora_agent_months_to_payoff, tora_agent_generate_financial_strategy, tora_agent_rationale_94
+- **sanitize_financial_data()** (`backend/spendsy-ai/agents/tora_agent.py` L165) → tora_agent_generate_financial_strategy, tora_agent_handle_user_question, tora_agent_rationale_166
+- **build_ai_context()** (`backend/spendsy-ai/agents/tora_agent.py` L221) → tora_agent_aggregate_spending_by_category, tora_agent_summarize_trends, tora_agent_generate_financial_strategy
+- **_summarize_trends()** (`backend/spendsy-ai/agents/tora_agent.py` L353) → tora_agent_rationale_354, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **_months_to_payoff()** (`backend/spendsy-ai/agents/tora_agent.py` L415) → tora_agent_rationale_416, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **_aggregate_spending_by_category()** (`backend/spendsy-ai/agents/tora_agent.py` L435) → tora_agent_rationale_436, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **_clean_json_response()** (`backend/spendsy-ai/agents/tora_agent.py` L452) → tora_agent_generate_financial_strategy, tora_agent_rationale_453, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **_humanize_offschema_json()** (`backend/spendsy-ai/agents/tora_agent.py` L459) → tora_agent_generate_financial_strategy, tora_agent_rationale_460, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **_rupee_ize()** (`backend/spendsy-ai/agents/tora_agent.py` L508) → tora_agent_generate_financial_strategy, tora_agent_rationale_509, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **_sebi_disclaim()** (`backend/spendsy-ai/agents/tora_agent.py` L542) → tora_agent_generate_financial_strategy, tora_agent_rationale_543, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **generate_financial_strategy()** (`backend/spendsy-ai/agents/tora_agent.py` L583) → tora_agent_load_recent_conversation, tora_agent_handle_user_question, tora_agent_rationale_584
+- **_save_conversation()** (`backend/spendsy-ai/agents/tora_agent.py` L782) → tora_agent_handle_user_question, tora_agent_rationale_783, d_projects_spendsy_backend_spendsy_ai_agents_tora_agent_py
+- **_load_recent_conversation()** (`backend/spendsy-ai/agents/tora_agent.py` L815) → tora_agent_handle_user_question, tora_agent_rationale_816, server_call_finance_internal
+- **handle_user_question()** (`backend/spendsy-ai/agents/tora_agent.py` L854) → tora_agent_rationale_855, tora_personality_detect_intent, tora_personality_get_greeting_response
+- **Fetch a complete financial snapshot of the user via the MCP data pipeline.** (`backend/spendsy-ai/agents/tora_agent.py` L66)
+- **Run mathematical simulations based on user tier.     Free tier: Basic savings r** (`backend/spendsy-ai/agents/tora_agent.py` L94)
+- **Sanitize financial data based on user tier.     - Free tier: Strict PII removal** (`backend/spendsy-ai/agents/tora_agent.py` L166)
+- **Build a (system_prompt, user_message) pair for the LLM.      Ordering strategy** (`backend/spendsy-ai/agents/tora_agent.py` L230)
+- **Render 6-month trends as a compact text block for the prompt.      Design choi** (`backend/spendsy-ai/agents/tora_agent.py` L354)
+- **Months to fully repay `principal` at fixed `payment` and `monthly_rate`.** (`backend/spendsy-ai/agents/tora_agent.py` L416)
+- **Sum expense transactions by category and return top entries sorted desc.** (`backend/spendsy-ai/agents/tora_agent.py` L436)
+- **Remove markdown code blocks and whitespace from AI response.** (`backend/spendsy-ai/agents/tora_agent.py` L453)
+- **Convert an off-schema JSON blob into readable markdown.      Small LLMs (gemma** (`backend/spendsy-ai/agents/tora_agent.py` L460)
+- **Recursively replace $ / USD / 'dollars' with the ₹ symbol in strings.      Ord** (`backend/spendsy-ai/agents/tora_agent.py` L509)
+- **Append a brief SEBI disclaimer if the response mentions investments.      Oper** (`backend/spendsy-ai/agents/tora_agent.py` L543)
+- **The orchestrator function executing the full Agent Workflow with tier awareness.** (`backend/spendsy-ai/agents/tora_agent.py` L584)
+- **Persist a single conversation turn to the finance-service internal API.     The** (`backend/spendsy-ai/agents/tora_agent.py` L783)
+- **Load conversation history respecting tier-based memory limits.          Args:** (`backend/spendsy-ai/agents/tora_agent.py` L816)
+- **Main entry point for the TORA agent endpoint with tiering support.     1. Detec** (`backend/spendsy-ai/agents/tora_agent.py` L855)
+- **tora_personality.py** (`backend/spendsy-ai/agents/tora_personality.py` L1) → tora_personality_detect_intent, tora_personality_is_finance_related, tora_personality_get_greeting_response
+- **detect_intent()** (`backend/spendsy-ai/agents/tora_personality.py` L79) → tora_personality_is_finance_related, tora_personality_rationale_80, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **is_finance_related()** (`backend/spendsy-ai/agents/tora_personality.py` L114) → tora_personality_rationale_115, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **get_greeting_response()** (`backend/spendsy-ai/agents/tora_personality.py` L157) → tora_personality_rationale_158, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **get_small_talk_response()** (`backend/spendsy-ai/agents/tora_personality.py` L166) → tora_personality_rationale_167, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **get_capability_response()** (`backend/spendsy-ai/agents/tora_personality.py` L181) → tora_personality_rationale_182, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **detect_ambiguous_goal()** (`backend/spendsy-ai/agents/tora_personality.py` L243) → tora_personality_get_ambiguous_goal_response, tora_personality_rationale_244, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **get_ambiguous_goal_response()** (`backend/spendsy-ai/agents/tora_personality.py` L285) → tora_personality_rationale_286, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **get_fallback_response()** (`backend/spendsy-ai/agents/tora_personality.py` L295) → tora_personality_rationale_296, d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py
+- **Categorizes the user's message as one of:         - 'greeting'        — pure hi** (`backend/spendsy-ai/agents/tora_personality.py` L80)
+- **Checks if the user's question relates to personal finance topics.     Deprecate** (`backend/spendsy-ai/agents/tora_personality.py` L115)
+- **Returns a conversational greeting as a simple-mode reply.      is_returning: T** (`backend/spendsy-ai/agents/tora_personality.py` L158)
+- **Deterministic reply to greetings/acknowledgements — never calls the LLM.** (`backend/spendsy-ai/agents/tora_personality.py` L167)
+- **Returns TORA's capability summary as a simple-mode markdown reply.** (`backend/spendsy-ai/agents/tora_personality.py` L182)
+- **Return a canned clarifying question when the ask is obviously incomplete.** (`backend/spendsy-ai/agents/tora_personality.py` L244)
+- **Wrap `detect_ambiguous_goal` output in the simple-mode JSON envelope.** (`backend/spendsy-ai/agents/tora_personality.py` L286)
+- **Returns a simple-mode reply for off-topic queries.      Note: this is only use** (`backend/spendsy-ai/agents/tora_personality.py` L296)
+- **test_integration_tora_tiering.py** (`backend/tests/test_integration_tora_tiering.py` L1) → test_integration_tora_tiering_testfreetierendtoend, test_integration_tora_tiering_testprotierendtoend, test_integration_tora_tiering_testtierprogression
+- **TestFreeTierEndToEnd** (`backend/tests/test_integration_tora_tiering.py` L11) → test_integration_tora_tiering_testfreetierendtoend_test_free_tier_question_flow, test_integration_tora_tiering_testfreetierendtoend_test_free_tier_simulation_restricted, test_integration_tora_tiering_testfreetierendtoend_test_free_tier_data_sanitization
+- **.test_free_tier_question_flow()** (`backend/tests/test_integration_tora_tiering.py` L14) → test_integration_tora_tiering_rationale_15
+- **.test_free_tier_simulation_restricted()** (`backend/tests/test_integration_tora_tiering.py` L38) → test_integration_tora_tiering_rationale_39
+- **.test_free_tier_data_sanitization()** (`backend/tests/test_integration_tora_tiering.py` L51) → test_integration_tora_tiering_rationale_52
+- **.test_free_tier_requires_confirmation()** (`backend/tests/test_integration_tora_tiering.py` L64) → test_integration_tora_tiering_rationale_65
+- **TestProTierEndToEnd** (`backend/tests/test_integration_tora_tiering.py` L75) → test_integration_tora_tiering_testprotierendtoend_test_pro_tier_question_flow, test_integration_tora_tiering_testprotierendtoend_test_pro_tier_all_simulations_available, test_integration_tora_tiering_testprotierendtoend_test_pro_tier_tax_what_if
+- **.test_pro_tier_question_flow()** (`backend/tests/test_integration_tora_tiering.py` L78) → test_integration_tora_tiering_rationale_79
+- **.test_pro_tier_all_simulations_available()** (`backend/tests/test_integration_tora_tiering.py` L99) → test_integration_tora_tiering_rationale_100
+- **.test_pro_tier_tax_what_if()** (`backend/tests/test_integration_tora_tiering.py` L111) → test_integration_tora_tiering_rationale_112
+- **.test_pro_tier_pii_exposure()** (`backend/tests/test_integration_tora_tiering.py` L121) → test_integration_tora_tiering_rationale_122
+- **.test_pro_tier_can_auto_create_plans()** (`backend/tests/test_integration_tora_tiering.py` L133) → test_integration_tora_tiering_rationale_134
+- **TestTierProgression** (`backend/tests/test_integration_tora_tiering.py` L146) → test_integration_tora_tiering_testtierprogression_test_feature_hierarchy_respected, test_integration_tora_tiering_testtierprogression_test_autonomy_hierarchy, test_integration_tora_tiering_testtierprogression_test_memory_hierarchy
+- **.test_feature_hierarchy_respected()** (`backend/tests/test_integration_tora_tiering.py` L149) → test_integration_tora_tiering_rationale_150
+- **.test_autonomy_hierarchy()** (`backend/tests/test_integration_tora_tiering.py` L164) → test_integration_tora_tiering_rationale_165
+- **.test_memory_hierarchy()** (`backend/tests/test_integration_tora_tiering.py` L174) → test_integration_tora_tiering_rationale_175
+- **TestModelRouting** (`backend/tests/test_integration_tora_tiering.py` L186) → test_integration_tora_tiering_testmodelrouting_test_free_tier_cost_optimization, test_integration_tora_tiering_testmodelrouting_test_pro_tier_capability_optimization, test_integration_tora_tiering_testmodelrouting_test_invalid_tier_defaults_safely
+- **.test_free_tier_cost_optimization()** (`backend/tests/test_integration_tora_tiering.py` L189) → test_integration_tora_tiering_rationale_190
+- **.test_pro_tier_capability_optimization()** (`backend/tests/test_integration_tora_tiering.py` L199) → test_integration_tora_tiering_rationale_200
+- **.test_invalid_tier_defaults_safely()** (`backend/tests/test_integration_tora_tiering.py` L209) → test_integration_tora_tiering_rationale_210
+- **TestDataSanitization** (`backend/tests/test_integration_tora_tiering.py` L217) → test_integration_tora_tiering_testdatasanitization_test_free_tier_financial_data_scrubbing, test_integration_tora_tiering_testdatasanitization_test_pro_tier_contextual_data_inclusion, test_integration_tora_tiering_rationale_218
+- **.test_free_tier_financial_data_scrubbing()** (`backend/tests/test_integration_tora_tiering.py` L220) → test_integration_tora_tiering_rationale_221
+- **.test_pro_tier_contextual_data_inclusion()** (`backend/tests/test_integration_tora_tiering.py` L231) → test_integration_tora_tiering_rationale_232
+- **TestMemorySystemIntegration** (`backend/tests/test_integration_tora_tiering.py` L243) → test_integration_tora_tiering_testmemorysystemintegration_test_free_tier_memory_limiting, test_integration_tora_tiering_testmemorysystemintegration_test_pro_tier_unlimited_access, test_integration_tora_tiering_testmemorysystemintegration_test_memory_injection_in_prompt
+- **.test_free_tier_memory_limiting()** (`backend/tests/test_integration_tora_tiering.py` L246) → test_integration_tora_tiering_rationale_247
+- **.test_pro_tier_unlimited_access()** (`backend/tests/test_integration_tora_tiering.py` L253) → test_integration_tora_tiering_rationale_254
+- **.test_memory_injection_in_prompt()** (`backend/tests/test_integration_tora_tiering.py` L260) → test_integration_tora_tiering_rationale_261
+- **TestConversationFlows** (`backend/tests/test_integration_tora_tiering.py` L277) → test_integration_tora_tiering_testconversationflows_test_free_tier_5_turn_window_scenario, test_integration_tora_tiering_testconversationflows_test_free_tier_over_limit_scenario, test_integration_tora_tiering_testconversationflows_test_pro_tier_full_history_scenario
+- **.test_free_tier_5_turn_window_scenario()** (`backend/tests/test_integration_tora_tiering.py` L280) → test_integration_tora_tiering_rationale_281
+- **.test_free_tier_over_limit_scenario()** (`backend/tests/test_integration_tora_tiering.py` L292) → test_integration_tora_tiering_rationale_293
+- **.test_pro_tier_full_history_scenario()** (`backend/tests/test_integration_tora_tiering.py` L306) → test_integration_tora_tiering_rationale_307
+- **TestErrorHandling** (`backend/tests/test_integration_tora_tiering.py` L320) → test_integration_tora_tiering_testerrorhandling_test_invalid_tier_handling, test_integration_tora_tiering_testerrorhandling_test_case_insensitive_tier, test_integration_tora_tiering_testerrorhandling_test_missing_tier_field_defaults
+- **.test_invalid_tier_handling()** (`backend/tests/test_integration_tora_tiering.py` L323) → test_integration_tora_tiering_rationale_324
+- **.test_case_insensitive_tier()** (`backend/tests/test_integration_tora_tiering.py` L331) → test_integration_tora_tiering_rationale_332
+- **.test_missing_tier_field_defaults()** (`backend/tests/test_integration_tora_tiering.py` L341) → test_integration_tora_tiering_rationale_342
+- **TestTierTransitions** (`backend/tests/test_integration_tora_tiering.py` L350) → test_integration_tora_tiering_testtiertransitions_test_upgrade_from_free_to_pro, test_integration_tora_tiering_testtiertransitions_test_downgrade_from_pro_to_free, test_integration_tora_tiering_rationale_351
+- **.test_upgrade_from_free_to_pro()** (`backend/tests/test_integration_tora_tiering.py` L353) → test_integration_tora_tiering_rationale_354
+- **.test_downgrade_from_pro_to_free()** (`backend/tests/test_integration_tora_tiering.py` L368) → test_integration_tora_tiering_rationale_369
+- **Integration tests for TORA tiering system Tests full end-to-end flows for diffe** (`backend/tests/test_integration_tora_tiering.py` L1) → d_projects_spendsy_backend_tests_test_integration_tora_tiering_py
+- **Test complete Free tier workflow** (`backend/tests/test_integration_tora_tiering.py` L12)
+- **Test: Free tier user asks a question about savings         Expected: Mistral mo** (`backend/tests/test_integration_tora_tiering.py` L15)
+- **Test: Free tier cannot access Pro simulations** (`backend/tests/test_integration_tora_tiering.py` L39)
+- **Test: Free tier gets strict data sanitization** (`backend/tests/test_integration_tora_tiering.py` L52)
+- **Test: Free tier requires confirmation for all actions** (`backend/tests/test_integration_tora_tiering.py` L65)
+- **Test complete Pro tier workflow** (`backend/tests/test_integration_tora_tiering.py` L76)
+- **Test: Pro tier user asks a question         Expected: Gemini model used, autono** (`backend/tests/test_integration_tora_tiering.py` L79)
+- **Test: Pro tier has access to all simulations** (`backend/tests/test_integration_tora_tiering.py` L100)
+- **Test: Pro tier can run tax what-if scenarios** (`backend/tests/test_integration_tora_tiering.py` L112)
+- **Test: Pro tier gets limited PII for context** (`backend/tests/test_integration_tora_tiering.py` L122)
+- **Test: Pro tier can auto-create plans without confirmation** (`backend/tests/test_integration_tora_tiering.py` L134)
+- **Test that tiers have proper feature progression** (`backend/tests/test_integration_tora_tiering.py` L147)
+- **Test: Feature availability increases with tier** (`backend/tests/test_integration_tora_tiering.py` L150)
+- **Test: Autonomy increases with tier** (`backend/tests/test_integration_tora_tiering.py` L165)
+- **Test: Memory availability increases with tier** (`backend/tests/test_integration_tora_tiering.py` L175)
+- **Test that models are routed correctly by tier** (`backend/tests/test_integration_tora_tiering.py` L187)
+- **Test: Free tier uses cheaper Mistral model         Expected cost: ~0.2¢ per 1K** (`backend/tests/test_integration_tora_tiering.py` L190)
+- **Test: Pro tier uses advanced Gemini model         Expected: Better reasoning fo** (`backend/tests/test_integration_tora_tiering.py` L200)
+- **Test: Unknown tier defaults to Free tier model** (`backend/tests/test_integration_tora_tiering.py` L210)
+- **Test data sanitization by tier** (`backend/tests/test_integration_tora_tiering.py` L218)
+- **Test: Free tier gets heavily sanitized financial data         Removed: Bank nam** (`backend/tests/test_integration_tora_tiering.py` L221)
+- **Test: Pro tier gets bank/issuer names for context         Removed: Specific tra** (`backend/tests/test_integration_tora_tiering.py` L232)
+- **Test memory system works with tiering** (`backend/tests/test_integration_tora_tiering.py` L244)
+- **Test: Free tier strictly limited to 5 recent turns** (`backend/tests/test_integration_tora_tiering.py` L247)
+- **Test: Pro tier can access full conversation history** (`backend/tests/test_integration_tora_tiering.py` L254)
+- **Test: Memory context properly injected into LLM prompt** (`backend/tests/test_integration_tora_tiering.py` L261)
+- **Test realistic conversation flows for different tiers** (`backend/tests/test_integration_tora_tiering.py` L278)
+- **Scenario: Free tier user has 3-turn conversation         Expected: All 3 turns** (`backend/tests/test_integration_tora_tiering.py` L281)
+- **Scenario: Free tier user has 10-turn conversation         Expected: Only last 5** (`backend/tests/test_integration_tora_tiering.py` L293)
+- **Scenario: Pro tier user has 50-turn conversation         Expected: All 50 turns** (`backend/tests/test_integration_tora_tiering.py` L307)
+- **Test error cases and edge conditions** (`backend/tests/test_integration_tora_tiering.py` L321)
+- **Test: Invalid tier string handled gracefully** (`backend/tests/test_integration_tora_tiering.py` L324)
+- **Test: Tier names case-insensitive** (`backend/tests/test_integration_tora_tiering.py` L332)
+- **Test: Missing tier field defaults to free** (`backend/tests/test_integration_tora_tiering.py` L342)
+- **Test behavior during tier transitions** (`backend/tests/test_integration_tora_tiering.py` L351)
+- **Scenario: User upgrades from Free to Pro         Expected: Simulations become a** (`backend/tests/test_integration_tora_tiering.py` L354)
+- **Scenario: User downgrades from Pro to Free         Expected: Advanced simulatio** (`backend/tests/test_integration_tora_tiering.py` L369)
+- **test_memory_and_authorization.py** (`backend/tests/test_memory_and_authorization.py` L1) → test_memory_and_authorization_testmemorystoreselection, test_memory_and_authorization_testfreetiermemory, test_memory_and_authorization_testprotiermemory
+- **TestMemoryStoreSelection** (`backend/tests/test_memory_and_authorization.py` L19) → test_memory_and_authorization_testmemorystoreselection_test_free_tier_store_selection, test_memory_and_authorization_testmemorystoreselection_test_pro_tier_store_selection, test_memory_and_authorization_testmemorystoreselection_test_enterprise_tier_store_selection
+- **.test_free_tier_store_selection()** (`backend/tests/test_memory_and_authorization.py` L22) → test_memory_and_authorization_rationale_23
+- **.test_pro_tier_store_selection()** (`backend/tests/test_memory_and_authorization.py` L28) → test_memory_and_authorization_rationale_29
+- **.test_enterprise_tier_store_selection()** (`backend/tests/test_memory_and_authorization.py` L34) → test_memory_and_authorization_rationale_35
+- **.test_invalid_tier_defaults_to_free()** (`backend/tests/test_memory_and_authorization.py` L40) → test_memory_and_authorization_rationale_41
+- **TestFreeTierMemory** (`backend/tests/test_memory_and_authorization.py` L47) → test_memory_and_authorization_testfreetiermemory_test_5_turn_window_size, test_memory_and_authorization_testfreetiermemory_test_memory_limit_for_free_tier, test_memory_and_authorization_testfreetiermemory_test_load_history_respects_limit
+- **.test_5_turn_window_size()** (`backend/tests/test_memory_and_authorization.py` L50) → test_memory_and_authorization_rationale_51
+- **.test_memory_limit_for_free_tier()** (`backend/tests/test_memory_and_authorization.py` L54) → test_memory_and_authorization_rationale_55
+- **.test_load_history_respects_limit()** (`backend/tests/test_memory_and_authorization.py` L59) → test_memory_and_authorization_rationale_60
+- **.test_load_history_empty_handling()** (`backend/tests/test_memory_and_authorization.py` L74) → test_memory_and_authorization_rationale_75
+- **.test_load_history_error_handling()** (`backend/tests/test_memory_and_authorization.py` L81) → test_memory_and_authorization_rationale_82
+- **TestProTierMemory** (`backend/tests/test_memory_and_authorization.py` L89) → test_memory_and_authorization_testprotiermemory_test_unlimited_memory_indicator, test_memory_and_authorization_testprotiermemory_test_memory_store_max_limit, test_memory_and_authorization_testprotiermemory_test_load_history_uses_max_limit
+- **.test_unlimited_memory_indicator()** (`backend/tests/test_memory_and_authorization.py` L92) → test_memory_and_authorization_rationale_93
+- **.test_memory_store_max_limit()** (`backend/tests/test_memory_and_authorization.py` L97) → test_memory_and_authorization_rationale_98
+- **.test_load_history_uses_max_limit()** (`backend/tests/test_memory_and_authorization.py` L101) → test_memory_and_authorization_rationale_102
+- **TestEnterpriseTierMemory** (`backend/tests/test_memory_and_authorization.py` L111) → test_memory_and_authorization_testenterprisetiermemory_test_enterprise_max_limit, test_memory_and_authorization_testenterprisetiermemory_test_load_history_with_metadata, test_memory_and_authorization_rationale_112
+- **.test_enterprise_max_limit()** (`backend/tests/test_memory_and_authorization.py` L114) → test_memory_and_authorization_rationale_115
+- **.test_load_history_with_metadata()** (`backend/tests/test_memory_and_authorization.py` L118) → test_memory_and_authorization_rationale_119
+- **TestConversationContextBuilding** (`backend/tests/test_memory_and_authorization.py` L131) → test_memory_and_authorization_testconversationcontextbuilding_test_empty_history_handling, test_memory_and_authorization_testconversationcontextbuilding_test_single_message_formatting, test_memory_and_authorization_testconversationcontextbuilding_test_multi_turn_formatting
+- **.test_empty_history_handling()** (`backend/tests/test_memory_and_authorization.py` L134) → test_memory_and_authorization_rationale_135
+- **.test_single_message_formatting()** (`backend/tests/test_memory_and_authorization.py` L139) → test_memory_and_authorization_rationale_140
+- **.test_multi_turn_formatting()** (`backend/tests/test_memory_and_authorization.py` L150) → test_memory_and_authorization_rationale_151
+- **.test_timestamp_display()** (`backend/tests/test_memory_and_authorization.py` L163) → test_memory_and_authorization_rationale_164
+- **TestMemoryStats** (`backend/tests/test_memory_and_authorization.py` L173) → test_memory_and_authorization_testmemorystats_test_stats_free_tier, test_memory_and_authorization_testmemorystats_test_stats_pro_tier, test_memory_and_authorization_testmemorystats_test_stats_enterprise_tier
+- **.test_stats_free_tier()** (`backend/tests/test_memory_and_authorization.py` L176) → test_memory_and_authorization_rationale_177
+- **.test_stats_pro_tier()** (`backend/tests/test_memory_and_authorization.py` L186) → test_memory_and_authorization_rationale_187
+- **.test_stats_enterprise_tier()** (`backend/tests/test_memory_and_authorization.py` L196) → test_memory_and_authorization_rationale_197
+- **TestToolAuthorizationPatterns** (`backend/tests/test_memory_and_authorization.py` L205) → test_memory_and_authorization_testtoolauthorizationpatterns_test_free_tier_requires_confirmation, test_memory_and_authorization_testtoolauthorizationpatterns_test_pro_tier_auto_creates_plans, test_memory_and_authorization_testtoolauthorizationpatterns_test_high_risk_actions_always_require_confirmation
+- **.test_free_tier_requires_confirmation()** (`backend/tests/test_memory_and_authorization.py` L208) → test_memory_and_authorization_rationale_209
+- **.test_pro_tier_auto_creates_plans()** (`backend/tests/test_memory_and_authorization.py` L216) → test_memory_and_authorization_rationale_217
+- **.test_high_risk_actions_always_require_confirmation()** (`backend/tests/test_memory_and_authorization.py` L224) → test_memory_and_authorization_rationale_225
+- **TestMemoryIntegrationWithTiering** (`backend/tests/test_memory_and_authorization.py` L234) → test_memory_and_authorization_testmemoryintegrationwithtiering_test_free_tier_window_enforcement, test_memory_and_authorization_testmemoryintegrationwithtiering_test_pro_tier_full_history_access, test_memory_and_authorization_rationale_235
+- **.test_free_tier_window_enforcement()** (`backend/tests/test_memory_and_authorization.py` L237) → test_memory_and_authorization_rationale_238
+- **.test_pro_tier_full_history_access()** (`backend/tests/test_memory_and_authorization.py` L252) → test_memory_and_authorization_rationale_253
+- **TestMemoryErrorResilience** (`backend/tests/test_memory_and_authorization.py` L267) → test_memory_and_authorization_testmemoryerrorresilience_test_db_connection_failure_resilience, test_memory_and_authorization_testmemoryerrorresilience_test_malformed_data_handling, test_memory_and_authorization_rationale_268
+- **.test_db_connection_failure_resilience()** (`backend/tests/test_memory_and_authorization.py` L270) → test_memory_and_authorization_rationale_271
+- **.test_malformed_data_handling()** (`backend/tests/test_memory_and_authorization.py` L279) → test_memory_and_authorization_rationale_280
+- **Test suite for TORA tool authorization and memory management Tests tier-aware t** (`backend/tests/test_memory_and_authorization.py` L1) → d_projects_spendsy_backend_tests_test_memory_and_authorization_py
+- **Test memory store factory and selection** (`backend/tests/test_memory_and_authorization.py` L20)
+- **Free tier should use FreeTierStore** (`backend/tests/test_memory_and_authorization.py` L23)
+- **Pro tier should use ProTierStore** (`backend/tests/test_memory_and_authorization.py` L29)
+- **Enterprise tier should use EnterpriseTierStore** (`backend/tests/test_memory_and_authorization.py` L35)
+- **Invalid tier should default to FreeTierStore** (`backend/tests/test_memory_and_authorization.py` L41)
+- **Test Free tier 5-turn conversation window** (`backend/tests/test_memory_and_authorization.py` L48)
+- **Free tier window should be exactly 5 turns** (`backend/tests/test_memory_and_authorization.py` L51)
+- **get_tier_memory_limit should return 5 for free** (`backend/tests/test_memory_and_authorization.py` L55)
+- **FreeTierStore should load history with 5-turn limit** (`backend/tests/test_memory_and_authorization.py` L60)
+- **Should handle empty history gracefully** (`backend/tests/test_memory_and_authorization.py` L75)
+- **Should return empty list on exception** (`backend/tests/test_memory_and_authorization.py` L82)
+- **Test Pro tier unlimited conversation history** (`backend/tests/test_memory_and_authorization.py` L90)
+- **Pro tier should have no practical limit (MAX_LIMIT = 1000)** (`backend/tests/test_memory_and_authorization.py` L93)
+- **ProTierStore has safety max of 1000** (`backend/tests/test_memory_and_authorization.py` L98)
+- **ProTierStore should load with MAX_LIMIT for safety** (`backend/tests/test_memory_and_authorization.py` L102)
+- **Test Enterprise tier unlimited history with metadata** (`backend/tests/test_memory_and_authorization.py` L112)
+- **Enterprise has higher limit for extensibility** (`backend/tests/test_memory_and_authorization.py` L115)
+- **Enterprise tier store should request metadata** (`backend/tests/test_memory_and_authorization.py` L119)
+- **Test conversation history formatting for LLM prompting** (`backend/tests/test_memory_and_authorization.py` L132)
+- **Should return default message for empty history** (`backend/tests/test_memory_and_authorization.py` L135)
+- **Should format single message correctly** (`backend/tests/test_memory_and_authorization.py` L140)
+- **Should format multi-turn conversation correctly** (`backend/tests/test_memory_and_authorization.py` L151)
+- **Should show timestamp when available** (`backend/tests/test_memory_and_authorization.py` L164)
+- **Test memory usage statistics** (`backend/tests/test_memory_and_authorization.py` L174)
+- **Free tier stats should show 5-turn limit** (`backend/tests/test_memory_and_authorization.py` L177)
+- **Pro tier stats should show unlimited** (`backend/tests/test_memory_and_authorization.py` L187)
+- **Enterprise tier stats should show unlimited** (`backend/tests/test_memory_and_authorization.py` L197)
+- **Test authorization patterns for tool execution** (`backend/tests/test_memory_and_authorization.py` L206)
+- **Free tier should require confirmation for autonomous tools** (`backend/tests/test_memory_and_authorization.py` L209)
+- **Pro tier should not require confirmation for plan creation** (`backend/tests/test_memory_and_authorization.py` L217)
+- **High-risk actions (tax updates) require confirmation even for Pro** (`backend/tests/test_memory_and_authorization.py` L225)
+- **Integration tests for memory system with tiering** (`backend/tests/test_memory_and_authorization.py` L235)
+- **Free tier should enforce 5-turn window in production flow** (`backend/tests/test_memory_and_authorization.py` L238)
+- **Pro tier should get all available history** (`backend/tests/test_memory_and_authorization.py` L253)
+- **Test error handling in memory operations** (`backend/tests/test_memory_and_authorization.py` L268)
+- **Should gracefully handle DB connection failures** (`backend/tests/test_memory_and_authorization.py` L271)
+- **Should handle malformed history data** (`backend/tests/test_memory_and_authorization.py` L280)
+- **test_tora_tiering.py** (`backend/tests/test_tora_tiering.py` L1) → test_tora_tiering_testtieringconfig, test_tora_tiering_testtieringmatrix, test_tora_tiering_testmodelselection
+- **TestTieringConfig** (`backend/tests/test_tora_tiering.py` L13) → test_tora_tiering_testtieringconfig_test_tier_enum_values, test_tora_tiering_testtieringconfig_test_model_selection_free_tier, test_tora_tiering_testtieringconfig_test_model_selection_pro_tier
+- **.test_tier_enum_values()** (`backend/tests/test_tora_tiering.py` L16) → test_tora_tiering_rationale_17
+- **.test_model_selection_free_tier()** (`backend/tests/test_tora_tiering.py` L22) → test_tora_tiering_rationale_23
+- **.test_model_selection_pro_tier()** (`backend/tests/test_tora_tiering.py` L27) → test_tora_tiering_rationale_28
+- **.test_model_selection_enterprise_tier()** (`backend/tests/test_tora_tiering.py` L32) → test_tora_tiering_rationale_33
+- **.test_autonomous_actions_free_tier()** (`backend/tests/test_tora_tiering.py` L37) → test_tora_tiering_rationale_38
+- **.test_autonomous_actions_pro_tier()** (`backend/tests/test_tora_tiering.py` L42) → test_tora_tiering_rationale_43
+- **.test_autonomous_actions_enterprise_tier()** (`backend/tests/test_tora_tiering.py` L47) → test_tora_tiering_rationale_48
+- **.test_conversation_memory_free_tier()** (`backend/tests/test_tora_tiering.py` L52) → test_tora_tiering_rationale_53
+- **.test_conversation_memory_pro_tier()** (`backend/tests/test_tora_tiering.py` L57) → test_tora_tiering_rationale_58
+- **.test_data_sanitization_free_tier()** (`backend/tests/test_tora_tiering.py` L62) → test_tora_tiering_rationale_63
+- **.test_data_sanitization_pro_tier()** (`backend/tests/test_tora_tiering.py` L67) → test_tora_tiering_rationale_68
+- **.test_simulations_free_tier()** (`backend/tests/test_tora_tiering.py` L72) → test_tora_tiering_rationale_73
+- **.test_simulations_pro_tier()** (`backend/tests/test_tora_tiering.py` L79) → test_tora_tiering_rationale_80
+- **.test_simulations_enterprise_tier()** (`backend/tests/test_tora_tiering.py` L87) → test_tora_tiering_rationale_88
+- **.test_tax_features_free_tier()** (`backend/tests/test_tora_tiering.py` L94) → test_tora_tiering_rationale_95
+- **.test_tax_features_pro_tier()** (`backend/tests/test_tora_tiering.py` L101) → test_tora_tiering_rationale_102
+- **.test_confirmation_required_free_tier()** (`backend/tests/test_tora_tiering.py` L108) → test_tora_tiering_rationale_109
+- **.test_confirmation_required_pro_tier()** (`backend/tests/test_tora_tiering.py` L113) → test_tora_tiering_rationale_114
+- **.test_confirmation_required_tax_update_pro_tier()** (`backend/tests/test_tora_tiering.py` L118) → test_tora_tiering_rationale_119
+- **TestTieringMatrix** (`backend/tests/test_tora_tiering.py` L124) → test_tora_tiering_testtieringmatrix_test_feature_matrix_complete, test_tora_tiering_testtieringmatrix_test_tier_progression_features, test_tora_tiering_testtieringmatrix_test_autonomous_tier_progression
+- **.test_feature_matrix_complete()** (`backend/tests/test_tora_tiering.py` L127) → test_tora_tiering_rationale_128
+- **.test_tier_progression_features()** (`backend/tests/test_tora_tiering.py` L136) → test_tora_tiering_rationale_137
+- **.test_autonomous_tier_progression()** (`backend/tests/test_tora_tiering.py` L147) → test_tora_tiering_rationale_148
+- **TestModelSelection** (`backend/tests/test_tora_tiering.py` L157) → test_tora_tiering_testmodelselection_test_model_cost_alignment, test_tora_tiering_testmodelselection_test_invalid_tier_defaults_to_free, test_tora_tiering_rationale_158
+- **.test_model_cost_alignment()** (`backend/tests/test_tora_tiering.py` L160) → test_tora_tiering_rationale_161
+- **.test_invalid_tier_defaults_to_free()** (`backend/tests/test_tora_tiering.py` L174) → test_tora_tiering_rationale_175
+- **TestMemoryLimits** (`backend/tests/test_tora_tiering.py` L180) → test_tora_tiering_testmemorylimits_test_memory_limit_enforcement, test_tora_tiering_rationale_181, d_projects_spendsy_backend_tests_test_tora_tiering_py
+- **.test_memory_limit_enforcement()** (`backend/tests/test_tora_tiering.py` L183) → test_tora_tiering_rationale_184
+- **TestTaxFeatureGating** (`backend/tests/test_tora_tiering.py` L197) → test_tora_tiering_testtaxfeaturegating_test_regime_comparison_all_tiers, test_tora_tiering_testtaxfeaturegating_test_whatif_priced_correctly, test_tora_tiering_rationale_198
+- **.test_regime_comparison_all_tiers()** (`backend/tests/test_tora_tiering.py` L200) → test_tora_tiering_rationale_201
+- **.test_whatif_priced_correctly()** (`backend/tests/test_tora_tiering.py` L206) → test_tora_tiering_rationale_207
+- **Test suite for TORA tiering system Tests tier-based feature access, limits, and** (`backend/tests/test_tora_tiering.py` L1) → d_projects_spendsy_backend_tests_test_tora_tiering_py
+- **Test TieringConfig feature matrices** (`backend/tests/test_tora_tiering.py` L14)
+- **Test that tier enum has expected values** (`backend/tests/test_tora_tiering.py` L17)
+- **Free tier should use Mistral** (`backend/tests/test_tora_tiering.py` L23)
+- **Pro tier should use Gemini** (`backend/tests/test_tora_tiering.py` L28)
+- **Enterprise tier should use Gemini** (`backend/tests/test_tora_tiering.py` L33)
+- **Free tier cannot execute autonomous actions** (`backend/tests/test_tora_tiering.py` L38)
+- **Pro tier can execute autonomous actions** (`backend/tests/test_tora_tiering.py` L43)
+- **Enterprise tier can execute autonomous actions** (`backend/tests/test_tora_tiering.py` L48)
+- **Free tier memory limit is 5 turns** (`backend/tests/test_tora_tiering.py` L53)
+- **Pro tier has unlimited memory** (`backend/tests/test_tora_tiering.py` L58)
+- **Free tier has strict PII removal (no exposure)** (`backend/tests/test_tora_tiering.py` L63)
+- **Pro tier exposes limited PII (bank names, issuer names)** (`backend/tests/test_tora_tiering.py` L68)
+- **Free tier only gets basic savings simulation** (`backend/tests/test_tora_tiering.py` L73)
+- **Pro tier gets loan and tax simulations** (`backend/tests/test_tora_tiering.py` L80)
+- **Enterprise tier gets all simulations plus portfolio** (`backend/tests/test_tora_tiering.py` L88)
+- **Free tier gets regime comparison only** (`backend/tests/test_tora_tiering.py` L95)
+- **Pro tier gets profile updates and what-if** (`backend/tests/test_tora_tiering.py` L102)
+- **Free tier requires confirmation for all tool calls** (`backend/tests/test_tora_tiering.py` L109)
+- **Pro tier doesn't require confirmation for plan creation** (`backend/tests/test_tora_tiering.py` L114)
+- **Pro tier requires confirmation for sensitive tax updates** (`backend/tests/test_tora_tiering.py` L119)
+- **Test feature matrix coherence** (`backend/tests/test_tora_tiering.py` L125)
+- **All features defined for all tiers** (`backend/tests/test_tora_tiering.py` L128)
+- **Features increase with tier level** (`backend/tests/test_tora_tiering.py` L137)
+- **Autonomy increases with tier level** (`backend/tests/test_tora_tiering.py` L148)
+- **Test LLM model routing by tier** (`backend/tests/test_tora_tiering.py` L158)
+- **Verify cost alignment:         - Free: Cheaper Mistral         - Pro: More adv** (`backend/tests/test_tora_tiering.py` L161)
+- **Invalid tier should default to Free tier behavior** (`backend/tests/test_tora_tiering.py` L175)
+- **Test conversation memory limits by tier** (`backend/tests/test_tora_tiering.py` L181)
+- **Memory limits should be correctly specified** (`backend/tests/test_tora_tiering.py` L184)
+- **Test tax-specific feature gating** (`backend/tests/test_tora_tiering.py` L198)
+- **Regime comparison available to all tiers** (`backend/tests/test_tora_tiering.py` L201)
+- **What-if scenarios only in Pro+ tiers** (`backend/tests/test_tora_tiering.py` L207)
+- **memory.py** (`backend/spendsy-ai/memory.py` L1)
+- **tiering.py** (`backend/spendsy-ai/tiering.py` L1)
+- **tora_agent.py** (`backend/spendsy-ai/agents/tora_agent.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_personality_py, d_projects_spendsy_backend_spendsy_ai_agents_tools_tool_registry_py
+- **tora_personality.py** (`backend/spendsy-ai/agents/tora_personality.py` L1)
+- **test_integration_tora_tiering.py** (`backend/tests/test_integration_tora_tiering.py` L1)
+- **test_memory_and_authorization.py** (`backend/tests/test_memory_and_authorization.py` L1)
+- **test_tora_tiering.py** (`backend/tests/test_tora_tiering.py` L1)

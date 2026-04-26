@@ -1,0 +1,65 @@
+# Community 8
+
+**60 nodes**
+
+## Nodes
+- **golden_questions.py** (`backend/tests/tora_eval/golden_questions.py` L1) → golden_questions_expect, golden_questions_goldenquestion, golden_questions_count
+- **Expect** (`backend/tests/tora_eval/golden_questions.py` L32) → typeddict, d_projects_spendsy_backend_tests_tora_eval_golden_questions_py
+- **TypedDict** (`` ) → golden_questions_goldenquestion
+- **GoldenQuestion** (`backend/tests/tora_eval/golden_questions.py` L45) → judge_judgeresult, judge_rationale_1, judge_rationale_83
+- **get_by_id()** (`backend/tests/tora_eval/golden_questions.py` L797) → d_projects_spendsy_backend_tests_tora_eval_golden_questions_py
+- **50 golden questions for TORA regression testing.  Each question bundles:   - `pr** (`backend/tests/tora_eval/golden_questions.py` L1) → d_projects_spendsy_backend_tests_tora_eval_golden_questions_py
+- **judge.py** (`backend/tests/tora_eval/judge.py` L1) → judge_judgeresult, judge_average, judge_out_of_5
+- **JudgeResult** (`backend/tests/tora_eval/judge.py` L64) → judge_judge_response, runner_rationale_1, runner_rationale_59
+- **average()** (`backend/tests/tora_eval/judge.py` L72) → d_projects_spendsy_backend_tests_tora_eval_judge_py
+- **out_of_5()** (`backend/tests/tora_eval/judge.py` L78) → d_projects_spendsy_backend_tests_tora_eval_judge_py
+- **normalized()** (`backend/tests/tora_eval/judge.py` L82) → d_projects_spendsy_backend_tests_tora_eval_judge_py
+- **_judge_available()** (`backend/tests/tora_eval/judge.py` L92) → judge_judge_response, judge_rationale_93, d_projects_spendsy_backend_tests_tora_eval_judge_py
+- **_format_response_for_judge()** (`backend/tests/tora_eval/judge.py` L111) → judge_judge_response, judge_rationale_112, d_projects_spendsy_backend_tests_tora_eval_judge_py
+- **judge_response()** (`backend/tests/tora_eval/judge.py` L128) → judge_rationale_129, runner_run_all, d_projects_spendsy_backend_tests_tora_eval_judge_py
+- **LLM judge for soft quality grading of TORA responses.  Pairs with the determinis** (`backend/tests/tora_eval/judge.py` L1) → d_projects_spendsy_backend_tests_tora_eval_judge_py
+- **0–1 score for combining with rule-based scorer.** (`backend/tests/tora_eval/judge.py` L83)
+- **Quick liveness check — is the judge model installed locally?** (`backend/tests/tora_eval/judge.py` L93)
+- **Produce the text the judge will read as 'the assistant's reply'.** (`backend/tests/tora_eval/judge.py` L112)
+- **Call the judge model and parse its rubric JSON.** (`backend/tests/tora_eval/judge.py` L129)
+- **runner.py** (`backend/tests/tora_eval/runner.py` L1) → backend_tests_tora_eval_scorer_py, runner_stubbed_agent, runner_run_one
+- **stubbed_agent()** (`backend/tests/tora_eval/runner.py` L58) → runner_run_one, runner_rationale_59, d_projects_spendsy_backend_tests_tora_eval_runner_py
+- **_run_one()** (`backend/tests/tora_eval/runner.py` L80) → runner_run_all, runner_rationale_81, test_golden_questions_test_golden_question
+- **_select()** (`backend/tests/tora_eval/runner.py` L98) → runner_run_all, d_projects_spendsy_backend_tests_tora_eval_runner_py
+- **run_all()** (`backend/tests/tora_eval/runner.py` L109) → runner_build_report, runner_main, scorer_score_response
+- **_build_report()** (`backend/tests/tora_eval/runner.py` L140) → scorer_scoreresult_failures, scorer_aggregate, d_projects_spendsy_backend_tests_tora_eval_runner_py
+- **_print_table()** (`backend/tests/tora_eval/runner.py` L196) → runner_main, d_projects_spendsy_backend_tests_tora_eval_runner_py
+- **main()** (`backend/tests/tora_eval/runner.py` L223) → d_projects_spendsy_backend_tests_tora_eval_runner_py
+- **TORA eval harness runner.  Exercises the full agent pipeline (build_ai_context →** (`backend/tests/tora_eval/runner.py` L1) → scorer_scoreresult, d_projects_spendsy_backend_tests_tora_eval_runner_py
+- **Patch MCP fetch, conversation load/save, and tool execution for evals.** (`backend/tests/tora_eval/runner.py` L59) → scorer_scoreresult
+- **Run TORA against a single golden question and return its response.** (`backend/tests/tora_eval/runner.py` L81) → scorer_scoreresult
+- **scorer.py** (`backend/tests/tora_eval/scorer.py` L1) → scorer_checkresult, scorer_scoreresult, scorer_passed_count
+- **CheckResult** (`backend/tests/tora_eval/scorer.py` L29) → scorer_score_response, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **ScoreResult** (`backend/tests/tora_eval/scorer.py` L36) → scorer_scoreresult_failures, scorer_score_response, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **passed_count()** (`backend/tests/tora_eval/scorer.py` L41) → d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **total_count()** (`backend/tests/tora_eval/scorer.py` L45) → d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **score()** (`backend/tests/tora_eval/scorer.py` L49) → d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **all_passed()** (`backend/tests/tora_eval/scorer.py` L55) → d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **.failures()** (`backend/tests/tora_eval/scorer.py` L58) → test_golden_questions_test_golden_question
+- **_extract_text()** (`backend/tests/tora_eval/scorer.py` L67) → scorer_score_response, scorer_rationale_68, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **_detect_mode()** (`backend/tests/tora_eval/scorer.py` L84) → scorer_score_response, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **_tool_names()** (`backend/tests/tora_eval/scorer.py` L92) → scorer_score_response, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **_text_contains_number()** (`backend/tests/tora_eval/scorer.py` L106) → scorer_score_response, scorer_rationale_107, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **_count_sentences()** (`backend/tests/tora_eval/scorer.py` L127) → scorer_score_response, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **score_response()** (`backend/tests/tora_eval/scorer.py` L140) → scorer_score_batch, scorer_rationale_141, test_golden_questions_test_golden_question
+- **score_batch()** (`backend/tests/tora_eval/scorer.py` L237) → d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **aggregate()** (`backend/tests/tora_eval/scorer.py` L243) → scorer_rationale_244, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **Rule-based scorer for TORA golden-question evals.  Given a `GoldenQuestion` and** (`backend/tests/tora_eval/scorer.py` L1) → d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **Pull all user-visible text out of a TORA response, regardless of mode.** (`backend/tests/tora_eval/scorer.py` L68)
+- **True if `target` appears in `text` in any common Indian-format spelling.** (`backend/tests/tora_eval/scorer.py` L107)
+- **Apply all expect-clauses from a golden question to a TORA response.** (`backend/tests/tora_eval/scorer.py` L141)
+- **Roll up a batch of scores into a report dict.** (`backend/tests/tora_eval/scorer.py` L244)
+- **test_golden_questions.py** (`backend/tests/tora_eval/test_golden_questions.py` L1) → test_golden_questions_ollama_up, test_golden_questions_test_golden_question, test_golden_questions_rationale_1
+- **_ollama_up()** (`backend/tests/tora_eval/test_golden_questions.py` L32) → constants_getenv, d_projects_spendsy_backend_tests_tora_eval_test_golden_questions_py
+- **test_golden_question()** (`backend/tests/tora_eval/test_golden_questions.py` L48) → d_projects_spendsy_backend_tests_tora_eval_test_golden_questions_py
+- **pytest entry point for the TORA golden-question eval.  Runs each golden question** (`backend/tests/tora_eval/test_golden_questions.py` L1) → d_projects_spendsy_backend_tests_tora_eval_test_golden_questions_py
+- **golden_questions.py** (`backend/tests/tora_eval/golden_questions.py` L1) → d_projects_spendsy_backend_tests_tora_eval_judge_py, d_projects_spendsy_backend_tests_tora_eval_runner_py, d_projects_spendsy_backend_tests_tora_eval_scorer_py
+- **judge.py** (`backend/tests/tora_eval/judge.py` L1) → d_projects_spendsy_backend_tests_tora_eval_runner_py
+- **runner.py** (`backend/tests/tora_eval/runner.py` L1) → d_projects_spendsy_backend_tests_tora_eval_scorer_py, d_projects_spendsy_backend_tests_tora_eval_test_golden_questions_py
+- **scorer.py** (`backend/tests/tora_eval/scorer.py` L1) → d_projects_spendsy_backend_tests_tora_eval_test_golden_questions_py
+- **test_golden_questions.py** (`backend/tests/tora_eval/test_golden_questions.py` L1)

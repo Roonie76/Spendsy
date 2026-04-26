@@ -1,0 +1,60 @@
+# Community 10
+
+**55 nodes**
+
+## Nodes
+- **note_templates.py** (`backend/spendsy-ai/vault/note_templates.py` L1) → backend_spendsy_ai_vault_vault_writer_py, note_templates_render_profile_note, note_templates_render_balances_note
+- **render_profile_note()** (`backend/spendsy-ai/vault/note_templates.py` L28) → note_templates_aggregate_categories, note_templates_safe_filename, note_templates_rationale_33
+- **render_balances_note()** (`backend/spendsy-ai/vault/note_templates.py` L107) → note_templates_safe_filename, vault_writer_frontmatter, vault_writer_today
+- **render_goal_note()** (`backend/spendsy-ai/vault/note_templates.py` L145) → note_templates_safe_filename, vault_writer_frontmatter, vault_writer_today
+- **render_plan_note()** (`backend/spendsy-ai/vault/note_templates.py` L179) → note_templates_safe_filename, vault_writer_frontmatter, vault_writer_today
+- **render_loan_note()** (`backend/spendsy-ai/vault/note_templates.py` L213) → vault_writer_frontmatter, vault_writer_today, vault_writer_fmt_currency
+- **render_conversation_entry()** (`backend/spendsy-ai/vault/note_templates.py` L243) → note_templates_rationale_249, vault_writer_fmt_currency, vault_sync_sync_vault_after_session
+- **render_conversation_header()** (`backend/spendsy-ai/vault/note_templates.py` L282) → note_templates_rationale_283, vault_writer_frontmatter, vault_sync_sync_vault_after_session
+- **render_monthly_transactions_note()** (`backend/spendsy-ai/vault/note_templates.py` L295) → note_templates_aggregate_categories, note_templates_rationale_299, vault_writer_frontmatter
+- **render_canvas()** (`backend/spendsy-ai/vault/note_templates.py` L334) → note_templates_safe_filename, note_templates_rationale_335, vault_writer_period
+- **_safe_filename()** (`backend/spendsy-ai/vault/note_templates.py` L378) → note_templates_rationale_379, d_projects_spendsy_backend_spendsy_ai_vault_note_templates_py
+- **_aggregate_categories()** (`backend/spendsy-ai/vault/note_templates.py` L386) → note_templates_rationale_387, d_projects_spendsy_backend_spendsy_ai_vault_note_templates_py
+- **note_templates.py — Typed note generators for every vault document.  Each functi** (`backend/spendsy-ai/vault/note_templates.py` L1) → d_projects_spendsy_backend_spendsy_ai_vault_note_templates_py
+- **Main profile dashboard — always updated every session.** (`backend/spendsy-ai/vault/note_templates.py` L33)
+- **Render a single Q&A turn to be appended to the daily conversation note.** (`backend/spendsy-ai/vault/note_templates.py` L249)
+- **Render the frontmatter header for a new daily conversation note.** (`backend/spendsy-ai/vault/note_templates.py` L283)
+- **Render a monthly summary of transactions.** (`backend/spendsy-ai/vault/note_templates.py` L299)
+- **Generate an Obsidian Canvas JSON file linking key vault notes.** (`backend/spendsy-ai/vault/note_templates.py` L335)
+- **Convert a title to a safe filename (lowercase, underscores).** (`backend/spendsy-ai/vault/note_templates.py` L379)
+- **Group transactions by category and return sorted (cat, total) pairs.** (`backend/spendsy-ai/vault/note_templates.py` L387)
+- **vault_sync.py** (`backend/spendsy-ai/vault/vault_sync.py` L1) → backend_spendsy_ai_vault_vault_writer_py, vault_sync_safe_filename, vault_sync_sync_vault_after_session
+- **_safe_filename()** (`backend/spendsy-ai/vault/vault_sync.py` L47) → vault_sync_sync_vault_after_session, vault_sync_rationale_48, d_projects_spendsy_backend_spendsy_ai_vault_vault_sync_py
+- **sync_vault_after_session()** (`backend/spendsy-ai/vault/vault_sync.py` L55) → vault_sync_rationale_63, vault_writer_ensure_vault, vault_writer_today
+- **read_vault_context()** (`backend/spendsy-ai/vault/vault_sync.py` L130) → vault_sync_strip_frontmatter, vault_sync_rationale_131, vault_writer_vault_root
+- **_strip_frontmatter()** (`backend/spendsy-ai/vault/vault_sync.py` L175) → vault_sync_rationale_176, d_projects_spendsy_backend_spendsy_ai_vault_vault_sync_py
+- **vault_sync.py — Post-session vault synchronization.  Called at the end of every** (`backend/spendsy-ai/vault/vault_sync.py` L1) → d_projects_spendsy_backend_spendsy_ai_vault_vault_sync_py
+- **Convert a title to a safe filename.** (`backend/spendsy-ai/vault/vault_sync.py` L48)
+- **Mirror the current financial state into the user's Obsidian vault.      Called a** (`backend/spendsy-ai/vault/vault_sync.py` L63)
+- **Read the user's vault profile as prose context for the LLM prompt.      Returns** (`backend/spendsy-ai/vault/vault_sync.py` L131)
+- **Remove YAML frontmatter from a markdown string.** (`backend/spendsy-ai/vault/vault_sync.py` L176)
+- **vault_writer.py** (`backend/spendsy-ai/vault/vault_writer.py` L1) → vault_writer_vault_root, vault_writer_ensure_vault, vault_writer_write_note
+- **_vault_root()** (`backend/spendsy-ai/vault/vault_writer.py` L28) → vault_writer_ensure_vault, vault_writer_rationale_29, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **ensure_vault()** (`backend/spendsy-ai/vault/vault_writer.py` L52) → vault_writer_rationale_53, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_write_note()** (`backend/spendsy-ai/vault/vault_writer.py` L63) → vault_writer_rationale_64, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_read_note()** (`backend/spendsy-ai/vault/vault_writer.py` L72) → vault_writer_rationale_73, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_append_to_note()** (`backend/spendsy-ai/vault/vault_writer.py` L80) → vault_writer_rationale_81, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_fmt_currency()** (`backend/spendsy-ai/vault/vault_writer.py` L91) → vault_writer_rationale_92, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_frontmatter()** (`backend/spendsy-ai/vault/vault_writer.py` L98) → vault_writer_rationale_99, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_wikilink()** (`backend/spendsy-ai/vault/vault_writer.py` L112) → vault_writer_rationale_113, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_today()** (`backend/spendsy-ai/vault/vault_writer.py` L117) → d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_period()** (`backend/spendsy-ai/vault/vault_writer.py` L121) → d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **_safe_filename()** (`backend/spendsy-ai/vault/vault_writer.py` L125) → vault_writer_rationale_126, d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **vault_writer.py — Core file operations for per-user Obsidian vaults.  Each user** (`backend/spendsy-ai/vault/vault_writer.py` L1) → d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **Return the root directory for a user's vault.** (`backend/spendsy-ai/vault/vault_writer.py` L29)
+- **Create the folder skeleton if it doesn't exist. Idempotent.** (`backend/spendsy-ai/vault/vault_writer.py` L53)
+- **Write *content* to *vault / relative_path*, creating parents.** (`backend/spendsy-ai/vault/vault_writer.py` L64)
+- **Read a vault note. Returns *default* if the file doesn't exist.** (`backend/spendsy-ai/vault/vault_writer.py` L73)
+- **Append *content* to an existing note (or create it).** (`backend/spendsy-ai/vault/vault_writer.py` L81)
+- **Format a number as ₹X,XX,XXX.XX (Indian numbering).** (`backend/spendsy-ai/vault/vault_writer.py` L92)
+- **Render a YAML frontmatter block.** (`backend/spendsy-ai/vault/vault_writer.py` L99)
+- **Return an Obsidian wikilink: [[path]].** (`backend/spendsy-ai/vault/vault_writer.py` L113)
+- **Convert a title to a safe filename (lowercase, underscores).** (`backend/spendsy-ai/vault/vault_writer.py` L126)
+- **note_templates.py** (`backend/spendsy-ai/vault/note_templates.py` L1) → d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py, d_projects_spendsy_backend_spendsy_ai_vault_vault_sync_py
+- **vault_sync.py** (`backend/spendsy-ai/vault/vault_sync.py` L1) → d_projects_spendsy_backend_spendsy_ai_vault_vault_writer_py
+- **vault_writer.py** (`backend/spendsy-ai/vault/vault_writer.py` L1)

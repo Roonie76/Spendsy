@@ -1,0 +1,117 @@
+# Community 5
+
+**112 nodes**
+
+## Nodes
+- **HealthResponse** (`backend/finance-service/app/schemas.py` L28) → backend_auth_service_app_schemas_py, backend_finance_service_app_schemas_py, routes_ai_health
+- **redis.py** (`backend/ai-service/app/core/redis.py` L1) → redis_get_redis, redis_append_message, redis_load_history
+- **get_redis()** (`backend/finance-service/app/core/redis.py` L17) → redis_append_message, redis_load_history, redis_clear_history
+- **append_message()** (`backend/ai-service/app/core/redis.py` L21) → conftest_dummyredisclient_rpush, conftest_dummyredisclient_ltrim, d_projects_spendsy_backend_ai_service_app_core_redis_py
+- **load_history()** (`backend/ai-service/app/core/redis.py` L29) → conftest_dummyredisclient_lrange, d_projects_spendsy_backend_ai_service_app_core_redis_py
+- **clear_history()** (`backend/ai-service/app/core/redis.py` L42) → conftest_dummyredisclient_delete, d_projects_spendsy_backend_ai_service_app_core_redis_py
+- **is_token_blacklisted()** (`backend/finance-service/app/core/redis.py` L45) → redis_rationale_48, backend_auth_service_app_core_redis_py, redis_rationale_70
+- **Return True if the given JTI has been blacklisted (i.e. logged out).** (`backend/ai-service/app/core/redis.py` L48)
+- **security.py** (`backend/ai-service/app/core/security.py` L1) → security_usercontext, security_decode_token, security_get_current_user
+- **decode_token()** (`backend/finance-service/app/core/security.py` L30) → security_get_current_user, backend_auth_service_app_core_security_py, backend_finance_service_app_core_security_py
+- **get_current_user()** (`backend/finance-service/app/core/security.py` L34) → backend_finance_service_app_core_security_py, d_projects_spendsy_backend_ai_service_app_core_security_py, d_projects_spendsy_backend_finance_service_app_core_security_py
+- **finance_client.py** (`backend/ai-service/app/services/finance_client.py` L1) → finance_client_fetch_finance_context
+- **fetch_finance_context()** (`backend/ai-service/app/services/finance_client.py` L16) → finance_client_rationale_17, str, conftest_dummyredisclient_setex
+- **Fetch finance context for a given user, with 5-minute Redis cache.** (`backend/ai-service/app/services/finance_client.py` L17)
+- **models.py** (`backend/auth-service/app/models.py` L1) → models_user, models_apiauditlog, models_securityalert
+- **User** (`backend/auth-service/app/models.py` L11) → base, models_rationale_12, database_base
+- **RefreshToken** (`backend/auth-service/app/models.py` L74) → database_base, routes_auth_rationale_162, routes_auth_register
+- **Mirrors Django's auth_user table to preserve existing data.** (`backend/auth-service/app/models.py` L12) → database_base
+- **schemas.py** (`backend/auth-service/app/schemas.py` L1) → schemas_usercreate, schemas_validate_password_strength, schemas_userlogin
+- **UserCreate** (`backend/auth-service/app/schemas.py` L13) → routes_auth_rationale_162, routes_auth_regression_test_register_rejects_username_duplicates_after_trimming, routes_auth_regression_test_register_rejects_duplicate_email_case_insensitively
+- **validate_password_strength()** (`backend/auth-service/app/schemas.py` L20) → d_projects_spendsy_backend_auth_service_app_schemas_py
+- **UserLogin** (`backend/auth-service/app/schemas.py` L29) → routes_auth_rationale_162, routes_auth_regression_test_login_accepts_trimmed_username_lookup, routes_auth_regression_test_login_returns_human_readable_error_message
+- **TokenPair** (`backend/auth-service/app/schemas.py` L35) → routes_auth_rationale_162, routes_auth_register, routes_auth_login
+- **UserOut** (`backend/auth-service/app/schemas.py` L41) → routes_auth_rationale_162, routes_auth_register, routes_auth_login
+- **empty_to_none()** (`backend/auth-service/app/schemas.py` L50) → d_projects_spendsy_backend_auth_service_app_schemas_py
+- **AuthResponse** (`backend/auth-service/app/schemas.py` L56) → routes_auth_rationale_162, routes_auth_register, routes_auth_login
+- **RefreshRequest** (`backend/auth-service/app/schemas.py` L61) → routes_auth_rationale_162, d_projects_spendsy_backend_auth_service_app_schemas_py
+- **routes_auth.py** (`backend/auth-service/app/api/routes_auth.py` L1) → routes_auth_normalize_username, routes_auth_generate_alert, routes_auth_record_audit
+- **_normalize_username()** (`backend/auth-service/app/api/routes_auth.py` L43) → routes_auth_register, routes_auth_login, d_projects_spendsy_backend_auth_service_app_api_routes_auth_py
+- **_generate_alert()** (`backend/auth-service/app/api/routes_auth.py` L47) → routes_auth_record_audit, d_projects_spendsy_backend_auth_service_app_api_routes_auth_py
+- **_record_audit()** (`backend/auth-service/app/api/routes_auth.py` L71) → routes_auth_register, routes_auth_login, routes_auth_refresh
+- **_normalize_email()** (`backend/auth-service/app/api/routes_auth.py` L145) → routes_auth_register, routes_auth_login, d_projects_spendsy_backend_auth_service_app_api_routes_auth_py
+- **_get_registration_conflict_detail()** (`backend/auth-service/app/api/routes_auth.py` L149) → routes_auth_register, d_projects_spendsy_backend_auth_service_app_api_routes_auth_py
+- **_set_auth_cookies()** (`backend/auth-service/app/api/routes_auth.py` L161) → routes_auth_register, routes_auth_login, routes_auth_refresh
+- **_clear_auth_cookies()** (`backend/auth-service/app/api/routes_auth.py` L174) → routes_auth_logout, d_projects_spendsy_backend_auth_service_app_api_routes_auth_py
+- **register()** (`backend/auth-service/app/api/routes_auth.py` L180) → routes_auth_refresh, redis_get_identity_from_request, redis_is_rate_limited
+- **login()** (`backend/auth-service/app/api/routes_auth.py` L240) → redis_get_identity_from_request, redis_is_account_locked, redis_is_rate_limited
+- **me()** (`backend/auth-service/app/api/routes_auth.py` L365) → d_projects_spendsy_backend_auth_service_app_api_routes_auth_py
+- **logout()** (`backend/auth-service/app/api/routes_auth.py` L394) → redis_blacklist_token, d_projects_spendsy_backend_auth_service_app_api_routes_auth_py
+- **Set HttpOnly, Secure, SameSite=Strict cookies for both tokens.** (`backend/auth-service/app/api/routes_auth.py` L162)
+- **routes_health.py** (`backend/auth-service/app/api/routes_health.py` L1) → routes_health_health
+- **health()** (`backend/auth-service/app/api/routes_health.py` L11) → d_projects_spendsy_backend_auth_service_app_api_routes_health_py
+- **redis.py** (`backend/auth-service/app/core/redis.py` L1) → redis_get_client_identity, redis_get_identity_from_request, redis_is_rate_limited
+- **_get_client_identity()** (`backend/auth-service/app/core/redis.py` L22) → redis_get_identity_from_request, redis_rationale_23, d_projects_spendsy_backend_auth_service_app_core_redis_py
+- **get_identity_from_request()** (`backend/finance-service/app/core/redis.py` L24) → redis_rationale_31, backend_finance_service_app_core_redis_py, redis_rationale_25
+- **is_rate_limited()** (`backend/finance-service/app/core/redis.py` L56) → backend_finance_service_app_core_redis_py, redis_rationale_57, conftest_dummyredisclient_pipeline
+- **record_audit_event()** (`backend/auth-service/app/core/redis.py` L53) → conftest_dummyredisclient_lpush, str, conftest_dummyredisclient_ltrim
+- **blacklist_token()** (`backend/auth-service/app/core/redis.py` L63) → redis_rationale_64, conftest_dummyredisclient_setex, d_projects_spendsy_backend_auth_service_app_core_redis_py
+- **increment_failed_login()** (`backend/auth-service/app/core/redis.py` L80) → redis_rationale_81, conftest_dummyredispipeline_incr, d_projects_spendsy_backend_auth_service_app_core_redis_py
+- **is_account_locked()** (`backend/auth-service/app/core/redis.py` L93) → redis_rationale_94, d_projects_spendsy_backend_auth_service_app_core_redis_py
+- **reset_failed_login()** (`backend/auth-service/app/core/redis.py` L106) → redis_rationale_107, conftest_dummyredisclient_delete, d_projects_spendsy_backend_auth_service_app_core_redis_py
+- **Prefer X-Forwarded-For over request.client.host (fixes proxy rate-limit key).** (`backend/auth-service/app/core/redis.py` L23)
+- **Extract real IP from FastAPI Request object, proxy-safe.** (`backend/auth-service/app/core/redis.py` L31)
+- **Add a JWT JTI to the Redis blacklist with TTL matching token expiry.** (`backend/auth-service/app/core/redis.py` L64)
+- **Return True if the given JTI has been blacklisted (i.e. logged out).** (`backend/auth-service/app/core/redis.py` L70)
+- **Increment failed login attempts for a given identity.** (`backend/auth-service/app/core/redis.py` L81)
+- **Check if an account/identity is currently locked out.** (`backend/auth-service/app/core/redis.py` L94)
+- **Reset failed login attempts for a given identity after successful login.** (`backend/auth-service/app/core/redis.py` L107)
+- **security.py** (`backend/auth-service/app/core/security.py` L1) → security_hash_password, security_verify_password, security_create_access_token
+- **hash_password()** (`backend/auth-service/app/core/security.py` L16) → routes_auth_regression_create_user, d_projects_spendsy_backend_auth_service_app_core_security_py
+- **verify_password()** (`backend/auth-service/app/core/security.py` L21) → d_projects_spendsy_backend_auth_service_app_core_security_py
+- **create_access_token()** (`backend/auth-service/app/core/security.py` L35) → security_rationale_36, d_projects_spendsy_backend_auth_service_app_core_security_py
+- **create_refresh_token()** (`backend/auth-service/app/core/security.py` L54) → d_projects_spendsy_backend_auth_service_app_core_security_py
+- **_extract_token()** (`backend/auth-service/app/core/security.py` L73) → security_get_token_from_request, security_rationale_77, d_projects_spendsy_backend_auth_service_app_core_security_py
+- **get_token_from_request()** (`backend/auth-service/app/core/security.py` L81) → d_projects_spendsy_backend_auth_service_app_core_security_py
+- **Returns (token, jti).** (`backend/auth-service/app/core/security.py` L36)
+- **Try Bearer header, then access_token cookie.** (`backend/auth-service/app/core/security.py` L77)
+- **routes_auth_regression.py** (`backend/auth-service/tests/routes_auth_regression.py` L1) → routes_auth_regression_stub_auth_dependencies, routes_auth_regression_db_session, routes_auth_regression_make_request
+- **stub_auth_dependencies()** (`backend/auth-service/tests/routes_auth_regression.py` L35) → d_projects_spendsy_backend_auth_service_tests_routes_auth_regression_py
+- **db_session()** (`backend/auth-service/tests/routes_auth_regression.py` L42) → d_projects_spendsy_backend_auth_service_tests_routes_auth_regression_py
+- **make_request()** (`backend/auth-service/tests/routes_auth_regression.py` L59) → routes_auth_regression_test_register_rejects_username_duplicates_after_trimming, routes_auth_regression_test_register_rejects_duplicate_email_case_insensitively, routes_auth_regression_test_register_returns_specific_conflict_after_integrity_error
+- **create_user()** (`backend/auth-service/tests/routes_auth_regression.py` L69) → routes_auth_regression_test_register_rejects_username_duplicates_after_trimming, routes_auth_regression_test_register_rejects_duplicate_email_case_insensitively, routes_auth_regression_test_login_accepts_trimmed_username_lookup
+- **test_register_rejects_username_duplicates_after_trimming()** (`backend/auth-service/tests/routes_auth_regression.py` L93) → fetch_registry_register, d_projects_spendsy_backend_auth_service_tests_routes_auth_regression_py
+- **test_register_rejects_duplicate_email_case_insensitively()** (`backend/auth-service/tests/routes_auth_regression.py` L108) → fetch_registry_register, d_projects_spendsy_backend_auth_service_tests_routes_auth_regression_py
+- **test_register_returns_specific_conflict_after_integrity_error()** (`backend/auth-service/tests/routes_auth_regression.py` L123) → fetch_registry_register, d_projects_spendsy_backend_auth_service_tests_routes_auth_regression_py
+- **test_login_accepts_trimmed_username_lookup()** (`backend/auth-service/tests/routes_auth_regression.py` L152) → d_projects_spendsy_backend_auth_service_tests_routes_auth_regression_py
+- **test_login_returns_human_readable_error_message()** (`backend/auth-service/tests/routes_auth_regression.py` L166) → d_projects_spendsy_backend_auth_service_tests_routes_auth_regression_py
+- **redis.py** (`backend/finance-service/app/core/redis.py` L1) → redis_enqueue_task, redis_record_event, redis_clear_user_financial_cache
+- **enqueue_task()** (`backend/finance-service/app/core/redis.py` L32) → redis_rationale_33, conftest_queuestub_enqueue, d_projects_spendsy_backend_finance_service_app_core_redis_py
+- **record_event()** (`backend/finance-service/app/core/redis.py` L38) → conftest_dummyredisclient_lpush, conftest_dummyredisclient_ltrim, d_projects_spendsy_backend_finance_service_app_core_redis_py
+- **Proxy-safe client identity using X-Forwarded-For.** (`backend/finance-service/app/core/redis.py` L25)
+- **Enqueue an RQ task. Raises exception with details on failure (caller should hand** (`backend/finance-service/app/core/redis.py` L33)
+- **Return True if the given JTI has been blacklisted (i.e. logged out).** (`backend/finance-service/app/core/redis.py` L46)
+- **Check if a given identity is rate limited for a specific scope.** (`backend/finance-service/app/core/redis.py` L57)
+- **security.py** (`backend/finance-service/app/core/security.py` L1) → security_requirerole
+- **register()** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L152) → fetch_registry_rationale_153, init_register_all_plugins, d_projects_spendsy_backend_spendsy_ai_agents_tora_fetch_registry_py
+- **Register a plugin under its `plugin_id`.      Re-registering the same id is allo** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L153)
+- **_DummyRedisClient** (`tests/conftest.py` L43) → conftest_dummyredisclient_init, conftest_dummyredisclient_rpush, conftest_dummyredisclient_lrange
+- **.__init__()** (`tests/conftest.py` L46)
+- **.rpush()** (`tests/conftest.py` L53)
+- **.lrange()** (`tests/conftest.py` L57) → conftest_dummyredisclient_ltrim
+- **.ltrim()** (`tests/conftest.py` L71)
+- **.setex()** (`tests/conftest.py` L80)
+- **.lpush()** (`tests/conftest.py` L86)
+- **.pipeline()** (`tests/conftest.py` L91) → conftest_dummyredispipeline
+- **_DummyRedisPipeline** (`tests/conftest.py` L95) → conftest_dummyredispipeline_init, conftest_dummyredispipeline_incr, conftest_dummyredispipeline_ttl
+- **.__init__()** (`tests/conftest.py` L96)
+- **.incr()** (`tests/conftest.py` L100)
+- **.ttl()** (`tests/conftest.py` L104)
+- **Simple in-memory Redis replacement for tests.** (`tests/conftest.py` L44)
+- **redis.py** (`backend/ai-service/app/core/redis.py` L1)
+- **security.py** (`backend/ai-service/app/core/security.py` L1)
+- **finance_client.py** (`backend/ai-service/app/services/finance_client.py` L1)
+- **models.py** (`backend/auth-service/app/models.py` L1)
+- **schemas.py** (`backend/auth-service/app/schemas.py` L1)
+- **routes_auth.py** (`backend/auth-service/app/api/routes_auth.py` L1)
+- **routes_health.py** (`backend/auth-service/app/api/routes_health.py` L1)
+- **redis.py** (`backend/auth-service/app/core/redis.py` L1)
+- **security.py** (`backend/auth-service/app/core/security.py` L1)
+- **routes_auth_regression.py** (`backend/auth-service/tests/routes_auth_regression.py` L1)
+- **redis.py** (`backend/finance-service/app/core/redis.py` L1)
+- **security.py** (`backend/finance-service/app/core/security.py` L1)

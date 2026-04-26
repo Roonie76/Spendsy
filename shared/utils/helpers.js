@@ -1,4 +1,4 @@
-import { CATEGORIES } from '../config/constants';
+import { CATEGORIES, CURRENCY_SYMBOL } from '../config/constants';
 
 // --- ID GENERATOR ---
 export const generateId = () => {
@@ -38,11 +38,11 @@ export const formatIndianCompact = (num) => {
   const val = parseFloat(num) || 0;
   const absVal = Math.abs(val);
 
-  if (absVal >= 10000000) return `₹${(val / 10000000).toFixed(2)} Cr`;
-  if (absVal >= 100000) return `₹${(val / 100000).toFixed(2)} L`;
-  if (absVal >= 1000) return `₹${(val / 1000).toFixed(1)} k`; // Added 'k' support
+  if (absVal >= 10000000) return `${CURRENCY_SYMBOL}${(val / 10000000).toFixed(2)} Cr`;
+  if (absVal >= 100000) return `${CURRENCY_SYMBOL}${(val / 100000).toFixed(2)} L`;
+  if (absVal >= 1000) return `${CURRENCY_SYMBOL}${(val / 1000).toFixed(1)} k`; // Added 'k' support
   
-  return `₹${val.toLocaleString('en-IN')}`;
+  return `${CURRENCY_SYMBOL}${val.toLocaleString('en-IN')}`;
 };
 
 // --- FINANCIAL YEAR CALCULATOR ---

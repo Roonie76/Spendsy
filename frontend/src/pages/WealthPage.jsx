@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { formatIndianCompact, buildAuthHeader } from "@shared/utils/helpers";
-import { BANKS } from "@shared/config/constants";
+import { BANKS, CURRENCY_SYMBOL } from "@shared/config/constants";
 import UnitSelector from "../components/domain/UnitSelector";
 import WealthItem from "../components/domain/WealthItem";
 import { apiFetch } from "../api";
+import { WealthSkeleton } from "../components/ui/Skeletons";
 
 const WealthPage = ({
   wealthItems,
@@ -14,8 +15,9 @@ const WealthPage = ({
   appId,
   showToast,
   triggerConfirm,
-  onSuccess, // <--- ADD THIS HERE
+  onSuccess,
   netWorthHistory = [],
+  isLoading = false,
 }) => {
   const [wealthName, setWealthName] = useState("");
   const [wealthAmount, setWealthAmount] = useState("");
@@ -186,6 +188,8 @@ const WealthPage = ({
     }
   };
   
+  if (isLoading) return <WealthSkeleton />;
+
   return (
     <div className="space-y-6 pb-28 animate-in slide-in-from-bottom-8">
       {/* NEW: Net Worth Graph Card */}
@@ -207,7 +211,13 @@ const WealthPage = ({
               vs last month
             </p>
             <p className="text-xs sm:text-sm font-bold text-emerald-300">
-              {netWorthHistory.length > 1 ? '+2.4%' : '0.0%'} 
+              {netWorthHistory.length >= 2 ? (() => {
+                const latest = parseFloat(netWorthHistory[netWorthHistory.length - 1].net_worth);
+                const previous = parseFloat(netWorthHistory[netWorthHistory.length - 2].net_worth);
+                if (previous === 0) return '0.0%';
+                const change = ((latest - previous) / previous) * 100;
+                return `${change > 0 ? '+' : ''}${change.toFixed(1)}%`;
+              })() : '0.0%'} 
             </p>
           </div>
         </div>
@@ -419,6 +429,87 @@ const WealthPage = ({
         </form>
       </div>
 
+
+      {/* Portfolio Allocation Pie Chart */}
+      {wealthItems.filter(i => i.type === 'asset').length > 0 && (
+        <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] relative overflow-hidden">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6 px-2">
+            Asset Allocation
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="h-48 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={(() => {
+                      const assets = wealthItems.filter(i => i.type === 'asset');
+                      const groups = assets.reduce((acc, item) => {
+                        const title = (item.title || 'Other').split(' ')[0];
+                        acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
+                        return acc;
+                      }, {});
+                      const data = Object.entries(groups).map(([name, value]) => ({ name, value }));
+                      return data;
+                    })()}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {/* Map cells based on grouped data length, not raw items */}
+                    {(() => {
+                      const assets = wealthItems.filter(i => i.type === 'asset');
+                      const groups = assets.reduce((acc, item) => {
+                        const title = (item.title || 'Other').split(' ')[0];
+                        acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
+                        return acc;
+                      }, {});
+                      return Object.entries(groups).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
+                      ));
+                    })()}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '12px' }}
+                    itemStyle={{ color: '#fff', fontSize: '12px' }}
+                    formatter={(value) => formatIndianCompact(value)}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <p className="text-[10px] text-slate-500 font-bold uppercase">Total Assets</p>
+                <p className="text-lg font-black text-white">{formatIndianCompact(totalAssets)}</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(() => {
+                const assets = wealthItems.filter(i => i.type === 'asset');
+                const groups = assets.reduce((acc, item) => {
+                  const title = (item.title || 'Other').split(' ')[0];
+                  acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
+                  return acc;
+                }, {});
+                return Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([name, value], idx) => {
+                  const pct = ((value / totalAssets) * 100).toFixed(1);
+                  const color = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-rose-500', 'bg-violet-500'][idx % 5];
+                  return (
+                    <div key={name} className="flex items-center justify-between group/row">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${color}`} />
+                        <span className="text-xs font-bold text-slate-400 group-hover/row:text-white transition-colors">{name}</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-black text-white">{pct}%</p>
+                        <p className="text-[10px] text-slate-600 font-bold">{formatIndianCompact(value)}</p>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       <div>

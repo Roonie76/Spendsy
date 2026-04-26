@@ -15,8 +15,20 @@ import { apiFetch } from "../api";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const FY = "2025-26";
-const AY = "2026-27";
+const getDynamicYears = () => {
+  const now = new Date();
+  let currentYear = now.getFullYear();
+  if (now.getMonth() < 3) {
+    currentYear -= 1;
+  }
+  return {
+    FY: `${currentYear}-${String(currentYear + 1).slice(-2)}`,
+    AY: `${currentYear + 1}-${String(currentYear + 2).slice(-2)}`,
+    ADV_YR: currentYear
+  };
+};
+
+const { FY, AY, ADV_YR } = getDynamicYears();
 
 const DEDUCTION_CATALOG = [
   { section: "80C", label: "PPF / ELSS / LIC / Tuition / EPF / NSC / SCSS / 5yr FD / Home Loan Principal / Stamp Duty", limit: 150000, key: "section80C", regimes: ["old"], icon: PiggyBank },
@@ -81,10 +93,10 @@ const HOUSE_PROPERTY_FIELDS = [
 ];
 
 const ADVANCE_TAX_SCHEDULE = [
-  { installment: "1st", due: "June 15", cumPct: 15 },
-  { installment: "2nd", due: "September 15", cumPct: 45 },
-  { installment: "3rd", due: "December 15", cumPct: 75 },
-  { installment: "4th", due: "March 15", cumPct: 100 },
+  { installment: "1st", due: `June 15`, cumPct: 15 },
+  { installment: "2nd", due: `September 15`, cumPct: 45 },
+  { installment: "3rd", due: `December 15`, cumPct: 75 },
+  { installment: "4th", due: `March 15`, cumPct: 100 },
 ];
 
 const TAX_CALENDAR = [
@@ -595,6 +607,19 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
   const [expandedSections, setExpandedSections] = useState({});
   const toggleSection = (id) => setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
 
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
   // ── FETCH ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchUserData = async () => {
@@ -657,6 +682,7 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
         }),
       });
       setDbStatus("online");
+      setIsDirty(false);
       if (refreshProfile) refreshProfile();
       
       // Auto-validate silently on save for better data
@@ -698,17 +724,59 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
   }, [income, deductions, filingDetails]);
 
   // ── HANDLERS ────────────────────────────────────────────────────────────────
-  const updateIncome = (key, val) => setIncome(prev => ({ ...prev, [key]: val }));
-  const updateSalaryComponent = (key, val) => setIncome(prev => ({
-    ...prev,
-    salary_components: { ...prev.salary_components, [key]: val },
-  }));
-  const updateCapitalGainDetail = (key, val) => setIncome(prev => ({
-    ...prev,
-    capital_gains_detail: { ...prev.capital_gains_detail, [key]: val },
-  }));
-  const updateDeduction = (key, val) => setDeductions(prev => ({ ...prev, [key]: val }));
-  const updateFiling = (key, val) => setFilingDetails(prev => ({ ...prev, [key]: val }));
+  const updateIncome = (key, val) => {
+    setIncome(prev => ({ ...prev, [key]: val }));
+    setIsDirty(true);
+  };
+  const updateSalaryComponent = (key, val) => {
+    setIncome(prev => ({
+      ...prev,
+      salary_components: { ...prev.salary_components, [key]: val },
+    }));
+    setIsDirty(true);
+  };
+
+  const updatePropertyDetail = (index, key, val) => {
+    setIncome(prev => {
+      const props = [...(prev.properties || [])];
+      if (!props[index]) props[index] = { property_type: "self_occupied" };
+      props[index] = { ...props[index], [key]: val };
+      return { ...prev, properties: props };
+    });
+    setIsDirty(true);
+  };
+
+  const addProperty = () => {
+    setIncome(prev => ({
+      ...prev,
+      properties: [...(prev.properties || []), { property_type: "self_occupied" }]
+    }));
+    setIsDirty(true);
+  };
+
+  const removeProperty = (index) => {
+    setIncome(prev => ({
+      ...prev,
+      properties: prev.properties.filter((_, i) => i !== index)
+    }));
+    setIsDirty(true);
+  };
+
+  const updateCapitalGainDetail = (key, val) => {
+    setIncome(prev => ({
+      ...prev,
+      capital_gains_detail: { ...prev.capital_gains_detail, [key]: val },
+    }));
+    setIsDirty(true);
+  };
+  const updateDeduction = (key, val) => {
+    setDeductions(prev => ({ ...prev, [key]: val }));
+    setIsDirty(true);
+  };
+  const updateFiling = (key, val) => {
+    setFilingDetails(prev => ({ ...prev, [key]: val }));
+    setIsDirty(true);
+  };
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -917,6 +985,153 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
                               help={comp.help}
                             />
                           ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* House Property Details */}
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
+                  <button onClick={() => toggleSection("hp_detail")} className="w-full flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Home size={16} className="text-emerald-400" />
+                      <span className="text-sm font-bold text-white">Detailed House Property Info</span>
+                    </div>
+                    {expandedSections.hp_detail ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                  </button>
+                  <AnimatePresence>
+                    {expandedSections.hp_detail && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="p-5 pt-0 space-y-6">
+                          {(income.properties || []).map((prop, idx) => (
+                            <div key={idx} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl relative group">
+                              <button onClick={() => removeProperty(idx)} className="absolute top-4 right-4 text-slate-600 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
+                                <X size={14} />
+                              </button>
+                              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4">Property #{idx + 1}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {HOUSE_PROPERTY_FIELDS.map((field) => {
+                                  if (field.condition && !field.condition(prop)) return null;
+                                  
+                                  if (field.type === "select") {
+                                    return (
+                                      <div key={field.key} className="space-y-1.5">
+                                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">{field.label}</label>
+                                        <select
+                                          value={prop[field.key] || ""}
+                                          onChange={(e) => updatePropertyDetail(idx, field.key, e.target.value)}
+                                          className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-3 text-xs text-white focus:border-blue-500/50 outline-none transition-all"
+                                        >
+                                          <option value="">Select Type</option>
+                                          {field.options.map(opt => <option key={opt} value={opt}>{opt.replace(/_/g, " ").toUpperCase()}</option>)}
+                                        </select>
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  if (field.type === "currency") {
+                                    return (
+                                      <CurrencyInput
+                                        key={field.key} compact
+                                        label={field.label}
+                                        value={prop[field.key] || ""}
+                                        onChange={(v) => updatePropertyDetail(idx, field.key, v)}
+                                      />
+                                    );
+                                  }
+
+                                  return (
+                                    <div key={field.key} className="space-y-1.5">
+                                      <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">{field.label}</label>
+                                      <input
+                                        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+                                        value={prop[field.key] || ""}
+                                        onChange={(e) => updatePropertyDetail(idx, field.key, e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:border-blue-500/50 outline-none transition-all"
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                          <button onClick={addProperty} className="w-full py-3 border border-dashed border-white/10 rounded-xl text-[10px] font-bold text-slate-500 hover:border-blue-500/30 hover:text-blue-400 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                            <Plus size={14} className="text-blue-400" /> Add Property
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* House Property Details */}
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
+                  <button onClick={() => toggleSection("hp_detail")} className="w-full flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Home size={16} className="text-emerald-400" />
+                      <span className="text-sm font-bold text-white">Detailed House Property Info</span>
+                    </div>
+                    {expandedSections.hp_detail ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                  </button>
+                  <AnimatePresence>
+                    {expandedSections.hp_detail && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="p-5 pt-0 space-y-6">
+                          {(income.properties || []).map((prop, idx) => (
+                            <div key={idx} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl relative group">
+                              <button onClick={() => removeProperty(idx)} className="absolute top-4 right-4 text-slate-600 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
+                                <X size={14} />
+                              </button>
+                              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4">Property #{idx + 1}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {HOUSE_PROPERTY_FIELDS.map((field) => {
+                                  if (field.condition && !field.condition(prop)) return null;
+                                  
+                                  if (field.type === "select") {
+                                    return (
+                                      <div key={field.key} className="space-y-1.5">
+                                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">{field.label}</label>
+                                        <select
+                                          value={prop[field.key] || ""}
+                                          onChange={(e) => updatePropertyDetail(idx, field.key, e.target.value)}
+                                          className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-3 text-xs text-white focus:border-blue-500/50 outline-none transition-all"
+                                        >
+                                          {field.options.map(opt => <option key={opt} value={opt}>{opt.replace(/_/g, " ").toUpperCase()}</option>)}
+                                        </select>
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  if (field.type === "currency") {
+                                    return (
+                                      <CurrencyInput
+                                        key={field.key} compact
+                                        label={field.label}
+                                        value={prop[field.key] || ""}
+                                        onChange={(v) => updatePropertyDetail(idx, field.key, v)}
+                                      />
+                                    );
+                                  }
+
+                                  return (
+                                    <div key={field.key} className="space-y-1.5">
+                                      <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">{field.label}</label>
+                                      <input
+                                        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+                                        value={prop[field.key] || ""}
+                                        onChange={(e) => updatePropertyDetail(idx, field.key, e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:border-blue-500/50 outline-none transition-all"
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                          <button onClick={addProperty} className="w-full py-3 border border-dashed border-white/10 rounded-xl text-[10px] font-bold text-slate-500 hover:border-blue-500/30 hover:text-blue-400 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                            <Plus size={14} /> Add Property
+                          </button>
                         </div>
                       </motion.div>
                     )}
@@ -1227,7 +1442,7 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {(backendResult ? backendResult.advance_tax_schedule : ADVANCE_TAX_SCHEDULE).map((inst, i) => {
                       const amount = backendResult ? inst.amount : Math.round(selectedResult.totalTax * inst.cumPct / 100);
-                      const isPast = new Date() > new Date(2025, [5, 8, 11, 2][i], 15);
+                      const isPast = new Date() > new Date(ADV_YR, [5, 8, 11, 2][i], 15);
                       return (
                         <div key={i} className={`p-4 rounded-xl border text-center ${isPast ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/10 bg-white/[0.02]"}`}>
                           <p className="text-[9px] font-bold text-slate-500 uppercase">{inst.installment}</p>

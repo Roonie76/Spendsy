@@ -114,7 +114,7 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
           className={`font-bold text-lg ${isTransfer ? "text-cyan-300/80" : isExpense ? "text-rose-300" : "text-emerald-300"}`}
         >
           {isTransfer ? "↔ " : (isExpense ? "-" : "+")}₹
-          {parseFloat(item.amount).toLocaleString("en-IN")}
+          {(Number.isFinite(parseFloat(item.amount)) ? parseFloat(item.amount) : 0).toLocaleString("en-IN")}
         </p>
 
         <div className="flex gap-1 mt-1">

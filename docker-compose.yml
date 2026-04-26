@@ -30,5 +30,14 @@ services:
     ports:
       - "3000:80"
 
+  obscura:
+    image: ghcr.io/h4ckf0r0day/obscura:latest
+    container_name: spendsy_obscura
+    ports:
+      - "9222:9222"
+    command: ["--cdp-port=9222", "--stealth", "--parallel=4"]
+    mem_limit: 128m
+    restart: always
+
 volumes:
   postgres_data:

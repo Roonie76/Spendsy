@@ -30,7 +30,9 @@ const CreditCardsPage = ({
     lastFour: "",
     creditLimit: "",
     billingCycle: "1",
-    dueDay: "20"
+    dueDay: "20",
+    cardType: "PLATINUM",
+    isProtected: true
   });
 
   const fetchCards = async () => {
@@ -59,7 +61,9 @@ const CreditCardsPage = ({
       lastFour: card.lastFour,
       creditLimit: card.creditLimit,
       billingCycle: card.billingCycle,
-      dueDay: card.dueDay
+      dueDay: card.dueDay,
+      cardType: card.cardType || "PLATINUM",
+      isProtected: card.isProtected ?? true
     });
     setShowAddForm(true);
   };
@@ -88,7 +92,9 @@ const CreditCardsPage = ({
         lastFour: "", 
         creditLimit: "", 
         billingCycle: "1", 
-        dueDay: "20" 
+        dueDay: "20",
+        cardType: "PLATINUM",
+        isProtected: true
       });
       fetchCards();
     } catch (error) {
@@ -202,26 +208,32 @@ const CreditCardsPage = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Bill Cycle (Day)</label>
-                  <input 
-                    type="number"
-                    min="1" max="31"
-                    required
-                    value={formData.billingCycle}
-                    onChange={e => setFormData({...formData, billingCycle: e.target.value})}
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Card Type</label>
+                  <select
+                    value={formData.cardType}
+                    onChange={e => setFormData({...formData, cardType: e.target.value})}
                     className="w-full px-5 py-4 bg-black/20 border border-white/10 rounded-2xl text-white outline-none focus:border-purple-500/50 transition-colors"
-                  />
+                  >
+                    <option value="PLATINUM">PLATINUM</option>
+                    <option value="GOLD">GOLD</option>
+                    <option value="SIGNATURE">SIGNATURE</option>
+                    <option value="INFINITE">INFINITE</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Due Day</label>
-                  <input 
-                    type="number"
-                    min="1" max="31"
-                    required
-                    value={formData.dueDay}
-                    onChange={e => setFormData({...formData, dueDay: e.target.value})}
-                    className="w-full px-5 py-4 bg-black/20 border border-white/10 rounded-2xl text-white outline-none focus:border-purple-500/50 transition-colors"
-                  />
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Protection</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, isProtected: !formData.isProtected})}
+                    className={cn(
+                      "w-full px-5 py-4 border rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      formData.isProtected 
+                        ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
+                        : "bg-white/5 border-white/10 text-slate-500"
+                    )}
+                  >
+                    {formData.isProtected ? "Enabled" : "Disabled"}
+                  </button>
                 </div>
               </div>
 
@@ -284,7 +296,7 @@ const CreditCardsPage = ({
                     </div>
                     <div>
                       <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">{card.bankName}</p>
-                      <h4 className="text-lg font-black text-white italic tracking-tighter">PLATINUM</h4>
+                      <h4 className="text-lg font-black text-white italic tracking-tighter">{card.cardType || "PLATINUM"}</h4>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -330,8 +342,10 @@ const CreditCardsPage = ({
 
                 <div className="flex justify-between items-center relative z-10 pt-2 border-t border-white/5">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Protection</span>
+                    <ShieldCheck className={cn("w-4 h-4", card.isProtected !== false ? "text-emerald-500" : "text-slate-600")} />
+                    <span className={cn("text-[10px] font-bold uppercase tracking-widest", card.isProtected !== false ? "text-slate-500" : "text-slate-700")}>
+                      {card.isProtected !== false ? "Active Protection" : "Basic Access"}
+                    </span>
                   </div>
                   <p className="text-xs font-bold text-white uppercase opacity-60 tracking-widest">{card.cardHolder}</p>
                 </div>

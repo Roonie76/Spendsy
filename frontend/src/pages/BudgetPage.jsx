@@ -11,7 +11,13 @@ import {
   ChevronLeft
 } from "lucide-react";
 
-const BudgetPage = ({ settings, onUpdateSettings, triggerConfirm, onBack }) => {
+import { formatIndianCompact, normalizeDate } from "@shared/utils/helpers";
+
+const BudgetPage = ({ settings, onUpdateSettings, triggerConfirm, onBack, transactions = [] }) => {
+  const categories = [
+    "Food", "Travel", "Rent", "Shopping", "Entertainment", "Health", "Investment", "Others"
+  ];
+
   const [localSettings, setLocalSettings] = useState(settings || {});
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -38,12 +44,27 @@ const BudgetPage = ({ settings, onUpdateSettings, triggerConfirm, onBack }) => {
         monthlyIncome: Number(localSettings.monthlyIncome) || 0,
         monthlyBudget: Number(localSettings.monthlyBudget) || 0,
         dailyBudget: Number(localSettings.dailyBudget) || 0,
+        categoryBudgets: localSettings.categoryBudgets || {},
       };
-      // For BudgetPage UI purpose we can bypass unit labels or use standard ones
       await onUpdateSettings(updatedData);
       setSavingSettings(false);
     });
   };
+
+  const actualSpending = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return transactions.reduce((acc, t) => {
+      const d = normalizeDate(t.date);
+      if (d && d.getMonth() === currentMonth && d.getFullYear() === currentYear && t.type === "expense") {
+        const cat = t.category || "Others";
+        acc[cat] = (acc[cat] || 0) + parseFloat(t.amount || 0);
+      }
+      return acc;
+    }, {});
+  }, [transactions]);
 
   return (
     <motion.div 
@@ -136,6 +157,70 @@ const BudgetPage = ({ settings, onUpdateSettings, triggerConfirm, onBack }) => {
             )}
           </motion.button>
         </form>
+
+        {/* Category-Level Breakdown */}
+        <div className="mt-12 space-y-8">
+          <div className="flex justify-between items-end px-2">
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight">Category Breakdown</h2>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Allocate your budget by sector</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Allocated</p>
+              <p className="text-lg font-black text-white">
+                {formatIndianCompact(Object.values(localSettings.categoryBudgets || {}).reduce((a, b) => a + Number(b), 0))} / {formatIndianCompact(localSettings.monthlyBudget)}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {categories.map((cat) => {
+              const budgetVal = Number((localSettings.categoryBudgets || {})[cat] || 0);
+              const actualVal = actualSpending[cat] || 0;
+              const pct = budgetVal > 0 ? (actualVal / budgetVal) * 100 : 0;
+              const cappedPct = Math.min(100, pct);
+
+              return (
+                <div key={cat} className="bg-white/5 border border-white/10 p-6 rounded-[2rem] space-y-4 hover:bg-white/10 transition-colors group/cat">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-black text-white uppercase tracking-wider">{cat}</span>
+                    <div className="flex items-center gap-2">
+                       <span className="text-[10px] text-slate-500 font-bold">Limit:</span>
+                       <input 
+                         type="number"
+                         value={budgetVal || ""}
+                         onChange={(e) => {
+                           const newBudgets = { ...(localSettings.categoryBudgets || {}), [cat]: e.target.value };
+                           setLocalSettings({ ...localSettings, categoryBudgets: newBudgets });
+                         }}
+                         className="w-20 px-2 py-1 bg-black/40 border border-white/10 rounded-lg text-[10px] font-black text-white outline-none focus:border-indigo-500/50"
+                         placeholder="0"
+                       />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                      <span className={pct >= 100 ? "text-rose-400" : "text-emerald-400"}>
+                        Used: {formatIndianCompact(actualVal)}
+                      </span>
+                      <span className="text-slate-500">
+                        Left: {formatIndianCompact(Math.max(0, budgetVal - actualVal))}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${cappedPct}%` }}
+                        className={`h-full rounded-full ${pct >= 100 ? 'bg-rose-500' : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
     </motion.div>
   );
 };

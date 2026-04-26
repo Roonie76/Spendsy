@@ -42,23 +42,46 @@ const ProfilePage = ({
     return val.toLocaleString("en-IN");
   };
 
-  // --- Financial Health Score Calculation ---
+  // --- Financial Health Score Calculation (Improved) ---
   const income = parseFloat(localSettings.monthlyIncome || 0);
   const budget = parseFloat(localSettings.monthlyBudget || 0);
   
-  // Simple score heuristic: Budget should be < 70% of income
-  // Default to 0 if no data
+  const totalAssets = wealthItems.filter(i => i.type === "asset").reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
+  const totalLiabilities = wealthItems.filter(i => i.type === "liability").reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
+  
   let score = 0;
   let savingsRate = 0;
+  let riskLevel = "Low";
+  let dtiRatio = 0;
+  let emergencyRatio = 0;
   
   if (income > 0) {
-    const ratio = budget / income;
-    savingsRate = Math.max(0, 100 - (ratio * 100));
+    // 1. Savings Rate component
+    const budgetRatio = budget / income;
+    savingsRate = Math.max(0, 100 - (budgetRatio * 100));
     
-    if (ratio <= 0.5) score = 95;
-    else if (ratio <= 0.7) score = 75;
-    else if (ratio <= 0.9) score = 50;
-    else score = 30;
+    // 2. Debt-to-Income component
+    dtiRatio = (totalLiabilities / (income * 12)) * 100; // Annualized DTI
+    
+    // 3. Emergency Fund Ratio
+    const cashAssets = wealthItems.filter(i => 
+      i.type === "asset" && 
+      (i.title?.toLowerCase().includes("bank") || i.title?.toLowerCase().includes("cash"))
+    ).reduce((acc, i) => acc + parseFloat(i.amount || 0), 0);
+    emergencyRatio = budget > 0 ? cashAssets / budget : 0;
+    
+    // Weighted Score
+    // 40% weight on savings rate, 30% on DTI, 30% on Emergency Fund
+    const savingsScore = savingsRate >= 30 ? 100 : savingsRate >= 20 ? 80 : savingsRate >= 10 ? 60 : 30;
+    const dtiScore = dtiRatio < 20 ? 100 : dtiRatio < 40 ? 70 : dtiRatio < 60 ? 40 : 10;
+    const efScore = emergencyRatio >= 6 ? 100 : emergencyRatio >= 3 ? 70 : emergencyRatio >= 1 ? 40 : 10;
+    
+    score = Math.round((savingsScore * 0.4) + (dtiScore * 0.3) + (efScore * 0.3));
+    
+    // Risk Level based on DTI, Savings, and EF
+    if (dtiRatio > 50 || savingsRate < 5 || emergencyRatio < 1) riskLevel = "High";
+    else if (dtiRatio > 30 || savingsRate < 15 || emergencyRatio < 3) riskLevel = "Medium";
+    else riskLevel = "Low";
   }
   
   const scoreColor = score >= 80 ? "#10b981" : score >= 50 ? "#f59e0b" : "#f43f5e";
@@ -201,7 +224,9 @@ const ProfilePage = ({
             </div>
             <div className="text-center group/stat">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 group-hover/stat:text-indigo-400 transition-colors">Risk Level</p>
-              <p className="text-lg font-black text-violet-400">Low</p>
+              <p className={`text-lg font-black ${riskLevel === "High" ? "text-rose-400" : riskLevel === "Medium" ? "text-amber-400" : "text-violet-400"}`}>
+                {riskLevel}
+              </p>
             </div>
           </div>
         </section>
@@ -263,18 +288,6 @@ const ProfilePage = ({
         </motion.section>
       )}
 
-      {/* Dynamic Sign Out */}
-      <motion.button
-        whileHover={{ x: 5 }}
-        type="button"
-        onClick={() => triggerConfirm("Are you sure you want to sign out?", onSignOut)}
-        className="group flex items-center gap-3 text-rose-500/60 hover:text-rose-400 font-black text-sm uppercase tracking-widest transition-all px-4 py-2"
-      >
-        <div className="p-2 bg-rose-500/5 rounded-xl group-hover:bg-rose-500/10 transition-colors">
-          <LogOut className="w-5 h-5" />
-        </div>
-        Sign Out Securely
-      </motion.button>
     </motion.div>
   );
 };

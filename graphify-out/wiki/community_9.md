@@ -1,0 +1,62 @@
+# Community 9
+
+**57 nodes**
+
+## Nodes
+- **App.jsx** (`frontend/src/App.jsx` L1) → app_app
+- **App()** (`frontend/src/App.jsx` L42) → cn_cn, helpers_formatindiancompact, d_projects_spendsy_frontend_src_app_jsx
+- **TransactionItem.jsx** (`frontend/src/components/domain/TransactionItem.jsx` L1) → transactionitem_transactionitem
+- **TransactionItem()** (`frontend/src/components/domain/TransactionItem.jsx` L7) → helpers_normalizedate, d_projects_spendsy_frontend_src_components_domain_transactionitem_jsx
+- **WealthItem.jsx** (`frontend/src/components/domain/WealthItem.jsx` L1) → wealthitem_wealthitem
+- **WealthItem()** (`frontend/src/components/domain/WealthItem.jsx` L6) → helpers_formatindiancompact, d_projects_spendsy_frontend_src_components_domain_wealthitem_jsx
+- **AlertsBell.jsx** (`frontend/src/components/ui/AlertsBell.jsx` L1) → alertsbell_timeago, alertsbell_alertsbell
+- **timeAgo()** (`frontend/src/components/ui/AlertsBell.jsx` L35) → d_projects_spendsy_frontend_src_components_ui_alertsbell_jsx
+- **AlertsBell()** (`frontend/src/components/ui/AlertsBell.jsx` L47) → cn_cn, d_projects_spendsy_frontend_src_components_ui_alertsbell_jsx
+- **ActiveLoansPage.jsx** (`frontend/src/pages/ActiveLoansPage.jsx` L1) → activeloanspage_activeloanspage
+- **ActiveLoansPage()** (`frontend/src/pages/ActiveLoansPage.jsx` L17) → helpers_formatindiancompact, d_projects_spendsy_frontend_src_pages_activeloanspage_jsx
+- **AuditPage.jsx** (`frontend/src/pages/AuditPage.jsx` L1) → auditpage_deductionbar, auditpage_taxactioncard, auditpage_profilewizard
+- **DeductionBar()** (`frontend/src/pages/AuditPage.jsx` L34) → helpers_formatindiancompact, d_projects_spendsy_frontend_src_pages_auditpage_jsx
+- **TaxActionCard()** (`frontend/src/pages/AuditPage.jsx` L66) → d_projects_spendsy_frontend_src_pages_auditpage_jsx
+- **ProfileWizard()** (`frontend/src/pages/AuditPage.jsx` L88) → d_projects_spendsy_frontend_src_pages_auditpage_jsx
+- **AuditPage()** (`frontend/src/pages/AuditPage.jsx` L242) → d_projects_spendsy_frontend_src_pages_auditpage_jsx
+- **CreditCardsPage.jsx** (`frontend/src/pages/CreditCardsPage.jsx` L1) → creditcardspage_creditcardspage
+- **CreditCardsPage()** (`frontend/src/pages/CreditCardsPage.jsx` L16) → helpers_formatindiancompact, d_projects_spendsy_frontend_src_pages_creditcardspage_jsx
+- **GoalsPage.jsx** (`frontend/src/pages/GoalsPage.jsx` L1) → goalspage_addgoalmodal, goalspage_goalcard, goalspage_goalspage
+- **AddGoalModal()** (`frontend/src/pages/GoalsPage.jsx` L39) → cn_cn, d_projects_spendsy_frontend_src_pages_goalspage_jsx
+- **GoalCard()** (`frontend/src/pages/GoalsPage.jsx` L201) → cn_cn, d_projects_spendsy_frontend_src_pages_goalspage_jsx
+- **GoalsPage()** (`frontend/src/pages/GoalsPage.jsx` L316) → cn_cn, helpers_formatindiancompact, d_projects_spendsy_frontend_src_pages_goalspage_jsx
+- **HomePage.jsx** (`frontend/src/pages/HomePage.jsx` L1) → homepage_homepage
+- **HomePage()** (`frontend/src/pages/HomePage.jsx` L21) → cn_cn, helpers_formatindiancompact, d_projects_spendsy_frontend_src_pages_homepage_jsx
+- **StatsPage.jsx** (`frontend/src/pages/StatsPage.jsx` L1) → statspage_customtooltip, statspage_insightcard, statspage_statspage
+- **CustomTooltip()** (`frontend/src/pages/StatsPage.jsx` L51) → d_projects_spendsy_frontend_src_pages_statspage_jsx
+- **InsightCard()** (`frontend/src/pages/StatsPage.jsx` L82) → d_projects_spendsy_frontend_src_pages_statspage_jsx
+- **StatsPage()** (`frontend/src/pages/StatsPage.jsx` L130) → helpers_formatindiancompact, d_projects_spendsy_frontend_src_pages_statspage_jsx
+- **WealthPage.jsx** (`frontend/src/pages/WealthPage.jsx` L1) → wealthpage_wealthpage
+- **WealthPage()** (`frontend/src/pages/WealthPage.jsx` L9) → helpers_formatindiancompact, d_projects_spendsy_frontend_src_pages_wealthpage_jsx
+- **aiService.js** (`shared/services/aiService.js` L1) → aiservice_getauthheaders, aiservice_buildurl
+- **getAuthHeaders()** (`shared/services/aiService.js` L4) → helpers_buildauthheader, d_projects_spendsy_shared_services_aiservice_js
+- **buildUrl()** (`shared/services/aiService.js` L16) → d_projects_spendsy_shared_services_aiservice_js
+- **cn.ts** (`shared/utils/cn.ts` L1) → cn_cn
+- **cn()** (`shared/utils/cn.ts` L4) → d_projects_spendsy_shared_utils_cn_ts
+- **helpers.js** (`shared/utils/helpers.js` L1) → helpers_generateid, helpers_normalizedate, helpers_loadscript
+- **generateId()** (`shared/utils/helpers.js` L4) → d_projects_spendsy_shared_utils_helpers_js
+- **normalizeDate()** (`shared/utils/helpers.js` L19) → d_projects_spendsy_shared_utils_helpers_js
+- **loadScript()** (`shared/utils/helpers.js` L27) → d_projects_spendsy_shared_utils_helpers_js
+- **formatIndianCompact()** (`shared/utils/helpers.js` L37) → d_projects_spendsy_shared_utils_helpers_js
+- **getCurrentFinancialYear()** (`shared/utils/helpers.js` L49) → d_projects_spendsy_shared_utils_helpers_js
+- **categorizeTransaction()** (`shared/utils/helpers.js` L58) → d_projects_spendsy_shared_utils_helpers_js
+- **buildAuthHeader()** (`shared/utils/helpers.js` L96) → d_projects_spendsy_shared_utils_helpers_js
+- **App.jsx** (`frontend/src/App.jsx` L1)
+- **TransactionItem.jsx** (`frontend/src/components/domain/TransactionItem.jsx` L1)
+- **WealthItem.jsx** (`frontend/src/components/domain/WealthItem.jsx` L1)
+- **AlertsBell.jsx** (`frontend/src/components/ui/AlertsBell.jsx` L1)
+- **ActiveLoansPage.jsx** (`frontend/src/pages/ActiveLoansPage.jsx` L1)
+- **AuditPage.jsx** (`frontend/src/pages/AuditPage.jsx` L1)
+- **CreditCardsPage.jsx** (`frontend/src/pages/CreditCardsPage.jsx` L1)
+- **GoalsPage.jsx** (`frontend/src/pages/GoalsPage.jsx` L1)
+- **HomePage.jsx** (`frontend/src/pages/HomePage.jsx` L1)
+- **StatsPage.jsx** (`frontend/src/pages/StatsPage.jsx` L1)
+- **WealthPage.jsx** (`frontend/src/pages/WealthPage.jsx` L1)
+- **aiService.js** (`shared/services/aiService.js` L1)
+- **cn.ts** (`shared/utils/cn.ts` L1)
+- **helpers.js** (`shared/utils/helpers.js` L1)

@@ -313,7 +313,7 @@ function GoalCard({ goal, onDelete, onUpdate, theme }) {
 
 // ─── Main GoalsPage ───────────────────────────────────────────────────────────
 
-export default function GoalsPage({ theme = "dark" }) {
+export default function GoalsPage({ theme = "dark", showToast }) {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -323,7 +323,7 @@ export default function GoalsPage({ theme = "dark" }) {
       const res = await apiFetch(`${API_BASE}/goals`);
       setGoals(res.data || []);
     } catch (e) {
-      console.error("Failed to load goals:", e);
+      showToast("Failed to load goals", "error");
     } finally {
       setLoading(false);
     }
@@ -338,7 +338,7 @@ export default function GoalsPage({ theme = "dark" }) {
       await apiFetch(`${API_BASE}/goals/${id}`, { method: "DELETE" });
       setGoals((g) => g.filter((x) => x.id !== id));
     } catch (e) {
-      console.error("Failed to delete goal:", e);
+      showToast("Failed to delete goal", "error");
     }
   };
 
@@ -350,7 +350,7 @@ export default function GoalsPage({ theme = "dark" }) {
       });
       setGoals((g) => g.map((x) => (x.id === id ? res.data : x)));
     } catch (e) {
-      console.error("Failed to update goal:", e);
+      showToast("Failed to update goal", "error");
     }
   };
 

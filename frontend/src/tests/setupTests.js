@@ -32,6 +32,31 @@ Object.defineProperty(global, "IntersectionObserver", { value: IntersectionObser
 
 Object.defineProperty(window, "scrollTo", { value: vi.fn(), writable: true });
 
+if (!window.localStorage?.clear) {
+  const store = new Map();
+  const localStorageMock = {
+    getItem: vi.fn((key) => store.get(String(key)) ?? null),
+    setItem: vi.fn((key, value) => {
+      store.set(String(key), String(value));
+    }),
+    removeItem: vi.fn((key) => {
+      store.delete(String(key));
+    }),
+    clear: vi.fn(() => {
+      store.clear();
+    }),
+  };
+
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: localStorageMock,
+  });
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: localStorageMock,
+  });
+}
+
 if (!HTMLCanvasElement.prototype.getContext) {
   HTMLCanvasElement.prototype.getContext = () => ({
     fillRect: vi.fn(),

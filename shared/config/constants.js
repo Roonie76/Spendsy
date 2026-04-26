@@ -31,6 +31,7 @@ const getEnv = (key) => {
 };
 
 // --- METADATA & API CONFIG ---
+export const CURRENCY_SYMBOL = "₹";
 export const APP_VERSION = getEnv("APP_VERSION") || "1.0.0";
 const legacyApiUrl = viteEnv.VITE_API_URL || getEnv("API_BASE_URL");
 export const GATEWAY_URL =

@@ -1,0 +1,157 @@
+# Community 4
+
+**152 nodes**
+
+## Nodes
+- **refresh()** (`backend/auth-service/app/api/routes_auth.py` L304) → security_create_access_token, str, security_create_refresh_token
+- **str** (`` ) → schemas_goalcategory, product_tiers_usertier, tiering_torausertier
+- **routes_finance.py** (`backend/finance-service/app/api/routes_finance.py` L1) → routes_finance_safe_category, routes_finance_safe_type, routes_finance_safe_source
+- **_safe_category()** (`backend/finance-service/app/api/routes_finance.py` L90) → routes_finance_persist_parsed_transactions, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **_safe_type()** (`backend/finance-service/app/api/routes_finance.py` L97) → routes_finance_persist_parsed_transactions, routes_finance_parse_digital_pdf_route, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **_safe_source()** (`backend/finance-service/app/api/routes_finance.py` L106) → routes_finance_persist_parsed_transactions, routes_finance_add_transaction, routes_finance_update_transaction
+- **_safe_confidence()** (`backend/finance-service/app/api/routes_finance.py` L111) → d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **_safe_date()** (`backend/finance-service/app/api/routes_finance.py` L122) → routes_finance_persist_parsed_transactions, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **normalize_title()** (`backend/finance-service/app/api/routes_finance.py` L131) → routes_finance_normalize_title_for_fingerprint, routes_finance_persist_parsed_transactions, routes_finance_add_transaction
+- **normalize_title_for_fingerprint()** (`backend/finance-service/app/api/routes_finance.py` L140) → routes_finance_generate_transaction_fingerprint, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **generate_transaction_fingerprint()** (`backend/finance-service/app/api/routes_finance.py` L155) → routes_finance_compute_transaction_fingerprint, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **_compute_transaction_fingerprint()** (`backend/finance-service/app/api/routes_finance.py` L162) → routes_finance_persist_parsed_transactions, routes_finance_add_transaction, routes_finance_update_transaction
+- **_display_title()** (`backend/finance-service/app/api/routes_finance.py` L166) → routes_finance_get_transaction_history, routes_finance_update_transaction, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **_infer_category()** (`backend/finance-service/app/api/routes_finance.py` L170) → routes_finance_parse_digital_pdf_route, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **_build_financial_summary()** (`backend/finance-service/app/api/routes_finance.py` L224) → routes_finance_financial_summary, routes_finance_parse_digital_pdf_route, golden_questions_count
+- **_persist_parsed_transactions()** (`backend/finance-service/app/api/routes_finance.py` L271) → routes_finance_parse_digital_pdf_route, routes_finance_rationale_272, digital_deterministic_parser_transaction
+- **_enforce_ownership()** (`backend/finance-service/app/api/routes_finance.py` L411) → routes_finance_profile_settings, routes_finance_manage_tax_profile, routes_finance_itr_data_handler
+- **health()** (`backend/finance-service/app/api/routes_finance.py` L428) → database_check_database_connection, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **readiness()** (`backend/finance-service/app/api/routes_finance.py` L445) → conftest_dummyredispipeline_execute, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **financial_summary()** (`backend/finance-service/app/api/routes_finance.py` L462) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **profile_settings()** (`backend/finance-service/app/api/routes_finance.py` L469) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **add_transaction()** (`backend/finance-service/app/api/routes_finance.py` L519) → response_error_response, digital_deterministic_parser_transaction, transfer_reconciler_detect_transfer_pairs
+- **get_transaction_history()** (`backend/finance-service/app/api/routes_finance.py` L602) → routes_finance_rationale_609, response_success_response, response_error_response
+- **bulk_delete_transactions()** (`backend/finance-service/app/api/routes_finance.py` L694) → routes_finance_rationale_700, response_success_response, conftest_dummyredisclient_delete
+- **delete_transaction()** (`backend/finance-service/app/api/routes_finance.py` L756) → response_error_response, conftest_dummyredisclient_delete, transfer_reconciler_unlink_peer_on_delete
+- **update_transaction()** (`backend/finance-service/app/api/routes_finance.py` L788) → response_error_response, redis_clear_user_financial_cache, response_success_response
+- **set_transfer_flag()** (`backend/finance-service/app/api/routes_finance.py` L851) → routes_finance_rationale_858, response_error_response, transfer_reconciler_unlink_transfer_group
+- **reconcile_transfers()** (`backend/finance-service/app/api/routes_finance.py` L905) → routes_finance_rationale_910, transfer_reconciler_detect_transfer_pairs, redis_clear_user_financial_cache
+- **wealth_list_create()** (`backend/finance-service/app/api/routes_finance.py` L938) → response_success_response, response_error_response, wealthitem_wealthitem
+- **delete_wealth_item()** (`backend/finance-service/app/api/routes_finance.py` L1023) → response_error_response, conftest_dummyredisclient_delete, redis_clear_user_financial_cache
+- **update_wealth_item()** (`backend/finance-service/app/api/routes_finance.py` L1046) → response_error_response, redis_clear_user_financial_cache, response_success_response
+- **manage_tax_profile()** (`backend/finance-service/app/api/routes_finance.py` L1094) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **itr_data_handler()** (`backend/finance-service/app/api/routes_finance.py` L1157) → response_error_response, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **list_credit_cards()** (`backend/finance-service/app/api/routes_finance.py` L1205) → cryptography_decrypt_string, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **create_credit_card()** (`backend/finance-service/app/api/routes_finance.py` L1217) → cryptography_encrypt_string, cryptography_decrypt_string, response_success_response
+- **update_credit_card()** (`backend/finance-service/app/api/routes_finance.py` L1242) → cryptography_encrypt_string, cryptography_decrypt_string, response_success_response
+- **delete_credit_card()** (`backend/finance-service/app/api/routes_finance.py` L1267) → conftest_dummyredisclient_delete, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **list_debit_cards()** (`backend/finance-service/app/api/routes_finance.py` L1282) → cryptography_decrypt_string, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **create_debit_card()** (`backend/finance-service/app/api/routes_finance.py` L1294) → cryptography_encrypt_string, cryptography_decrypt_string, response_success_response
+- **update_debit_card()** (`backend/finance-service/app/api/routes_finance.py` L1315) → cryptography_encrypt_string, cryptography_decrypt_string, response_success_response
+- **delete_debit_card()** (`backend/finance-service/app/api/routes_finance.py` L1338) → conftest_dummyredisclient_delete, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **list_loans()** (`backend/finance-service/app/api/routes_finance.py` L1353) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **create_loan()** (`backend/finance-service/app/api/routes_finance.py` L1363) → redis_clear_user_financial_cache, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **delete_loan()** (`backend/finance-service/app/api/routes_finance.py` L1388) → conftest_dummyredisclient_delete, redis_clear_user_financial_cache, response_success_response
+- **update_loan()** (`backend/finance-service/app/api/routes_finance.py` L1404) → redis_clear_user_financial_cache, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **get_net_worth_history()** (`backend/finance-service/app/api/routes_finance.py` L1426) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **create_net_worth_snapshot()** (`backend/finance-service/app/api/routes_finance.py` L1436) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **get_statement_history()** (`backend/finance-service/app/api/routes_finance.py` L1470) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **create_statement_record()** (`backend/finance-service/app/api/routes_finance.py` L1480) → response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **parse_digital_pdf_route()** (`backend/finance-service/app/api/routes_finance.py` L1503) → response_error_response, files_validate_file_security, files_sanitize_filename
+- **get_user_plans()** (`backend/finance-service/app/api/routes_finance.py` L1691) → routes_finance_rationale_1692, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_finance_py
+- **create_user_plan()** (`backend/finance-service/app/api/routes_finance.py` L1714) → routes_finance_rationale_1715, redis_clear_user_financial_cache, response_success_response
+- **update_user_plan()** (`backend/finance-service/app/api/routes_finance.py` L1747) → routes_finance_rationale_1748, response_error_response, redis_clear_user_financial_cache
+- **delete_user_plan()** (`backend/finance-service/app/api/routes_finance.py` L1774) → routes_finance_rationale_1775, response_error_response, conftest_dummyredisclient_delete
+- **routes_goals.py** (`backend/finance-service/app/api/routes_goals.py` L1) → routes_goals_goal_to_dict, routes_goals_list_goals, routes_goals_create_goal
+- **_goal_to_dict()** (`backend/finance-service/app/api/routes_goals.py` L26) → routes_goals_list_goals, routes_goals_create_goal, routes_goals_update_goal
+- **list_goals()** (`backend/finance-service/app/api/routes_goals.py` L63) → routes_goals_rationale_68, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_goals_py
+- **create_goal()** (`backend/finance-service/app/api/routes_goals.py` L81) → routes_goals_rationale_87, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_goals_py
+- **update_goal()** (`backend/finance-service/app/api/routes_goals.py` L117) → routes_goals_rationale_124, response_error_response, response_success_response
+- **delete_goal()** (`backend/finance-service/app/api/routes_goals.py` L165) → routes_goals_rationale_171, response_error_response, conftest_dummyredisclient_delete
+- **routes_internal.py** (`backend/finance-service/app/api/routes_internal.py` L1) → routes_internal_trigger_reconciliation, routes_internal_list_transactions, routes_internal_get_summary
+- **trigger_reconciliation()** (`backend/finance-service/app/api/routes_internal.py` L22) → routes_internal_rationale_28, transfer_reconciler_detect_transfer_pairs, response_success_response
+- **list_transactions()** (`backend/finance-service/app/api/routes_internal.py` L45) → audit_record_audit, response_success_response, d_projects_spendsy_backend_finance_service_app_api_routes_internal_py
+- **get_summary()** (`backend/finance-service/app/api/routes_internal.py` L79) → golden_questions_count, audit_record_audit, response_success_response
+- **finance_context()** (`backend/finance-service/app/api/routes_internal.py` L103) → golden_questions_count, audit_record_audit, response_success_response
+- **save_tora_message()** (`backend/finance-service/app/api/routes_internal.py` L297) → routes_internal_rationale_304, cryptography_encrypt_string, audit_record_audit
+- **get_tora_history()** (`backend/finance-service/app/api/routes_internal.py` L327) → routes_internal_rationale_334, cryptography_decrypt_string, audit_record_audit
+- **save_tora_feedback()** (`backend/finance-service/app/api/routes_internal.py` L389) → routes_internal_rationale_396, audit_record_audit, response_success_response
+- **aggregate_tora_feedback()** (`backend/finance-service/app/api/routes_internal.py` L429) → routes_internal_rationale_435, golden_questions_count, response_success_response
+- **internal_create_goal()** (`backend/finance-service/app/api/routes_internal.py` L477) → routes_internal_rationale_484, audit_record_audit, response_success_response
+- **internal_delete_goal()** (`backend/finance-service/app/api/routes_internal.py` L516) → routes_internal_rationale_523, conftest_dummyredisclient_delete, audit_record_audit
+- **internal_create_plan()** (`backend/finance-service/app/api/routes_internal.py` L556) → routes_internal_rationale_563, audit_record_audit, response_success_response
+- **internal_adjust_plan()** (`backend/finance-service/app/api/routes_internal.py` L604) → routes_internal_rationale_612, audit_record_audit, response_success_response
+- **internal_list_plans()** (`backend/finance-service/app/api/routes_internal.py` L650) → routes_internal_rationale_656, audit_record_audit, response_success_response
+- **run_scheduled_job()** (`backend/finance-service/app/api/routes_internal.py` L692) → routes_internal_rationale_698, response_success_response, scheduler_run_job_now
+- **_load_tax_input_for_user()** (`backend/finance-service/app/api/routes_internal.py` L735) → routes_internal_internal_tax_compare_regimes, routes_internal_internal_tax_simulate, routes_internal_rationale_736
+- **internal_tax_compare_regimes()** (`backend/finance-service/app/api/routes_internal.py` L776) → routes_internal_rationale_783, tax_engine_compare_regimes, audit_record_audit
+- **internal_tax_simulate()** (`backend/finance-service/app/api/routes_internal.py` L826) → routes_internal_rationale_833, tax_engine_compute_tax, response_success_response
+- **get_tax_profile_internal()** (`backend/finance-service/app/api/routes_internal.py` L880) → routes_internal_rationale_886, audit_record_audit, response_success_response
+- **update_tax_profile_internal()** (`backend/finance-service/app/api/routes_internal.py` L924) → routes_internal_rationale_931, audit_record_audit, response_success_response
+- **routes_tax.py** (`backend/finance-service/app/api/routes_tax.py` L1) → routes_tax_taxcomputerequest, routes_tax_itrformrequest, routes_tax_compute_tax_endpoint
+- **compute_tax_endpoint()** (`backend/finance-service/app/api/routes_tax.py` L59) → routes_tax_rationale_65, tax_engine_build_tax_input_from_itr_data, tax_engine_compare_regimes
+- **compute_from_saved_data()** (`backend/finance-service/app/api/routes_tax.py` L138) → routes_tax_rationale_144, response_error_response, tax_engine_build_tax_input_from_itr_data
+- **get_itr_form()** (`backend/finance-service/app/api/routes_tax.py` L203) → routes_tax_rationale_208, tax_engine_build_tax_input_from_itr_data, tax_engine_determine_itr_form
+- **run_audit_endpoint()** (`backend/finance-service/app/api/routes_tax.py` L228) → routes_tax_rationale_233, tax_engine_build_tax_input_from_itr_data, tax_engine_run_audit_checks
+- **Tax API Routes — Server-side tax computation endpoints.  Provides:   POST /tax/c** (`backend/finance-service/app/api/routes_tax.py` L1) → tax_engine_taxinput, d_projects_spendsy_backend_finance_service_app_api_routes_tax_py
+- **audit.py** (`backend/finance-service/app/core/audit.py` L1) → audit_record_alert, audit_record_audit
+- **record_alert()** (`backend/finance-service/app/core/audit.py` L21) → audit_record_audit, audit_rationale_29, d_projects_spendsy_backend_finance_service_app_core_audit_py
+- **record_audit()** (`backend/finance-service/app/core/audit.py` L49) → audit_rationale_61, golden_questions_count, d_projects_spendsy_backend_finance_service_app_core_audit_py
+- **cryptography.py** (`backend/finance-service/app/core/cryptography.py` L1) → cryptography_get_key_bytes, cryptography_get_aesgcm, cryptography_encrypt_string
+- **_get_key_bytes()** (`backend/finance-service/app/core/cryptography.py` L16) → cryptography_get_aesgcm, d_projects_spendsy_backend_finance_service_app_core_cryptography_py
+- **get_aesgcm()** (`backend/finance-service/app/core/cryptography.py` L35) → cryptography_encrypt_string, cryptography_decrypt_string, d_projects_spendsy_backend_finance_service_app_core_cryptography_py
+- **encrypt_string()** (`backend/finance-service/app/core/cryptography.py` L61) → d_projects_spendsy_backend_finance_service_app_core_cryptography_py
+- **decrypt_string()** (`backend/finance-service/app/core/cryptography.py` L74) → d_projects_spendsy_backend_finance_service_app_core_cryptography_py
+- **check_database_connection()** (`backend/finance-service/app/core/database.py` L31) → database_rationale_32, conftest_dummyredispipeline_execute, d_projects_spendsy_backend_finance_service_app_core_database_py
+- **Lightweight connectivity probe used by health/readiness endpoints.     Keeps fa** (`backend/finance-service/app/core/database.py` L32)
+- **clear_user_financial_cache()** (`backend/finance-service/app/core/redis.py` L76) → redis_rationale_77, conftest_dummyredisclient_delete, d_projects_spendsy_backend_finance_service_app_core_redis_py
+- **Clear all finance-related caches for a user (summary, wealth, net-worth, etc.).** (`backend/finance-service/app/core/redis.py` L77)
+- **files.py** (`backend/finance-service/app/utils/files.py` L1) → files_sanitize_filename, files_validate_file_security
+- **sanitize_filename()** (`backend/finance-service/app/utils/files.py` L11) → files_rationale_12, d_projects_spendsy_backend_finance_service_app_utils_files_py
+- **validate_file_security()** (`backend/finance-service/app/utils/files.py` L29) → files_rationale_30, d_projects_spendsy_backend_finance_service_app_utils_files_py
+- **Sanitize filename by removing potentially dangerous characters.     Simplified** (`backend/finance-service/app/utils/files.py` L12)
+- **Verify file size, extension, and MIME type.     Raises HTTPException if insecur** (`backend/finance-service/app/utils/files.py` L30)
+- **response.py** (`backend/finance-service/app/utils/response.py` L1) → response_request_id_from_request, response_success_response, response_error_response
+- **request_id_from_request()** (`backend/finance-service/app/utils/response.py` L10) → response_success_response, response_error_response, d_projects_spendsy_backend_finance_service_app_utils_response_py
+- **success_response()** (`backend/finance-service/app/utils/response.py` L15) → d_projects_spendsy_backend_finance_service_app_utils_response_py
+- **error_response()** (`backend/finance-service/app/utils/response.py` L26) → d_projects_spendsy_backend_finance_service_app_utils_response_py
+- **server.py** (`backend/spendsy-mcp/server.py` L1) → server_is_retryable, server_call_finance_internal, server_get_transactions
+- **_is_retryable()** (`backend/spendsy-mcp/server.py` L17) → d_projects_spendsy_backend_spendsy_mcp_server_py
+- **call_finance_internal()** (`backend/spendsy-mcp/server.py` L30) → server_get_transactions, server_get_summary, server_monthly_spend
+- **get_transactions()** (`backend/spendsy-mcp/server.py` L43) → server_rationale_44, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **get_summary()** (`backend/spendsy-mcp/server.py` L52) → server_rationale_53, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **monthly_spend()** (`backend/spendsy-mcp/server.py` L61) → server_rationale_62, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **spending_by_category()** (`backend/spendsy-mcp/server.py` L77) → server_rationale_78, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **top_merchants()** (`backend/spendsy-mcp/server.py` L91) → server_rationale_92, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **spending_insights()** (`backend/spendsy-mcp/server.py` L107) → server_rationale_108, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **detect_duplicate_transactions()** (`backend/spendsy-mcp/server.py` L145) → server_rationale_146, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **query_spending_data()** (`backend/spendsy-mcp/server.py` L172) → server_rationale_173, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **spending_trend_analysis()** (`backend/spendsy-mcp/server.py` L217) → server_rationale_218, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **budget_recommendation()** (`backend/spendsy-mcp/server.py` L245) → server_rationale_246, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **subscription_detection()** (`backend/spendsy-mcp/server.py` L265) → server_rationale_266, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **get_full_financial_context()** (`backend/spendsy-mcp/server.py` L284) → server_rationale_285, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **simulate_loan_closure()** (`backend/spendsy-mcp/server.py` L297) → server_rationale_298, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **simulate_house_purchase()** (`backend/spendsy-mcp/server.py` L325) → server_rationale_326, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **sync_credit_card_payments()** (`backend/spendsy-mcp/server.py` L362) → server_rationale_363, d_projects_spendsy_backend_spendsy_mcp_server_py
+- **Fetch the latest transactions for a user.** (`backend/spendsy-mcp/server.py` L44)
+- **Get a financial summary (income, expenses, balance) for a user.** (`backend/spendsy-mcp/server.py` L53)
+- **Calculate total spend for a specific month.     Input format: YYYY-MM** (`backend/spendsy-mcp/server.py` L62)
+- **Breakdown total spending by category.** (`backend/spendsy-mcp/server.py` L78)
+- **Identify top merchants/locations by spend.** (`backend/spendsy-mcp/server.py` L92)
+- **Generate high-level spending insights.** (`backend/spendsy-mcp/server.py` L108)
+- **Identify potential duplicate transactions using fingerprinting.** (`backend/spendsy-mcp/server.py` L146)
+- **Run a predefined safe query on spending data.     Supported query_types: 'month** (`backend/spendsy-mcp/server.py` L173)
+- **Analyze spending trends over time.** (`backend/spendsy-mcp/server.py` L218)
+- **Recommend a monthly budget based on historical spending.** (`backend/spendsy-mcp/server.py` L246)
+- **Identify potential recurring subscriptions.** (`backend/spendsy-mcp/server.py` L266)
+- **Exhaustive financial profile of the user.      Includes: Income, Budgets, Asset** (`backend/spendsy-mcp/server.py` L285)
+- **Simulate the impact of paying more towards a loan.     Input: balance, annual i** (`backend/spendsy-mcp/server.py` L298)
+- **Evaluate the feasibility of buying a house based on user context.** (`backend/spendsy-mcp/server.py` L326)
+- **Trigger the reconciliation engine to link bank statement 'payments'      with cr** (`backend/spendsy-mcp/server.py` L363)
+- **count()** (`backend/tests/tora_eval/golden_questions.py` L793) → conftest_discover_service_modules, d_projects_spendsy_backend_tests_tora_eval_golden_questions_py
+- **.delete()** (`tests/conftest.py` L74)
+- **.execute()** (`tests/conftest.py` L108)
+- **routes_finance.py** (`backend/finance-service/app/api/routes_finance.py` L1)
+- **routes_goals.py** (`backend/finance-service/app/api/routes_goals.py` L1)
+- **routes_internal.py** (`backend/finance-service/app/api/routes_internal.py` L1)
+- **routes_tax.py** (`backend/finance-service/app/api/routes_tax.py` L1)
+- **audit.py** (`backend/finance-service/app/core/audit.py` L1)
+- **cryptography.py** (`backend/finance-service/app/core/cryptography.py` L1)
+- **files.py** (`backend/finance-service/app/utils/files.py` L1)
+- **response.py** (`backend/finance-service/app/utils/response.py` L1)
+- **server.py** (`backend/spendsy-mcp/server.py` L1)

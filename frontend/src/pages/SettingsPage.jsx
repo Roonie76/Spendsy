@@ -22,7 +22,11 @@ const loadPrefs = () => {
 };
 const savePref = (key, value) => {
   const prefs = { ...loadPrefs(), [key]: value };
-  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch (err) {
+    console.warn("Could not save preference to localStorage:", err);
+  }
 };
 
 // ─── Reusable Components ──────────────────────────────────────────────────────
@@ -319,36 +323,52 @@ const DataManagementPage = ({ onBack, triggerConfirm, transactions, onDeleteAll,
   </motion.div>
 );
 
-const SubscriptionPage = ({ onBack }) => (
-  <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
-    <PageHeader title="Subscription & Billing" subtitle="Manage your plan" onBack={onBack} />
-    <div className="space-y-6">
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-900/50 to-violet-900/30 border border-indigo-500/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/10 blur-[60px] rounded-full pointer-events-none" />
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-indigo-500/20 rounded-xl"><Crown className="w-5 h-5 text-indigo-400" /></div>
-            <div>
-              <p className="text-xs font-black text-white uppercase tracking-wider">Pro Member</p>
-              <p className="text-[10px] text-indigo-400 font-bold">Active · Renews April 2027</p>
+const TIER_CONFIG = {
+  free:       { label: "Free Plan",       color: "from-slate-800/80 to-slate-900/60",   border: "border-slate-500/20",   glow: "bg-slate-500/10",    icon: "text-slate-400",  badge: "text-slate-400",   features: ["20 Transactions/mo", "Basic Insights", "Community Support"] },
+  pro:        { label: "Pro Member",      color: "from-indigo-900/50 to-violet-900/30", border: "border-indigo-500/20", glow: "bg-indigo-500/10", icon: "text-indigo-400", badge: "text-indigo-400", features: ["Unlimited Transactions", "AI Insights", "Priority Support"] },
+  enterprise: { label: "Enterprise",      color: "from-amber-900/50 to-orange-900/30",  border: "border-amber-500/20",  glow: "bg-amber-500/10",   icon: "text-amber-400",  badge: "text-amber-400",  features: ["Unlimited Everything", "Custom Integrations", "Dedicated Support"] },
+};
+
+const SubscriptionPage = ({ onBack, tier = "free" }) => {
+  const cfg = TIER_CONFIG[tier] || TIER_CONFIG.free;
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <PageHeader title="Subscription & Billing" subtitle="Manage your plan" onBack={onBack} />
+      <div className="space-y-6">
+        <div className={`p-6 rounded-3xl bg-gradient-to-br ${cfg.color} border ${cfg.border} relative overflow-hidden`}>
+          <div className={`absolute top-0 right-0 w-48 h-48 ${cfg.glow} blur-[60px] rounded-full pointer-events-none`} />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2 bg-white/10 rounded-xl`}><Crown className={`w-5 h-5 ${cfg.icon}`} /></div>
+              <div>
+                <p className="text-xs font-black text-white uppercase tracking-wider">{cfg.label}</p>
+                <p className={`text-[10px] ${cfg.badge} font-bold`}>
+                  {tier === "free" ? "Upgrade for full access" : "Active · Thank you for subscribing!"}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4 flex-wrap">
+              {cfg.features.map(f => (
+                <span key={f} className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-wider">{f}</span>
+              ))}
             </div>
           </div>
-          <div className="flex gap-2 mt-4">
-            {["Unlimited Transactions", "AI Insights", "Priority Support"].map(f => (
-              <span key={f} className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-wider">{f}</span>
-            ))}
-          </div>
         </div>
-      </div>
 
-      <SettingSection title="Plan">
-        <SettingRow icon={Star} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Upgrade Plan" description="Unlock advanced features" badge="New" />
-        <SettingRow icon={FileText} iconColor="text-slate-400" iconBg="bg-slate-500/10" label="Billing History" description="View past invoices & receipts" />
-        <SettingRow icon={Package} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Redeem Coupon" description="Apply a promo or referral code" />
-      </SettingSection>
-    </div>
-  </motion.div>
-);
+        <SettingSection title="Plan">
+          {tier === "free" && (
+            <SettingRow icon={Star} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Upgrade to Pro" description="Unlock AI, unlimited transactions & more" badge="Upgrade" />
+          )}
+          {tier !== "free" && (
+            <SettingRow icon={Star} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Upgrade Plan" description="Unlock advanced features" badge="New" />
+          )}
+          <SettingRow icon={FileText} iconColor="text-slate-400" iconBg="bg-slate-500/10" label="Billing History" description="View past invoices & receipts" />
+          <SettingRow icon={Package} iconColor="text-emerald-400" iconBg="bg-emerald-500/10" label="Redeem Coupon" description="Apply a promo or referral code" />
+        </SettingSection>
+      </div>
+    </motion.div>
+  );
+};
 
 const HelpSupportPage = ({ onBack }) => (
   <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
@@ -473,7 +493,7 @@ const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut
       case "appearance":   return <AppearancePage onBack={goBack} currentTheme={currentTheme} onThemeChange={onThemeChange} />;
       case "ai":           return <AIFeaturesPage onBack={goBack} />;
       case "data":         return <DataManagementPage onBack={goBack} triggerConfirm={triggerConfirm} transactions={transactions} onDeleteAll={onDeleteAll} showToast={showToast} onNavigateImport={onNavigateImport} />;
-      case "subscription": return <SubscriptionPage onBack={goBack} />;
+      case "subscription": return <SubscriptionPage onBack={goBack} tier={user?.tier || "free"} />;
       case "help":         return <HelpSupportPage onBack={goBack} />;
       case "about":        return <AboutPage onBack={goBack} />;
       default: return null;

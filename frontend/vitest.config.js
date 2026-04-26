@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "lucide-react": path.resolve(__dirname, "node_modules/lucide-react"),
+      "@shared": path.resolve(__dirname, "../shared"),
     },
   },
   test: {

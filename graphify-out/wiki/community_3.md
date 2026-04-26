@@ -1,0 +1,167 @@
+# Community 3
+
+**162 nodes**
+
+## Nodes
+- **__init__.py** (`backend/finance-service/app/services/jobs/__init__.py` L1) → init_rationale_1
+- **TORA eval harness — golden-question regression tests.  Run with:     cd backend** (`backend/tests/tora_eval/__init__.py` L1) → backend_spendsy_ai_agents_tora_init_py, backend_spendsy_ai_agents_tora_live_fetchers_init_py, backend_spendsy_ai_agents_tora_plugins_init_py
+- **entity_resolver.py** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L1) → backend_spendsy_ai_agents_tora_entity_synonyms_py, backend_spendsy_ai_agents_tora_fetch_registry_py, entity_resolver_tokenize
+- **_tokenize()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L35) → entity_resolver_resolve_entities, d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_resolver_py
+- **_build_entity_to_plugin_map()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L39) → entity_resolver_resolve_entities, entity_resolver_rationale_40, d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_resolver_py
+- **_find_consecutive_match()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L52) → entity_resolver_collect_stage1, entity_resolver_collect_stage2, entity_resolver_rationale_55
+- **_score_match()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L67) → entity_resolver_collect_stage1, entity_resolver_collect_stage2, entity_resolver_rationale_68
+- **_collect_stage1()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L83) → entity_resolver_resolve_entities, entity_resolver_rationale_86, d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_resolver_py
+- **_collect_stage2()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L113) → entity_resolver_resolve_entities, entity_resolver_rationale_116, d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_resolver_py
+- **_rank()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L143) → entity_resolver_resolve_entities, entity_resolver_rationale_146, fetch_registry_pluginmatch
+- **resolve_entities()** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L172) → entity_resolver_rationale_173, universal_fetch_engine_resolve_and_fetch, d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_resolver_py
+- **3-stage entity resolver.  Stage 1 — token-normalized exact match against each pl** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L1) → fetch_registry_pluginmatch, d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_resolver_py
+- **Flatten PLUGIN_REGISTRY to entity_key → plugin_id.      Built lazily (not at imp** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L40) → fetch_registry_pluginmatch
+- **Return (start, end) if phrase (multi-token) appears as consecutive     tokens in** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L55) → fetch_registry_pluginmatch
+- **Longer phrases score higher (prefer "air conditioner" over "ac"),     normalised** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L68) → fetch_registry_pluginmatch
+- **Stage 1: direct entity_key matches.      Returns list of (plugin_id, matched_phr** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L86) → fetch_registry_pluginmatch
+- **Stage 2: synonym → canonical → plugin.      Only considers synonyms whose canoni** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L116) → fetch_registry_pluginmatch
+- **Collapse duplicates per plugin (keep best score + longest entity),     sort by s** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L146) → fetch_registry_pluginmatch
+- **Resolve a user message to zero or more plugin matches.      Returns [] when noth** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L173) → fetch_registry_pluginmatch
+- **entity_synonyms.py** (`backend/spendsy-ai/agents/tora/entity_synonyms.py` L1) → entity_synonyms_build_reverse_map, entity_synonyms_rationale_1
+- **build_reverse_map()** (`backend/spendsy-ai/agents/tora/entity_synonyms.py` L154) → entity_synonyms_rationale_155, d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_synonyms_py
+- **Hand-curated synonym map: user phrase → canonical entity key.  Includes Hindi/Hi** (`backend/spendsy-ai/agents/tora/entity_synonyms.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_synonyms_py
+- **Build a synonym → canonical lookup.      Lowercases everything. If a phrase appe** (`backend/spendsy-ai/agents/tora/entity_synonyms.py` L155)
+- **fetch_registry.py** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L1) → fetch_registry_fetchstrategy, fetch_registry_confidence_label, fetch_registry_fetchresult
+- **FetchStrategy** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L21) → fetch_registry_rationale_22, market_context_builder_rationale_1, market_context_builder_rationale_50
+- **confidence_label()** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L50) → fetch_registry_rationale_51, market_context_builder_render_fact_line, d_projects_spendsy_backend_spendsy_ai_agents_tora_fetch_registry_py
+- **FetchResult** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L64) → fetch_registry_fetchresult_merge_from, fetch_registry_rationale_65, market_context_builder_rationale_1
+- **.merge_from()** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L84) → fetch_registry_rationale_85, universal_fetch_engine_fire_one_plugin
+- **FetchPlugin** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L112) → fetch_registry_rationale_113, universal_fetch_engine_rationale_1, universal_fetch_engine_rationale_43
+- **PluginMatch** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L137) → fetch_registry_rationale_138, market_context_builder_rationale_1, market_context_builder_rationale_50
+- **get_plugin()** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L163) → d_projects_spendsy_backend_spendsy_ai_agents_tora_fetch_registry_py
+- **fact()** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L167) → fetch_registry_rationale_174, d_projects_spendsy_backend_spendsy_ai_agents_tora_fetch_registry_py
+- **Plugin registry for universal expense intelligence.  A FetchPlugin is a self-des** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_fetch_registry_py
+- **Honest declaration of what class of data a plugin produces.      The assembler r** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L22)
+- **Map numeric confidence to a user-facing label.      Kept internal-numeric + exte** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L51)
+- **What a fetcher (live or fallback) returns.      - facts: raw data keyed by field** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L65)
+- **Field-level merge: `other` wins per-key where it has a value.          Used by t** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L85)
+- **Self-describing category plugin.      Declarative fields (strategy, priority_key** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L113)
+- **Resolver output. `role` is set by the composition rule in stage 2 —     primary** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L138)
+- **Convenience builder for a provenance-tagged fact value.      Not required — fetc** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L174)
+- **market_context_builder.py** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L1) → market_context_builder_build_market_context_block, market_context_builder_render_section, market_context_builder_render_fact_line
+- **build_market_context_block()** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L46) → market_context_builder_render_section, market_context_builder_build_footer, market_context_builder_rationale_50
+- **_render_section()** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L116) → market_context_builder_render_fact_line, market_context_builder_rationale_122, d_projects_spendsy_backend_spendsy_ai_agents_tora_market_context_builder_py
+- **_render_fact_line()** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L178) → market_context_builder_render_value, market_context_builder_rationale_179, d_projects_spendsy_backend_spendsy_ai_agents_tora_market_context_builder_py
+- **_render_value()** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L203) → market_context_builder_is_pct_key, market_context_builder_rationale_204, d_projects_spendsy_backend_spendsy_ai_agents_tora_market_context_builder_py
+- **_is_pct_key()** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L257) → market_context_builder_rationale_258, d_projects_spendsy_backend_spendsy_ai_agents_tora_market_context_builder_py
+- **_build_footer()** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L277) → market_context_builder_rationale_278, d_projects_spendsy_backend_spendsy_ai_agents_tora_market_context_builder_py
+- **Render FetchResult tuples into a prose block the LLM can consume.  Design princi** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_market_context_builder_py
+- **Render resolved fetcher output into an injectable prompt block.      Returns ""** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L50)
+- **Render one plugin's facts + constraints into a prose section.** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L122)
+- **Turn one fact dict into a single sentence.      Facts with range/dict values are** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L179)
+- **Recursive-ish renderer for fact values.      Scalars → as-is. Dicts with min/max** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L204)
+- **Heuristic: is this field a percentage?      Matches "pct", "percent", "rate", "i** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L258)
+- **Subtle single-line footer acknowledging curated-static data when used.      We d** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L278)
+- **thinking_gate.py** (`backend/spendsy-ai/agents/tora/thinking_gate.py` L1) → thinking_gate_should_enable_thinking, thinking_gate_rationale_1, backend_spendsy_ai_agents_tora_init_py
+- **should_enable_thinking()** (`backend/spendsy-ai/agents/tora/thinking_gate.py` L42) → thinking_gate_rationale_43, d_projects_spendsy_backend_spendsy_ai_agents_tora_thinking_gate_py
+- **Thinking-mode gating.  Gemma 4's thinking mode trades latency (roughly 3x slower** (`backend/spendsy-ai/agents/tora/thinking_gate.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_thinking_gate_py
+- **Return True when the query warrants thinking mode.      Called once per query by** (`backend/spendsy-ai/agents/tora/thinking_gate.py` L43)
+- **universal_fetch_engine.py** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L1) → universal_fetch_engine_fire_one_plugin, universal_fetch_engine_resolve_and_fetch, universal_fetch_engine_safe_fallback
+- **_fire_one_plugin()** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L37) → universal_fetch_engine_resolve_and_fetch, universal_fetch_engine_rationale_43, d_projects_spendsy_backend_spendsy_ai_agents_tora_universal_fetch_engine_py
+- **resolve_and_fetch()** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L99) → universal_fetch_engine_safe_fallback, universal_fetch_engine_rationale_104, d_projects_spendsy_backend_spendsy_ai_agents_tora_universal_fetch_engine_py
+- **_safe_fallback()** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L174) → universal_fetch_engine_rationale_180, d_projects_spendsy_backend_spendsy_ai_agents_tora_universal_fetch_engine_py
+- **summarize_fetch_outcome()** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L201) → universal_fetch_engine_rationale_204, d_projects_spendsy_backend_spendsy_ai_agents_tora_universal_fetch_engine_py
+- **Universal Intelligence Engine.  Takes a user message, resolves it to plugin matc** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_universal_fetch_engine_py
+- **Fire one plugin: pre-compute fallback sync, launch live fetch, merge     live ov** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L43)
+- **Main entry point.      Returns a list of (match, result) tuples in priority orde** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L104)
+- **Sync fallback with exception guard — used when the live path timed     out at th** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L180)
+- **Debug/telemetry helper — compact summary of what the engine produced.      Not c** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L204)
+- **__init__.py** (`backend/spendsy-ai/agents/tora/__init__.py` L1)
+- **forex_fetcher.py** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L1) → forex_fetcher_fetch_exchangerate_json, forex_fetcher_usd_rate_to_inr, forex_fetcher_build_live_fact
+- **_fetch_exchangerate_json()** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L48) → forex_fetcher_fetch_travel_live, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_forex_fetcher_py
+- **_usd_rate_to_inr()** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L68) → forex_fetcher_rationale_69, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_forex_fetcher_py
+- **_build_live_fact()** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L75) → forex_fetcher_fetch_travel_live, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_forex_fetcher_py
+- **fetch_travel_live()** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L85) → forex_fetcher_rationale_86, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_forex_fetcher_py
+- **Live forex fetcher (used by travel plugin; also useful for education/wedding).** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_forex_fetcher_py
+- **exchangerate-api returns rates as 'how many of X = 1 USD'.     We need INR-per-X** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L69)
+- **Fetch live INR forex crosses.      Travel plugin uses these for trip budgeting.** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L86)
+- **gold_fetcher.py** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L1) → gold_fetcher_parse_int, gold_fetcher_fetch_ibja_html, gold_fetcher_build_live_fact
+- **_parse_int()** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L50) → gold_fetcher_fetch_gold_live, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_gold_fetcher_py
+- **_fetch_ibja_html()** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L59) → gold_fetcher_fetch_gold_live, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_gold_fetcher_py
+- **_build_live_fact()** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L76) → gold_fetcher_fetch_gold_live, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_gold_fetcher_py
+- **fetch_gold_live()** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L86) → gold_fetcher_rationale_87, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_gold_fetcher_py
+- **Live gold/silver fetcher.  Strategy: scrape IBJA (India Bullion and Jewellers As** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_gold_fetcher_py
+- **Scrape IBJA for gold/silver spot rates.      Returns FetchResult with only the f** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L87)
+- **investments_fetcher.py** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L1) → investments_fetcher_fetch_amfi_text, investments_fetcher_parse_nav_row, investments_fetcher_build_live_fact
+- **_fetch_amfi_text()** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L55) → investments_fetcher_fetch_investments_live, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_investments_fetcher_py
+- **_parse_nav_row()** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L72) → investments_fetcher_fetch_investments_live, investments_fetcher_rationale_73, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_investments_fetcher_py
+- **_build_live_fact()** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L91) → investments_fetcher_fetch_investments_live, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_investments_fetcher_py
+- **fetch_investments_live()** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L102) → investments_fetcher_rationale_103, d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_investments_fetcher_py
+- **Live investments fetcher.  Strategy: AMFI publishes every mutual-fund NAV in Ind** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_live_fetchers_investments_fetcher_py
+- **AMFI rows look like: <scheme_code>;<isin_growth>;<isin_div>;<scheme_name>;<nav>;** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L73)
+- **Pull MF NAV snapshot from AMFI.      Returns a compact `mf_nav_snapshot` fact wi** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L103)
+- **__init__.py** (`backend/spendsy-ai/agents/tora/live_fetchers/__init__.py` L1)
+- **appliances.py** (`backend/spendsy-ai/agents/tora/plugins/appliances.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, appliances_rationale_1
+- **Appliances plugin: AC, fridge, washing machine, TV, geyser, microwave.** (`backend/spendsy-ai/agents/tora/plugins/appliances.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_appliances_py
+- **education.py** (`backend/spendsy-ai/agents/tora/plugins/education.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, education_rationale_1
+- **Education plugin: college, MBA, BTech, study abroad, coaching, certifications.** (`backend/spendsy-ai/agents/tora/plugins/education.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_education_py
+- **electronics.py** (`backend/spendsy-ai/agents/tora/plugins/electronics.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, electronics_rationale_1
+- **Electronics plugin: laptops, phones, tablets, cameras, monitors.** (`backend/spendsy-ai/agents/tora/plugins/electronics.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_electronics_py
+- **furniture.py** (`backend/spendsy-ai/agents/tora/plugins/furniture.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, furniture_rationale_1
+- **Furniture & home improvement plugin: furniture, renovation, kitchen, bathroom.** (`backend/spendsy-ai/agents/tora/plugins/furniture.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_furniture_py
+- **gold.py** (`backend/spendsy-ai/agents/tora/plugins/gold.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, gold_rationale_1
+- **Gold & jewellery plugin: gold, silver, diamond, platinum, SGB, ETFs.** (`backend/spendsy-ai/agents/tora/plugins/gold.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_gold_py
+- **healthcare.py** (`backend/spendsy-ai/agents/tora/plugins/healthcare.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, healthcare_rationale_1
+- **Healthcare plugin: insurance, surgery, dental, IVF, gym, medicine.** (`backend/spendsy-ai/agents/tora/plugins/healthcare.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_healthcare_py
+- **investments.py** (`backend/spendsy-ai/agents/tora/plugins/investments.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, investments_rationale_1
+- **Investments plugin: stocks, MF, FD, SIP, NPS, bonds, PPF, ELSS.** (`backend/spendsy-ai/agents/tora/plugins/investments.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_investments_py
+- **lifestyle.py** (`backend/spendsy-ai/agents/tora/plugins/lifestyle.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, lifestyle_rationale_1
+- **Lifestyle & recurring plugin: OTT, music subs, gym, dining, clubs, SaaS.** (`backend/spendsy-ai/agents/tora/plugins/lifestyle.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_lifestyle_py
+- **mobility.py** (`backend/spendsy-ai/agents/tora/plugins/mobility.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, mobility_rationale_1
+- **Mobility plugin: cars, bikes, EVs, commercial vehicles.** (`backend/spendsy-ai/agents/tora/plugins/mobility.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_mobility_py
+- **real_estate.py** (`backend/spendsy-ai/agents/tora/plugins/real_estate.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, real_estate_rationale_1
+- **Real estate plugin: buy, rent, plot, commercial.** (`backend/spendsy-ai/agents/tora/plugins/real_estate.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_real_estate_py
+- **travel.py** (`backend/spendsy-ai/agents/tora/plugins/travel.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, travel_rationale_1
+- **Travel plugin: flights, hotels, international trips, visa, insurance.** (`backend/spendsy-ai/agents/tora/plugins/travel.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_travel_py
+- **wedding.py** (`backend/spendsy-ai/agents/tora/plugins/wedding.py` L1) → backend_spendsy_ai_agents_tora_plugins_base_py, wedding_rationale_1
+- **Wedding & events plugin: wedding, reception, anniversary, birthday, events.** (`backend/spendsy-ai/agents/tora/plugins/wedding.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_wedding_py
+- **_base.py** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L1) → base_plugin_strategy, base_build_fallback_from_yaml, base_stub_fetcher
+- **_plugin_strategy()** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L27) → base_build_fallback_from_yaml, base_rationale_28, d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **build_fallback_from_yaml()** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L38) → base_rationale_39, init_get_fallback, d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **stub_fetcher()** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L86) → base_rationale_87, d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **Shared helpers for plugin modules.  `build_fallback_from_yaml` constructs a Fetc** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **Lookup this plugin's declared strategy, defaulting to curated-static.      Calle** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L28)
+- **Materialise a FetchResult from this plugin's YAML fallback.      The YAML file's** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L39)
+- **Placeholder async fetcher.      Returns an empty FetchResult. Stage 1 ships with** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L87)
+- **__init__.py** (`backend/spendsy-ai/agents/tora/plugins/__init__.py` L1) → backend_spendsy_ai_agents_tora_plugins_init_py, init_register_all_plugins
+- **register_all_plugins()** (`backend/spendsy-ai/agents/tora/plugins/__init__.py` L53) → init_rationale_54, d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_init_py
+- **Register every plugin module's PLUGIN object. Idempotent.** (`backend/spendsy-ai/agents/tora/plugins/__init__.py` L54)
+- **__init__.py** (`backend/spendsy-ai/agents/tora/static_fallbacks/__init__.py` L1) → init_load_all, init_get_fallback
+- **_load_all()** (`backend/spendsy-ai/agents/tora/static_fallbacks/__init__.py` L39) → init_rationale_40, d_projects_spendsy_backend_spendsy_ai_agents_tora_static_fallbacks_init_py
+- **get_fallback()** (`backend/spendsy-ai/agents/tora/static_fallbacks/__init__.py` L65) → init_rationale_66, d_projects_spendsy_backend_spendsy_ai_agents_tora_static_fallbacks_init_py
+- **Populate FALLBACK_DATA from every *.yaml file in this directory.** (`backend/spendsy-ai/agents/tora/static_fallbacks/__init__.py` L40)
+- **Return the raw fallback blob for a plugin, or an empty dict.      Returning {} (** (`backend/spendsy-ai/agents/tora/static_fallbacks/__init__.py` L66)
+- **__init__.py** (`backend/tests/tora_eval/__init__.py` L1)
+- **__init__.py** (`backend/finance-service/app/services/jobs/__init__.py` L1)
+- **entity_resolver.py** (`backend/spendsy-ai/agents/tora/entity_resolver.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_entity_synonyms_py, d_projects_spendsy_backend_spendsy_ai_agents_tora_fetch_registry_py, d_projects_spendsy_backend_spendsy_ai_agents_tora_universal_fetch_engine_py
+- **entity_synonyms.py** (`backend/spendsy-ai/agents/tora/entity_synonyms.py` L1)
+- **fetch_registry.py** (`backend/spendsy-ai/agents/tora/fetch_registry.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_market_context_builder_py, d_projects_spendsy_backend_spendsy_ai_agents_tora_universal_fetch_engine_py, d_projects_spendsy_backend_spendsy_ai_agents_tora_init_py
+- **market_context_builder.py** (`backend/spendsy-ai/agents/tora/market_context_builder.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_init_py
+- **thinking_gate.py** (`backend/spendsy-ai/agents/tora/thinking_gate.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_init_py
+- **universal_fetch_engine.py** (`backend/spendsy-ai/agents/tora/universal_fetch_engine.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_init_py
+- **__init__.py** (`backend/spendsy-ai/agents/tora/__init__.py` L1)
+- **forex_fetcher.py** (`backend/spendsy-ai/agents/tora/live_fetchers/forex_fetcher.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_travel_py
+- **gold_fetcher.py** (`backend/spendsy-ai/agents/tora/live_fetchers/gold_fetcher.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_gold_py
+- **investments_fetcher.py** (`backend/spendsy-ai/agents/tora/live_fetchers/investments_fetcher.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_investments_py
+- **__init__.py** (`backend/spendsy-ai/agents/tora/live_fetchers/__init__.py` L1)
+- **appliances.py** (`backend/spendsy-ai/agents/tora/plugins/appliances.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **education.py** (`backend/spendsy-ai/agents/tora/plugins/education.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **electronics.py** (`backend/spendsy-ai/agents/tora/plugins/electronics.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **furniture.py** (`backend/spendsy-ai/agents/tora/plugins/furniture.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **gold.py** (`backend/spendsy-ai/agents/tora/plugins/gold.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **healthcare.py** (`backend/spendsy-ai/agents/tora/plugins/healthcare.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **investments.py** (`backend/spendsy-ai/agents/tora/plugins/investments.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **lifestyle.py** (`backend/spendsy-ai/agents/tora/plugins/lifestyle.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **mobility.py** (`backend/spendsy-ai/agents/tora/plugins/mobility.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **real_estate.py** (`backend/spendsy-ai/agents/tora/plugins/real_estate.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **travel.py** (`backend/spendsy-ai/agents/tora/plugins/travel.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **wedding.py** (`backend/spendsy-ai/agents/tora/plugins/wedding.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_base_py
+- **_base.py** (`backend/spendsy-ai/agents/tora/plugins/_base.py` L1)
+- **__init__.py** (`backend/spendsy-ai/agents/tora/plugins/__init__.py` L1) → d_projects_spendsy_backend_spendsy_ai_agents_tora_plugins_init_py
+- **__init__.py** (`backend/spendsy-ai/agents/tora/static_fallbacks/__init__.py` L1)
+- **__init__.py** (`backend/tests/tora_eval/__init__.py` L1)

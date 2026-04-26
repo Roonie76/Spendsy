@@ -1,23 +1,9 @@
 import { useState, useMemo } from "react";
 import { Trash2, Filter, ChevronDown, ChevronUp, AlertTriangle, CheckSquare, Square } from "lucide-react";
+import { CATEGORIES as SHARED_CATEGORIES } from "@shared/config/constants";
+import { normalizeDate } from "@shared/utils/helpers";
 
-const CATEGORIES = [
-  "all",
-  "salary",
-  "investment",
-  "housing",
-  "utilities",
-  "food",
-  "shopping",
-  "transport",
-  "entertainment",
-  "rent",
-  "travel",
-  "tech",
-  "health",
-  "education",
-  "other",
-];
+const CATEGORY_OPTIONS = ["all", ...SHARED_CATEGORIES.map(c => c.id)];
 const TYPES = ["all", "income", "expense"];
 
 export default function CustomDeletePanel({ transactions = [], onBulkDelete, onClose, showToast }) {
@@ -37,10 +23,32 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
     return transactions.filter((t) => {
       if (filters.type !== "all" && t.type !== filters.type) return false;
       if (filters.category !== "all" && t.category !== filters.category) return false;
-      if (filters.dateFrom && t.date < filters.dateFrom) return false;
-      if (filters.dateTo && t.date > filters.dateTo) return false;
-      if (filters.amountMin && parseFloat(t.amount) < parseFloat(filters.amountMin)) return false;
-      if (filters.amountMax && parseFloat(t.amount) > parseFloat(filters.amountMax)) return false;
+
+      // Date comparison via normalizeDate — safe for Firestore timestamps & strings
+      if (filters.dateFrom) {
+        const d = normalizeDate(t.date);
+        const from = new Date(filters.dateFrom);
+        from.setHours(0, 0, 0, 0);
+        if (!d || d < from) return false;
+      }
+      if (filters.dateTo) {
+        const d = normalizeDate(t.date);
+        const to = new Date(filters.dateTo);
+        to.setHours(23, 59, 59, 999);
+        if (!d || d > to) return false;
+      }
+
+      // Amount comparison with NaN guard
+      const amt = parseFloat(t.amount);
+      if (filters.amountMin) {
+        const min = parseFloat(filters.amountMin);
+        if (!Number.isFinite(amt) || !Number.isFinite(min) || amt < min) return false;
+      }
+      if (filters.amountMax) {
+        const max = parseFloat(filters.amountMax);
+        if (!Number.isFinite(amt) || !Number.isFinite(max) || amt > max) return false;
+      }
+
       return true;
     });
   }, [transactions, filters]);
@@ -68,7 +76,10 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
 
   const totalAmount = filtered
     .filter((t) => selectedIds.has(t.id))
-    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+    .reduce((sum, t) => {
+      const a = parseFloat(t.amount);
+      return sum + (Number.isFinite(a) ? a : 0);
+    }, 0);
 
   return (
     <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-5">
@@ -110,7 +121,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
                 value={filters.category}
                 onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
               >
-                {CATEGORIES.map((c) => (
+                {CATEGORY_OPTIONS.map((c) => (
                   <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
                 ))}
               </select>
@@ -192,7 +203,7 @@ export default function CustomDeletePanel({ transactions = [], onBulkDelete, onC
                       <p className="text-xs opacity-40">{t.date} · {t.category}</p>
                     </div>
                     <span className={`text-sm font-semibold ${t.type === "income" ? "text-emerald-400" : "text-rose-400"}`}>
-                      ₹{parseFloat(t.amount).toLocaleString("en-IN")}
+                      ₹{(Number.isFinite(parseFloat(t.amount)) ? parseFloat(t.amount) : 0).toLocaleString("en-IN")}
                     </span>
                   </div>
                 ))

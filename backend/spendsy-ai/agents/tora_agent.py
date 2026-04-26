@@ -41,6 +41,13 @@ from .tora import (
     summarize_fetch_outcome,
     should_enable_thinking,
 )
+from .tora.expert_router import inject_expert_preamble
+from .tora.context_compressor import (
+    compress_transactions,
+    compact_extras,
+    compress_history,
+    compress_trends,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -257,24 +264,12 @@ def build_ai_context(
     # === USER MESSAGE ===
     user_msg = ""
 
-    # 1. Conversation history FIRST (so follow-ups resolve).
+    # 1. Conversation history FIRST - MLA-inspired compression.
     valid_history = [m for m in conversation_history if str(m.get("content", "")).strip() and str(m.get("content", "")).strip() != "{}"]
     if valid_history:
-        user_msg += "=== RECENT CONVERSATION (for context / follow-ups) ===\n"
-        recent = valid_history[-6:]
-        for i, msg in enumerate(recent):
-            role = msg.get("role", "user").upper()
-            raw = str(msg.get("content", ""))
-            is_last = (i == len(recent) - 1)
-            if is_last:
-                content = raw
-            elif len(raw) > 500:
-                cutoff = raw.rfind(" ", 0, 500)
-                content = (raw[:cutoff] if cutoff > 0 else raw[:500]) + " …"
-            else:
-                content = raw
-            user_msg += f"{role}: {content}\n"
-        user_msg += "\n"
+        compressed_hist = compress_history(valid_history, keep_recent=3)
+        if compressed_hist:
+            user_msg += compressed_hist
 
     # 2. Vault-first context injection.
     #    Structured prose with ₹ amounts already formatted is dramatically
@@ -306,39 +301,32 @@ def build_ai_context(
                 user_msg += f"    • {cat}: ₹{amt:,.2f}\n"
         user_msg += "\n"
 
-    # 2b. Recent Transactions (individual line items).
-    #     SURGICAL FIX: The AI was blind to specific payments because we only 
-    #     injected aggregates. Now injecting the top 15 most recent transactions
-    #     so TORA can answer "find my payment" or "what did I buy at X" queries.
+    # 2b. Recent Transactions - MLA-inspired compression.
     recent_txs = summary.get("recent_transactions", [])
     if recent_txs:
-        user_msg += "=== RECENT TRANSACTIONS (individual line items) ===\n"
-        # Sort by date if available, or just take first 15 (which are usually newest)
-        for tx in recent_txs[:15]:
-            title = tx.get("title", "Untitled")
-            amt = tx.get("amount", 0)
-            tx_type = tx.get("type", "expense")
-            date = tx.get("date", "")
-            sign = "+" if tx_type == "income" else "-"
-            date_str = f" [{date}]" if date else ""
-            user_msg += f"- {title}: {sign}₹{amt:,.2f}{date_str}\n"
-        user_msg += "\n"
+        compressed_txs = compress_transactions(recent_txs, max_items=15)
+        if compressed_txs:
+            user_msg += compressed_txs + "\n"
 
     # 2c. 6-month trend block (compact — MoM deltas and anomalies only).
     trend_block = _summarize_trends(summary.get("monthly_trends", []) or [])
     if trend_block:
         user_msg += "=== 6-MONTH TRENDS (for detecting shifts; only cite numbers that appear above) ===\n"
-        user_msg += trend_block + "\n\n"
+        user_msg += compress_trends(trend_block) + "\n\n"
 
-    # 3. Extras + simulations.
+    # 3. Extras + simulations - MLA-inspired JSON compaction.
     extras: Dict[str, Any] = {}
     for key in ("plans", "loans", "credit_cards", "goals"):
         val = summary.get(key)
         if val:
             extras[key] = val
     if extras:
-        user_msg += "ADDITIONAL CONTEXT:\n"
-        user_msg += json.dumps(extras, indent=2, default=str) + "\n\n"
+        compacted = compact_extras(extras)
+        if compacted:
+            user_msg += compacted + "\n"
+        else:
+            user_msg += "ADDITIONAL CONTEXT:\n"
+            user_msg += json.dumps(extras, indent=2, default=str) + "\n\n"
 
     if simulations:
         user_msg += "SIMULATIONS:\n"
@@ -465,6 +453,25 @@ def _aggregate_spending_by_category(transactions: List[Dict[str, Any]]) -> List[
 
 
 # Function call_ai_api is now replaced by llm_router.call_llm
+
+
+_CONFIDENCE_RE = re.compile(r"CONFIDENCE:\s*(0(?:\.\d+)?|1(?:\.0+)?)", re.IGNORECASE)
+
+
+def _extract_confidence(reasoning: str) -> float:
+    """Extract self-reported confidence from the model's reasoning field."""
+    if not reasoning:
+        return 0.0
+    match = _CONFIDENCE_RE.search(reasoning)
+    if match:
+        try:
+            return float(match.group(1))
+        except (ValueError, TypeError):
+            return 0.0
+    certainty_markers = ("therefore the answer is", "in conclusion", "this confirms", "i am confident")
+    if any(marker in reasoning.lower() for marker in certainty_markers):
+        return 0.7
+    return 0.0
 
 
 def _clean_json_response(raw_response: str) -> str:
@@ -651,6 +658,11 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
         market_block=market_block,
     )
 
+    # 5b. MoE-inspired expert routing: prepend domain-specific preamble.
+    system_prompt, expert_id = inject_expert_preamble(system_prompt, question)
+    if expert_id:
+        logger.info("Expert router activated: %s", expert_id)
+
     # 6. Execute
     # Thinking mode is ON when the query is a track 2 decision (plugin matched)
     # or the message shows comparison/hypothetical/planning language.
@@ -661,140 +673,133 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
         "Thinking mode %s for this query",
         "ENABLED" if thinking_enabled else "disabled",
     )
+    # === RECURRENT REASONING LOOP (OpenMythos Recurrent-Depth) ===
+    max_loops = 3 if thinking_enabled else 1
+    current_loop = 0
+    raw_response = ""
+    structured_advice = {}
+    accumulated_tool_results = []
+    _CONF_THRESH = 0.85
+
     try:
-        raw_response = call_llm(
-            model, user_message, clean_summary,
-            system_prompt=system_prompt, thinking=thinking_enabled,
-        )
-        
-        # Clean and parse the structured JSON response
+      while current_loop < max_loops:
+        current_loop += 1
+        loop_name = f"Loop {current_loop}/{max_loops}" if thinking_enabled else "Single Pass"
+        try:
+            loop_sys = system_prompt
+            if current_loop > 1:
+                loop_sys += (
+                    f"\n\n[RECURRENT REFINEMENT - {loop_name}]\n"
+                    "Review previous reasoning and tool outputs.\n"
+                    "Check numeric consistency.\n"
+                    "End reasoning with: CONFIDENCE: 0.XX (0.0-1.0).\n"
+                )
+                if accumulated_tool_results:
+                    user_message += "\n\n=== TOOL OUTPUTS (previous loop) ===\n"
+                    user_message += json.dumps(accumulated_tool_results, indent=2)
+            raw_response = call_llm(
+                model, user_message, clean_summary,
+                system_prompt=loop_sys, thinking=thinking_enabled,
+            )
+        except Exception as e:
+            logger.error(f"LLM call failed in {loop_name}: {e}")
+            if current_loop == 1:
+                raise
+            break
+
         try:
             clean_response = _clean_json_response(raw_response)
             structured_advice = json.loads(clean_response)
-            
-            # Execute tools if requested (respecting tier-based autonomy)
-            can_act = TieringConfig.can_act_autonomously(user_tier)
-            
-            if "tool_calls" in structured_advice and isinstance(structured_advice["tool_calls"], list):
-                registry = get_tool_registry()
-                for tool in structured_advice["tool_calls"]:
-                    try:
-                        name = tool.get("name")
-                        params = tool.get("parameters", {})
-                        
-                        # Check if tier requires confirmation for this action
-                        requires_confirm = TieringConfig.requires_action_confirmation(user_tier, name)
-                        
-                        # Free tier always requires confirmation; Pro tier can auto-execute
-                        # (unless specifically marked as requiring confirmation)
-                        if requires_confirm and not can_act:
-                            logger.info(f"Tool {name} requires confirmation for {user_tier} tier user")
-                            # Modify response to indicate user action needed
-                            tool["status"] = "pending_confirmation"
-                            continue
-                        
-                        if name in registry:
-                            logger.info(f"TORA executing tool: {name} for user {user_id} (tier={user_tier})")
-                            tool_func = registry[name]
-                            
-                            if name in ["create_plan", "create_loan_repayment_plan"]:
-                                tool_func(user_id, params)
-                            elif name == "adjust_plan":
-                                plan_id = params.pop("plan_id", None)
-                                if plan_id:
-                                    tool_func(user_id, plan_id, params)
-                        else:
-                            logger.warning(f"Unknown tool requested by TORA: {name}")
-                    except Exception as e:
-                        logger.error(f"Error executing TORA tool {tool}: {e}")
-            
-            # Unwrap the 'answer' envelope if present
-            answer_content = structured_advice.get("answer", structured_advice)
-
-            # 7. Post-process based on response mode.
-            #    The LLM may return one of:
-            #      a) a plain string (legacy simple mode)
-            #      b) {"mode":"simple","content":"..."}
-            #      c) {"Financial Overview":..., "Current Position":..., ...}
-            structured_keys = ("Financial Overview", "Current Position", "Recommended Strategy", "Expected Outcome")
-
-            if isinstance(answer_content, str):
-                # (a) Plain string → simple mode
-                final_output = {"mode": "simple", "content": answer_content}
-
-            elif isinstance(answer_content, dict) and (
-                answer_content.get("mode") == "simple" or
-                (isinstance(answer_content.get("content"), str) or isinstance(answer_content.get("text"), str)) and
-                 not any(k in answer_content for k in structured_keys)
-            ):
-                # (b) Explicit simple mode
-                content_str = answer_content.get("content") or answer_content.get("text") or ""
-                final_output = {
-                    "mode": "simple",
-                    "content": str(content_str).strip(),
-                }
-
-            elif isinstance(answer_content, dict):
-                # (c) Structured mode — keep only populated 4-section keys
-                sections = {
-                    k: answer_content[k]
-                    for k in structured_keys
-                    if answer_content.get(k) and answer_content[k] != "N/A"
-                }
-                if sections:
-                    final_output = sections
-                else:
-                    # Model returned off-schema JSON — humanize into markdown instead of dumping raw JSON
-                    content_val = answer_content.get("content")
-                    if isinstance(content_val, str) and content_val.strip():
-                        fallback_text = content_val
-                    else:
-                        fallback_text = _humanize_offschema_json(answer_content)
-                    final_output = {"mode": "simple", "content": str(fallback_text).strip()}
-            else:
-                final_output = {"mode": "simple", "content": str(answer_content)}
-            
-            # Normalize currency: convert any $ / USD / dollars into ₹
-            final_output = _rupee_ize(final_output)
-
-            # Audit every ₹/% figure in the response against the FULL
-            # injected context (vault + simulations + market block).
-            # Unverified numbers get hedged with "roughly"/"approximately"
-            # rather than stripped — hedging preserves the sentence
-            # structure while flagging uncertainty. Auditor only runs when
-            # enrichment was injected (i.e. track 2 queries); track 1
-            # vault-only answers rely on vault content which the auditor
-            # would over-flag due to prose formatting differences.
-            if market_block:
-                final_output, audit_warnings = audit_structured_output(
-                    final_output, user_message
-                )
-                if audit_warnings:
-                    logger.info(
-                        "Number auditor hedged %d figure(s): %s",
-                        len(audit_warnings),
-                        audit_warnings[:5],
-                    )
-
-            # Append SEBI disclaimer if the reply mentions investment products
-            final_output = _sebi_disclaim(final_output)
-
-            return final_output
-            
         except json.JSONDecodeError:
-            logger.error(f"AI response was not valid JSON: {raw_response}")
-            return {
-                "mode": "simple",
-                "content": "I had trouble formatting that answer — could you rephrase or try again in a moment?",
-                "error": "AI returned malformed structured data."
-            }
+            logger.error(f"Invalid JSON in {loop_name}")
+            if current_loop == 1:
+                return {
+                    "mode": "simple",
+                    "content": "I had trouble formatting that answer. Could you rephrase?",
+                    "error": "AI returned malformed structured data."
+                }
+            break
+
+        # Confidence-gated early exit
+        if thinking_enabled and current_loop < max_loops:
+            conf = _extract_confidence(structured_advice.get("reasoning", ""))
+            logger.info("Recurrent loop %d confidence: %.2f", current_loop, conf)
+            if conf >= _CONF_THRESH and not structured_advice.get("tool_calls"):
+                logger.info("Early exit at loop %d (confidence %.2f)", current_loop, conf)
+                break
+
+        # Execute tools if requested
+        can_act = TieringConfig.can_act_autonomously(user_tier)
+        tool_calls = structured_advice.get("tool_calls", [])
+        if tool_calls and isinstance(tool_calls, list):
+            registry = get_tool_registry()
+            loop_tool_results = []
+            for tool in tool_calls:
+                try:
+                    name = tool.get("name")
+                    params = tool.get("parameters", {})
+                    requires_confirm = TieringConfig.requires_action_confirmation(user_tier, name)
+                    if requires_confirm and not can_act:
+                        logger.info(f"Tool {name} requires confirmation for {user_tier} tier")
+                        tool["status"] = "pending_confirmation"
+                        continue
+                    if name in registry:
+                        logger.info(f"TORA executing tool: {name} for user {user_id}")
+                        tool_func = registry[name]
+                        if name in ["create_plan", "create_loan_repayment_plan"]:
+                            result = tool_func(user_id, params)
+                        elif name == "adjust_plan":
+                            plan_id = params.pop("plan_id", None)
+                            result = tool_func(user_id, plan_id, params) if plan_id else "missing plan_id"
+                        else:
+                            result = tool_func(user_id, **params)
+                        loop_tool_results.append({"tool": name, "result": str(result)})
+                    else:
+                        logger.warning(f"Unknown tool requested by TORA: {name}")
+                except Exception as e:
+                    logger.error(f"Error executing TORA tool {tool}: {e}")
+            if loop_tool_results:
+                accumulated_tool_results.extend(loop_tool_results)
+                continue
+        break  # No tool calls; exit loop
+
+      # --- Post-processing ---
+      answer_content = structured_advice.get("answer", structured_advice)
+
+      structured_keys = ("Financial Overview", "Current Position", "Recommended Strategy", "Expected Outcome")
+      if isinstance(answer_content, str):
+          final_output = {"mode": "simple", "content": answer_content}
+      elif isinstance(answer_content, dict) and (
+          answer_content.get("mode") == "simple" or
+          (isinstance(answer_content.get("content"), str) or isinstance(answer_content.get("text"), str)) and
+           not any(k in answer_content for k in structured_keys)
+      ):
+          content_str = answer_content.get("content") or answer_content.get("text") or ""
+          final_output = {"mode": "simple", "content": str(content_str).strip()}
+      elif isinstance(answer_content, dict):
+          sections = {k: answer_content[k] for k in structured_keys if answer_content.get(k) and answer_content[k] != "N/A"}
+          if sections:
+              final_output = sections
+          else:
+              content_val = answer_content.get("content")
+              fallback_text = content_val if isinstance(content_val, str) and content_val.strip() else _humanize_offschema_json(answer_content)
+              final_output = {"mode": "simple", "content": str(fallback_text).strip()}
+      else:
+          final_output = {"mode": "simple", "content": str(answer_content)}
+
+      final_output = _rupee_ize(final_output)
+      if market_block:
+          final_output, audit_warnings = audit_structured_output(final_output, user_message)
+          if audit_warnings:
+              logger.info("Number auditor hedged %d figure(s): %s", len(audit_warnings), audit_warnings[:5])
+      final_output = _sebi_disclaim(final_output)
+      if thinking_enabled:
+          logger.info("Recurrent loop: %d/%d passes, expert=%s", current_loop, max_loops, expert_id or "general")
+      return final_output
 
     except Exception as e:
         logger.error(f"TORA execution failed: {e}")
-        return {
-            "mode": "simple",
-            "content": "I hit a technical snag on my side. Give it another try in a moment — if it keeps happening, let me know what you were asking and I'll work around it."
-        }
+        return {"mode": "simple", "content": "I hit a technical snag. Give it another try in a moment."}
 
 
 def _save_conversation(user_id: int, role: str, content: str, structured: Dict[str, Any] | None = None) -> None:

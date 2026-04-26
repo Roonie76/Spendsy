@@ -99,6 +99,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         client_message_id: target.clientMessageId || null,
         prompt: target.prompt ? String(target.prompt).slice(0, 500) : null,
         response_preview: preview,
+        trace_id: target.traceId || null,
       });
     } catch (err) {
       console.warn("Feedback submit failed:", err);
@@ -142,6 +143,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         content: "",
         clientMessageId,
         prompt: trimmed,
+        traceId: data.answer?.trace_id || null,
       };
 
       if (data.answer && typeof data.answer === "object") {

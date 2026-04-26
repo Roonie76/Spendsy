@@ -6,6 +6,9 @@ from config import settings
 from tiering import TieringConfig
 import httpx
 import logging
+import os
+from tracer import HAS_LIGHTNING, tracer, lightning_store
+
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -31,6 +34,12 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+# Initialize Agent Lightning (Microsoft) for production observability and RL
+if HAS_LIGHTNING:
+    logger.info("Agent Lightning initialized.")
+else:
+    logger.warning("Agent Lightning not found. Tracing disabled. Run 'pip install agentlightning' to enable.")
+
 
 class QuestionRequest(BaseModel):
     user_id: int = 1
@@ -54,6 +63,7 @@ class FeedbackRequest(BaseModel):
     comment: str | None = None
     prompt: str | None = None
     response_preview: str | None = None
+    trace_id: str | None = None  # Link to Agent Lightning trace
 
 @app.get("/")
 def health_check():
@@ -98,12 +108,32 @@ async def handle_ask_tora(request: QuestionRequest):
         logger.info(f"User {request.user_id} (tier={user_tier}) using model={selected_model}")
         
         # Route to the TORA Agent with tier and model information
-        answer = await handle_user_question(
-            request.user_id,
-            request.question,
-            selected_model,
-            user_tier
-        )
+        # Wrapped in Agent Lightning tracer if available
+        if HAS_LIGHTNING:
+            with tracer.trace(agent_id="tora", input=request.question) as span:
+                answer = await handle_user_question(
+                    request.user_id,
+                    request.question,
+                    selected_model,
+                    user_tier
+                )
+                if "error" not in answer:
+                    span.set_output(answer)
+                    span.set_metadata({
+                        "user_id": request.user_id,
+                        "tier": user_tier,
+                        "model": selected_model
+                    })
+                    # Attach trace_id so frontend can relay it back in /feedback
+                    answer["trace_id"] = span.trace_id
+        else:
+            answer = await handle_user_question(
+                request.user_id,
+                request.question,
+                selected_model,
+                user_tier
+            )
+
         if "error" in answer:
             raise HTTPException(status_code=500, detail=answer["error"])
         return {"answer": answer}
@@ -126,6 +156,21 @@ async def submit_feedback(payload: FeedbackRequest):
     body = payload.model_dump(exclude={"user_id"})
     body["rating"] = rating
     try:
+        # Log reward to Agent Lightning if trace_id is present
+        if HAS_LIGHTNING and payload.trace_id:
+            # Calculate Composite Reward
+            feedback_reward = 1.0 if rating == "up" else 0.0
+            
+            # Heuristic: if they gave a comment or reason, it's a higher quality signal
+            engagement_bonus = 0.1 if payload.comment or payload.reason else 0.0
+            
+            composite_reward = (feedback_reward * 0.7) + engagement_bonus
+            # Note: Tool success and latency can be factored in during offline optimization
+            # or via additional emit_xxx calls.
+            
+            lightning_store.log_reward(trace_id=payload.trace_id, reward=composite_reward)
+            logger.info(f"Logged composite reward {composite_reward} for trace {payload.trace_id}")
+
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
                 url,

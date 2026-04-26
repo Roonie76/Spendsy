@@ -35,7 +35,7 @@ const transactions = [
 describe("StatsPage - Dashboard charts", () => {
   beforeEach(() => {
     vi.useRealTimers();
-    localStorage.clear();
+    window.localStorage.clear();
     vi.restoreAllMocks();
   });
 

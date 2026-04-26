@@ -80,20 +80,6 @@ export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
           </div>
         </div>
 
-        {/* --- SECTION 2: BOTTOM CONTENT (Logout) --- */}
-        <div className="shrink-0 w-full px-2 xl:px-4 mt-2">
-          <button 
-            onClick={onSignOut} 
-            className="flex items-center w-full p-2 xl:p-4 rounded-xl xl:rounded-2xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-300 group/logout overflow-hidden"
-          >
-            <div className="w-6 h-6 xl:w-8 xl:h-8 flex items-center justify-center shrink-0 mx-auto group-hover:mx-0 transition-all duration-500">
-              <LogOut className="w-5 h-5 xl:w-6 xl:h-6" />
-            </div>
-            <span className="text-xs xl:text-sm font-bold tracking-wide whitespace-nowrap opacity-0 w-0 group-hover:w-auto group-hover:opacity-100 group-hover:ml-3 transition-all duration-500 delay-75">
-              Sign Out
-            </span>
-          </button>
-        </div>
 
       </nav>
 
@@ -132,13 +118,6 @@ export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
                 </button>
               ))}
             </div>
-            <button 
-              onClick={onSignOut}
-              className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">Sign Out</span>
-            </button>
           </div>
         </div>
         <div className="fixed bottom-6 right-6 z-50">

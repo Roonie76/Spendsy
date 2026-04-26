@@ -8,14 +8,16 @@ export const downloadCSV = (transactions) => {
 
     // 2. Convert Data to CSV Rows
     const rows = transactions.map(t => {
-        const date = normalizeDate(t.date).toLocaleDateString('en-IN');
-        const desc = `"${t.description.replace(/"/g, '""')}"`; // Escape quotes
-        const cat = t.category;
-        const type = t.type;
-        const amt = t.amount;
+        const d = normalizeDate(t.date);
+        const date = d ? d.toLocaleDateString('en-IN') : 'Unknown';
+        const rawDesc = String(t.description ?? t.title ?? '');
+        const desc = `"${rawDesc.replace(/"/g, '""')}"`; // Escape quotes
+        const cat = t.category || 'other';
+        const type = t.type || '';
+        const amt = Number.isFinite(parseFloat(t.amount)) ? t.amount : 0;
         const bank = t.bank || "N/A";
-        const verified = t.confidence > 0 ? "Yes" : "No";
-        
+        const verified = (t.confidence != null && t.confidence > 0) ? "Yes" : "No";
+
         return [date, desc, cat, type, amt, bank, verified].join(",");
     });
 

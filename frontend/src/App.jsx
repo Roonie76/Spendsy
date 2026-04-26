@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatIndianCompact, normalizeDate } from "@shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { Toast, ConfirmationDialog } from "./components/ui/Shared";
 import AlertsBell from "./components/ui/AlertsBell";
 
@@ -77,6 +78,7 @@ export default function App() {
   );
   const [showWizard, setShowWizard] = useState(false);
   const [transactions, setTransactions] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [serverSummary, setServerSummary] = useState(null);
   const [wealthItems, setWealthItems] = useState([]);
   const [netWorthHistory, setNetWorthHistory] = useState([]);
@@ -282,6 +284,7 @@ export default function App() {
 
   async function fetchHistory() {
     if (!currentUser?.id) return;
+    setHistoryLoading(true);
     try {
       const data = await apiFetch(`${API_BASE_URL}/transactions`);
       const payload = data?.data || data;
@@ -324,6 +327,8 @@ export default function App() {
       }
       console.error("Fetch Error:", err);
       return [];
+    } finally {
+      setHistoryLoading(false);
     }
   }
 
@@ -645,7 +650,8 @@ export default function App() {
     return <LoginScreen onAuthSuccess={handleAuthSuccess} showToast={showToast} />;
   }
   return (
-    <div
+    <ErrorBoundary>
+      <div
       className={cn(
         "min-h-screen transition-colors duration-1000 font-sans pb-28 md:pb-0 md:pl-28",
         theme === "dark"
@@ -805,17 +811,21 @@ export default function App() {
                   settings={settings}
                   totals={totals}
                   theme={theme}
+                  taxProfile={taxProfile}
+                  netWorthHistory={netWorthHistory}
                 />
               )}
               {activeTab === TABS.HISTORY && (
                 <HistoryPage
                   transactions={transactions}
+                  isLoading={historyLoading}
                   setActiveTab={setActiveTab}
                   onDelete={requestDeleteTransaction}
-                  onBulkDelete={requestBulkDelete}
+                  onBulkDelete={bulkDeleteTransactions}
                   onUpdate={updateTransaction}
                   apiBaseUrl={API_BASE_URL}
                   onRefresh={fetchHistory}
+                  showToast={showToast}
                 />
               )}
               {activeTab === TABS.ADD && (
@@ -827,6 +837,7 @@ export default function App() {
                   setActiveTab={setActiveTab}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
+                  theme={theme}
                   refreshData={async () => {
                     await Promise.all([
                       fetchHistory(), // Refresh data
@@ -841,7 +852,7 @@ export default function App() {
                   settings={settings}
                   onUpdateSettings={saveSettings}
                   onBack={() => setActiveTab(TABS.PROFILE)}
-                  onSignOut={() => triggerConfirm("Are you sure you want to sign out?", clearClientSession)}
+                  onSignOut={clearClientSession}
                   triggerConfirm={triggerConfirm}
                   theme={theme}
                   onThemeChange={(newTheme) => {
@@ -855,7 +866,7 @@ export default function App() {
                 />
               )}
               {activeTab === TABS.GOALS && (
-                <GoalsPage theme={theme} />
+                <GoalsPage theme={theme} showToast={showToast} />
               )}
               {activeTab === TABS.BANK_ACCOUNTS && (
                 <BankAccountsPage
@@ -879,6 +890,7 @@ export default function App() {
                 <ActiveLoansPage
                   wealthItems={wealthItems}
                   onBack={() => setActiveTab(TABS.PROFILE)}
+                  setActiveTab={setActiveTab}
                 />
               )}
               {activeTab === TABS.BUDGET && (
@@ -887,6 +899,7 @@ export default function App() {
                   onUpdateSettings={saveSettings}
                   triggerConfirm={triggerConfirm}
                   onBack={() => setActiveTab(TABS.PROFILE)}
+                  transactions={transactions}
                 />
               )}
               {activeTab === TABS.WEALTH && (
@@ -914,6 +927,7 @@ export default function App() {
                   authToken={authToken}
                   apiBaseUrl={API_BASE_URL}
                   theme={theme}
+                  showToast={showToast}
                 />
               )}
               {activeTab === TABS.AUDIT && (
@@ -932,7 +946,7 @@ export default function App() {
               )}
 
               {activeTab === TABS.STATS && (
-                <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} wealthItems={wealthItems} />
+                <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} wealthItems={wealthItems} showToast={showToast} />
               )}
 
               {activeTab === TABS.ITR && (
@@ -961,6 +975,7 @@ export default function App() {
       />
 
     </div>
+    </ErrorBoundary>
   );
 }
 

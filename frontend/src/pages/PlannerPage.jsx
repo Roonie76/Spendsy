@@ -8,7 +8,7 @@ import ProTierFeatures from '../components/planner/ProTierFeatures';
 import { Filter, Archive, Search } from 'lucide-react';
 import { financeApi } from '../api';
 
-export default function PlannerPage({ user, theme }) {
+export default function PlannerPage({ user, theme, showToast }) {
   const [plans, setPlans] = useState([]);
   const [filterType, setFilterType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,7 +23,7 @@ export default function PlannerPage({ user, theme }) {
       const data = resp?.data || resp;
       setPlans(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Failed to fetch plans:", err);
+      showToast("Failed to fetch plans", "error");
     } finally {
       setIsLoading(false);
     }
@@ -45,7 +45,7 @@ export default function PlannerPage({ user, theme }) {
       fetchPlans();
       setIsModalOpen(false);
     } catch (err) {
-      console.error("Failed to create plan:", err);
+      showToast("Failed to create plan", "error");
     }
   };
 
@@ -55,7 +55,7 @@ export default function PlannerPage({ user, theme }) {
       fetchPlans();
       setSelectedPlan(null);
     } catch (err) {
-      console.error("Failed to update plan:", err);
+      showToast("Failed to update plan", "error");
     }
   };
 
@@ -65,7 +65,7 @@ export default function PlannerPage({ user, theme }) {
       fetchPlans();
       setSelectedPlan(null);
     } catch (err) {
-      console.error("Failed to delete plan:", err);
+      showToast("Failed to delete plan", "error");
     }
   };
 
@@ -101,8 +101,8 @@ export default function PlannerPage({ user, theme }) {
         <PlannerHeader 
           totalPlans={plans.length} 
           monthlyCommitment={plans.reduce((acc, p) => acc + Number(p.monthly_saving), 0)}
-          successRate={85}
-          aiInfluenceScore={62}
+          successRate={plans.length > 0 ? Math.round((plans.filter(p => p.status === 'completed').length / plans.length) * 100) : 0}
+          aiInfluenceScore={plans.length > 0 ? Math.round((plans.filter(p => p.source === 'ai').length / plans.length) * 100) : 0}
           onCreateClick={() => setIsModalOpen(true)}
         />
 

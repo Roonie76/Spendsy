@@ -1,6 +1,7 @@
 // Section 5 Stats Page
 import React, { useState, useMemo, useEffect } from "react";
 import {
+  Download,
   Bot,
   Sparkles,
   Loader2,
@@ -32,6 +33,7 @@ import {
   formatIndianCompact,
 } from "@shared/utils/helpers";
 import { AIService } from "@shared/services/aiService";
+import { downloadCSV } from "@shared/utils/exportUtils";
 
 // --- CONFIG ---
 const COLORS = [
@@ -127,23 +129,42 @@ const InsightCard = ({ type, title, message, impact }) => {
 };
 
 // --- MAIN PAGE COMPONENT ---
-const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => {
+const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], isLoading = false, error = null, showToast }) => {
   const [aiInsights, setAiInsights] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [viewMode, setViewMode] = useState("expense");
   const [range, setRange] = useState("6M");
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [exportStatus, setExportStatus] = useState("idle");
 
   // Load cached insights on mount
   useEffect(() => {
-    const cached = localStorage.getItem("watchdog_insights");
-    if (cached) setAiInsights(JSON.parse(cached));
+    try {
+      const cached = localStorage.getItem("watchdog_insights");
+      if (cached) setAiInsights(JSON.parse(cached));
+    } catch {
+      setAiInsights([]);
+    }
   }, []);
 
   const pieChartData = useMemo(() => {
     const categoryMap = {};
     let total = 0;
+    
+    // Calculate date threshold based on range
+    const now = new Date();
+    let threshold = new Date(0); // Default to all time if range unrecognized
+    if (range === "1D") threshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    else if (range === "1W") threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (range === "1M") threshold = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    else if (range === "6M") threshold = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+    else if (range === "1Y") threshold = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+
     transactions.forEach((t) => {
+      const tDate = normalizeDate(t.date);
+      if (!tDate || tDate < threshold) return;
+      
       if (t.type === viewMode && t.amount) {
         const amt = parseFloat(t.amount);
         const catId = t.category || "uncategorized";
@@ -158,7 +179,17 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
         .sort((a, b) => b.value - a.value),
       total,
     };
-  }, [transactions, viewMode]);
+  }, [transactions, viewMode, range]);
+
+  const selectedCategoryTransactions = useMemo(() => {
+    if (!selectedCategory) return [];
+    return transactions.filter((t) => {
+      if (t.type !== viewMode) return false;
+      const catId = t.category || "uncategorized";
+      const catName = CATEGORIES.find((c) => c.id === catId)?.name || catId;
+      return catName === selectedCategory;
+    });
+  }, [selectedCategory, transactions, viewMode]);
 
   const trendChartData = useMemo(() => {
     const dataMap = new Map();
@@ -241,6 +272,38 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
     return Array.from(dataMap.values()).sort((a, b) => a.sortKey - b.sortKey);
   }, [transactions, range]);
 
+  const hasTrendData = trendChartData.some((point) => point.income > 0 || point.expense > 0);
+
+  const comparison = useMemo(() => {
+    const monthly = new Map();
+    transactions.forEach((t) => {
+      const d = normalizeDate(t.date);
+      if (!d) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const entry = monthly.get(key) || { income: 0, expense: 0 };
+      const amt = Number.parseFloat(t.amount) || 0;
+      if (t.type === "income") entry.income += amt;
+      if (t.type === "expense") entry.expense += amt;
+      monthly.set(key, entry);
+    });
+
+    const rows = Array.from(monthly.entries()).sort(([a], [b]) => a.localeCompare(b));
+    const current = rows.at(-1)?.[1] || { income: 0, expense: 0 };
+    const previous = rows.at(-2)?.[1] || { income: 0, expense: 0 };
+    const previousYearKey = rows.at(-1)?.[0]
+      ? `${Number(rows.at(-1)[0].slice(0, 4)) - 1}${rows.at(-1)[0].slice(4)}`
+      : "";
+    const previousYear = monthly.get(previousYearKey) || { income: 0, expense: 0 };
+    const pct = (now, before) => before > 0 ? ((now - before) / before) * 100 : null;
+
+    return {
+      momExpense: pct(current.expense, previous.expense),
+      yoyExpense: pct(current.expense, previousYear.expense),
+      current,
+      previous,
+    };
+  }, [transactions]);
+
   // --- 3. Net Worth Logic ---
   const augmentedNetWorthHistory = useMemo(() => {
     // 1. Calculate current totals from wealthItems
@@ -318,7 +381,11 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
 
       if (Array.isArray(jsonInsights)) {
         setAiInsights(jsonInsights);
-        localStorage.setItem("watchdog_insights", JSON.stringify(jsonInsights));
+        try {
+          localStorage.setItem("watchdog_insights", JSON.stringify(jsonInsights));
+        } catch {
+          // Cache is opportunistic; the live insight still renders.
+        }
       }
     } catch (error) {
       console.error("Watchdog Error:", error);
@@ -333,18 +400,83 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
   };
 
   const clearInsights = () => {
-    localStorage.removeItem("watchdog_insights");
+    try {
+      localStorage.removeItem("watchdog_insights");
+    } catch {
+      // Ignore storage failures in restricted browsing modes.
+    }
     setAiInsights([]);
   };
+
+  const exportAnalytics = () => {
+    setExportStatus("loading");
+    try {
+      downloadCSV([
+        ...pieChartData.data.map((row) => ({
+          chart: "category_breakdown",
+          label: row.name,
+          value: row.value,
+          type: viewMode,
+        })),
+        ...trendChartData.map((row) => ({
+          chart: "trend",
+          label: row.name,
+          income: row.income,
+          expense: row.expense,
+        })),
+      ]);
+      setExportStatus("success");
+    } catch {
+      setExportStatus("error");
+    } finally {
+      window.setTimeout(() => setExportStatus("idle"), 1800);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6 pb-4 animate-pulse">
+        <div className="h-8 w-36 rounded-xl bg-white/10" />
+        <div className="h-32 rounded-2xl bg-white/10" />
+        <div className="h-80 rounded-2xl bg-white/10" />
+        <div className="h-80 rounded-2xl bg-white/10" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-4 animate-in fade-in">
       <div className="flex justify-between items-center px-1">
         <h2 className="text-xl sm:text-2xl font-bold text-white">Analytics</h2>
+        <button
+          onClick={exportAnalytics}
+          disabled={exportStatus === "loading" || transactions.length === 0}
+          className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-emerald-300 transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {exportStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Export
+        </button>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200" role="alert">
+          Could not load analytics data.
+        </div>
+      )}
+
+      {exportStatus === "success" && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-200" role="status">
+          Analytics export started.
+        </div>
+      )}
+      {exportStatus === "error" && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-200" role="alert">
+          Could not export analytics.
+        </div>
+      )}
+
       {/* Watchdog Section */}
-      {/* <div className="bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-2xl">
+      <div className="bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none"></div>
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
@@ -363,6 +495,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
               <button
                 onClick={clearInsights}
                 className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors"
+                aria-label="Clear Watchdog insights"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -404,7 +537,26 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
             </div>
           )}
         </div>
-      </div> */}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">This Month Expense</p>
+          <p className="mt-2 text-xl font-black text-white">{formatIndianCompact(comparison.current.expense)}</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">MoM Expense</p>
+          <p className={`mt-2 text-xl font-black ${comparison.momExpense && comparison.momExpense > 0 ? "text-rose-300" : "text-emerald-300"}`}>
+            {comparison.momExpense === null ? "N/A" : `${comparison.momExpense.toFixed(1)}%`}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">YoY Expense</p>
+          <p className={`mt-2 text-xl font-black ${comparison.yoyExpense && comparison.yoyExpense > 0 ? "text-rose-300" : "text-emerald-300"}`}>
+            {comparison.yoyExpense === null ? "N/A" : `${comparison.yoyExpense.toFixed(1)}%`}
+          </p>
+        </div>
+      </div>
 
       {/* Category Breakdown */}
       <div className="bg-white/5 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10 relative overflow-hidden">
@@ -469,9 +621,10 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
         </div>
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
           {pieChartData.data.map((entry, index) => (
-            <div
+            <button
               key={index}
-              className="flex justify-between items-center text-xs bg-white/5 p-2 rounded-lg"
+              onClick={() => setSelectedCategory((current) => current === entry.name ? null : entry.name)}
+              className={`flex justify-between items-center text-xs bg-white/5 p-2 rounded-lg text-left transition-colors hover:bg-white/10 ${selectedCategory === entry.name ? "ring-1 ring-blue-400/60" : ""}`}
             >
               <div className="flex items-center gap-2 truncate">
                 <div
@@ -483,9 +636,25 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
               <span className="font-bold text-slate-200 shrink-0 ml-2">
                 {((entry.value / pieChartData.total) * 100).toFixed(0)}%
               </span>
-            </div>
+            </button>
           ))}
         </div>
+        {selectedCategory && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">{selectedCategory}</h4>
+              <button onClick={() => setSelectedCategory(null)} className="text-[10px] font-bold text-slate-500 hover:text-white">Clear</button>
+            </div>
+            <div className="max-h-40 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+              {selectedCategoryTransactions.slice(0, 8).map((transaction) => (
+                <div key={transaction.id || `${transaction.title}-${transaction.date}`} className="flex justify-between gap-3 rounded-lg bg-white/5 px-3 py-2 text-xs">
+                  <span className="truncate text-slate-300">{transaction.title || transaction.description || "Transaction"}</span>
+                  <span className="font-bold text-white">{formatIndianCompact(Number.parseFloat(transaction.amount) || 0)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Trend Analysis */}
@@ -507,6 +676,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
           </div>
         </div>
         <div className="h-[300px] w-full">
+          {hasTrendData ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={trendChartData} barGap={4}>
               <CartesianGrid
@@ -550,11 +720,16 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
               />
             </BarChart>
           </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700/50 text-xs text-slate-500">
+              No trend data for this range
+            </div>
+          )}
         </div>
       </div>
 
       {/* Net Worth History Tracker */}
-      {/* <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
         <div className="flex justify-between items-start mb-6 gap-4">
           <div>
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-1">
@@ -610,7 +785,7 @@ const StatsPage = ({ transactions, netWorthHistory = [], wealthItems = [] }) => 
             </div>
           )}
         </div>
-      </div> */}
+      </div>
     </div>
   );
 };

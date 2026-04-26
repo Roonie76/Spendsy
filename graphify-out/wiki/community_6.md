@@ -1,0 +1,78 @@
+# Community 6
+
+**73 nodes**
+
+## Nodes
+- **main.py** (`backend/ai-service/app/main.py` L1) → backend_ai_service_app_api_routes_ai_py, backend_ai_service_app_api_routes_chat_py, main_sqlalchemy_exception_handler
+- **sqlalchemy_exception_handler()** (`backend/finance-service/app/main.py` L78) → backend_auth_service_app_main_py, backend_finance_service_app_main_py, main_rationale_79
+- **schemas.py** (`backend/ai-service/app/schemas.py` L1) → schemas_chatrequest, schemas_chatresponse, schemas_healthresponse
+- **ChatRequest** (`backend/ai-service/app/schemas.py` L6) → basemodel, d_projects_spendsy_backend_ai_service_app_schemas_py
+- **ChatResponse** (`backend/ai-service/app/schemas.py` L10) → routes_chat_chat, d_projects_spendsy_backend_ai_service_app_schemas_py
+- **AIRequest** (`backend/ai-service/app/schemas.py` L21) → d_projects_spendsy_backend_ai_service_app_schemas_py
+- **AIResponse** (`backend/ai-service/app/schemas.py` L30) → routes_ai_run_gemini, d_projects_spendsy_backend_ai_service_app_schemas_py
+- **routes_ai.py** (`backend/ai-service/app/api/routes_ai.py` L1) → routes_ai_health, routes_ai_run_gemini, routes_ai_insights
+- **health()** (`backend/ai-service/app/api/routes_ai.py` L18) → d_projects_spendsy_backend_ai_service_app_api_routes_ai_py
+- **_run_gemini()** (`backend/ai-service/app/api/routes_ai.py` L22) → routes_ai_insights, routes_ai_health_score, routes_ai_forecast
+- **insights()** (`backend/ai-service/app/api/routes_ai.py` L57) → d_projects_spendsy_backend_ai_service_app_api_routes_ai_py
+- **health_score()** (`backend/ai-service/app/api/routes_ai.py` L62) → d_projects_spendsy_backend_ai_service_app_api_routes_ai_py
+- **forecast()** (`backend/ai-service/app/api/routes_ai.py` L67) → d_projects_spendsy_backend_ai_service_app_api_routes_ai_py
+- **routes_chat.py** (`backend/ai-service/app/api/routes_chat.py` L1) → routes_chat_build_prompt, routes_chat_chat
+- **_build_prompt()** (`backend/ai-service/app/api/routes_chat.py` L16) → routes_chat_chat, d_projects_spendsy_backend_ai_service_app_api_routes_chat_py
+- **chat()** (`backend/ai-service/app/api/routes_chat.py` L34) → finance_client_fetch_finance_context, memory_enterprisetierstore_load_history, gemini_client_generate_text
+- **gemini_client.py** (`backend/ai-service/app/services/gemini_client.py` L1) → gemini_client_geminierror, gemini_client_build_prompt, gemini_client_generate_text
+- **GeminiError** (`backend/ai-service/app/services/gemini_client.py` L13) → runtimeerror, gemini_client_generate_text, d_projects_spendsy_backend_ai_service_app_services_gemini_client_py
+- **build_prompt()** (`backend/ai-service/app/services/gemini_client.py` L17) → str, d_projects_spendsy_backend_ai_service_app_services_gemini_client_py
+- **generate_text()** (`backend/ai-service/app/services/gemini_client.py` L27) → str, d_projects_spendsy_backend_ai_service_app_services_gemini_client_py
+- **main.py** (`backend/auth-service/app/main.py` L1) → main_lifespan
+- **lifespan()** (`backend/finance-service/app/main.py` L31) → backend_finance_service_app_main_py, scheduler_start_scheduler, scheduler_stop_scheduler
+- **middleware.py** (`backend/auth-service/app/core/middleware.py` L1) → middleware_securityheadersmiddleware
+- **SecurityHeadersMiddleware** (`backend/finance-service/app/core/middleware.py` L58) → basehttpmiddleware, middleware_securityheadersmiddleware_dispatch, middleware_rationale_10
+- **BaseHTTPMiddleware** (`` ) → middleware_requestloggingmiddleware
+- **.dispatch()** (`backend/finance-service/app/core/middleware.py` L63)
+- **Middleware that adds security-hardening headers to every response.** (`backend/auth-service/app/core/middleware.py` L10)
+- **main.py** (`backend/finance-service/app/main.py` L1) → main_validation_exception_handler, main_health_check
+- **validation_exception_handler()** (`backend/finance-service/app/main.py` L61) → main_rationale_62, str, d_projects_spendsy_backend_finance_service_app_main_py
+- **health_check()** (`backend/spendsy-ai/main.py` L59) → backend_spendsy_ai_main_py, d_projects_spendsy_backend_finance_service_app_main_py, d_projects_spendsy_backend_spendsy_ai_main_py
+- **Return structured JSON for Pydantic validation failures.** (`backend/finance-service/app/main.py` L62) → middleware_requestloggingmiddleware
+- **Catch unhandled SQLAlchemy failures so DB issues surface as structured JSON** (`backend/finance-service/app/main.py` L79) → middleware_requestloggingmiddleware
+- **middleware.py** (`backend/finance-service/app/core/middleware.py` L1) → middleware_requestloggingmiddleware
+- **RequestLoggingMiddleware** (`backend/finance-service/app/core/middleware.py` L15) → middleware_requestloggingmiddleware_dispatch, middleware_rationale_16, d_projects_spendsy_backend_finance_service_app_core_middleware_py
+- **.dispatch()** (`backend/finance-service/app/core/middleware.py` L22)
+- **Middleware that:     1. Ensures every request has an X-Request-ID (generates on** (`backend/finance-service/app/core/middleware.py` L16)
+- **Middleware that adds security-hardening headers to every response.** (`backend/finance-service/app/core/middleware.py` L59)
+- **scheduler.py** (`backend/finance-service/app/services/scheduler.py` L1) → scheduler_is_enabled, scheduler_register_jobs, scheduler_safely
+- **_is_enabled()** (`backend/finance-service/app/services/scheduler.py` L36) → scheduler_start_scheduler, scheduler_rationale_37, constants_getenv
+- **_register_jobs()** (`backend/finance-service/app/services/scheduler.py` L42) → scheduler_safely, scheduler_start_scheduler, scheduler_rationale_43
+- **_safely()** (`backend/finance-service/app/services/scheduler.py` L67) → scheduler_rationale_68, d_projects_spendsy_backend_finance_service_app_services_scheduler_py
+- **start_scheduler()** (`backend/finance-service/app/services/scheduler.py` L84) → scheduler_rationale_85, d_projects_spendsy_backend_finance_service_app_services_scheduler_py
+- **stop_scheduler()** (`backend/finance-service/app/services/scheduler.py` L102) → scheduler_rationale_103, d_projects_spendsy_backend_finance_service_app_services_scheduler_py
+- **get_scheduler()** (`backend/finance-service/app/services/scheduler.py` L114) → scheduler_rationale_115, d_projects_spendsy_backend_finance_service_app_services_scheduler_py
+- **run_job_now()** (`backend/finance-service/app/services/scheduler.py` L119) → scheduler_rationale_120, d_projects_spendsy_backend_finance_service_app_services_scheduler_py
+- **In-process job scheduler for finance-service.  Runs with the FastAPI app (no sep** (`backend/finance-service/app/services/scheduler.py` L1) → d_projects_spendsy_backend_finance_service_app_services_scheduler_py
+- **Respect explicit opt-out for tests and constrained local runs.** (`backend/finance-service/app/services/scheduler.py` L37)
+- **Wire every job. Isolated so tests can stub individual jobs.** (`backend/finance-service/app/services/scheduler.py` L43)
+- **Wrap a job so a crash doesn't poison the scheduler.** (`backend/finance-service/app/services/scheduler.py` L68)
+- **Start the background scheduler if enabled. Idempotent.** (`backend/finance-service/app/services/scheduler.py` L85)
+- **Shut the scheduler down. Idempotent.** (`backend/finance-service/app/services/scheduler.py` L103)
+- **Primarily for tests / debug endpoints that want to trigger jobs manually.** (`backend/finance-service/app/services/scheduler.py` L115)
+- **Manually fire a registered job (bypasses the cron trigger).      Returns True on** (`backend/finance-service/app/services/scheduler.py` L120)
+- **main.py** (`backend/spendsy-ai/main.py` L1) → main_questionrequest, main_feedbackrequest, main_fetch_user_tier
+- **QuestionRequest** (`backend/spendsy-ai/main.py` L35) → tiering_tieringconfig, d_projects_spendsy_backend_spendsy_ai_main_py
+- **FeedbackRequest** (`backend/spendsy-ai/main.py` L42) → main_rationale_43, tiering_tieringconfig, d_projects_spendsy_backend_spendsy_ai_main_py
+- **fetch_user_tier()** (`backend/spendsy-ai/main.py` L63) → main_handle_ask_tora, main_rationale_64, d_projects_spendsy_backend_spendsy_ai_main_py
+- **handle_ask_tora()** (`backend/spendsy-ai/main.py` L87) → tiering_get_model_for_tier, tora_agent_handle_user_question, d_projects_spendsy_backend_spendsy_ai_main_py
+- **submit_feedback()** (`backend/spendsy-ai/main.py` L115) → main_rationale_116, d_projects_spendsy_backend_spendsy_ai_main_py
+- **Thumbs up/down from the chat UI.      `client_message_id` is whatever the fron** (`backend/spendsy-ai/main.py` L43) → tiering_tieringconfig
+- **Fetch user tier from finance-service internal API.     Falls back to 'free' if** (`backend/spendsy-ai/main.py` L64) → tiering_tieringconfig
+- **Relay thumbs up/down to finance-service.      The UI calls this endpoint; we f** (`backend/spendsy-ai/main.py` L116) → tiering_tieringconfig
+- **main.py** (`backend/ai-service/app/main.py` L1) → d_projects_spendsy_backend_ai_service_app_api_routes_ai_py, d_projects_spendsy_backend_ai_service_app_api_routes_chat_py
+- **schemas.py** (`backend/ai-service/app/schemas.py` L1)
+- **routes_ai.py** (`backend/ai-service/app/api/routes_ai.py` L1)
+- **routes_chat.py** (`backend/ai-service/app/api/routes_chat.py` L1)
+- **gemini_client.py** (`backend/ai-service/app/services/gemini_client.py` L1)
+- **main.py** (`backend/auth-service/app/main.py` L1)
+- **middleware.py** (`backend/auth-service/app/core/middleware.py` L1)
+- **main.py** (`backend/finance-service/app/main.py` L1)
+- **middleware.py** (`backend/finance-service/app/core/middleware.py` L1)
+- **scheduler.py** (`backend/finance-service/app/services/scheduler.py` L1)
+- **main.py** (`backend/spendsy-ai/main.py` L1)

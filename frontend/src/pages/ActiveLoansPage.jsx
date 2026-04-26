@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   Briefcase,
   ChevronLeft,
+  ChevronRight,
   TrendingUp,
   Landmark,
   ShieldCheck,
@@ -12,11 +13,82 @@ import {
   Clock
 } from "lucide-react";
 import { formatIndianCompact } from "@shared/utils/helpers";
+import { TABS } from "@shared/config/constants";
 import { financeApi } from "../api";
 
-const ActiveLoansPage = ({ wealthItems, onBack }) => {
+// --- Amortization Modal ---
+const AmortizationModal = ({ loan, onClose }) => {
+  const principal = parseFloat(loan.remaining_balance || loan.principal_amount || 0);
+  const rate = parseFloat(loan.interest_rate || 0) / 100 / 12;
+  const emi = parseFloat(loan.emi_amount || 0);
+  
+  const schedule = React.useMemo(() => {
+    let balance = principal;
+    const rows = [];
+    // Calculate for next 12 months only for UI brevity, or full tenure if small
+    for (let i = 1; i <= 24; i++) {
+      if (balance <= 0) break;
+      const interest = balance * rate;
+      const principalRepayment = Math.min(balance, emi - interest);
+      balance -= principalRepayment;
+      rows.push({
+        month: i,
+        interest,
+        principal: principalRepayment,
+        balance: Math.max(0, balance)
+      });
+    }
+    return rows;
+  }, [principal, rate, emi]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+      >
+        <div className="p-6 border-b border-white/5 flex justify-between items-center">
+          <div>
+            <h3 className="text-xl font-black text-white">Amortization Schedule</h3>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Projected Repayment Flow</p>
+          </div>
+          <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-slate-400">
+            <Clock className="w-5 h-5 rotate-45" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">
+                <th className="pb-4">Mo.</th>
+                <th className="pb-4">Principal</th>
+                <th className="pb-4">Interest</th>
+                <th className="pb-4 text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {schedule.map((row) => (
+                <tr key={row.month} className="group/row">
+                  <td className="py-4 text-xs font-bold text-slate-500">{row.month}</td>
+                  <td className="py-4 text-xs font-bold text-white">{formatIndianCompact(row.principal)}</td>
+                  <td className="py-4 text-xs font-bold text-rose-400">{formatIndianCompact(row.interest)}</td>
+                  <td className="py-4 text-xs font-black text-emerald-400 text-right">{formatIndianCompact(row.balance)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-6 text-[10px] text-slate-600 italic text-center">Showing next 24 months of projected repayments</p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const ActiveLoansPage = ({ wealthItems, onBack, setActiveTab }) => {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLoan, setSelectedLoan] = useState(null);
 
   const fetchLoans = useCallback(async () => {
     setLoading(true);
@@ -25,7 +97,6 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
       const data = resp?.data || resp;
       setLoans(Array.isArray(data) ? data : []);
     } catch {
-      // Fallback to wealth items if loan API fails
       setLoans(wealthItems.filter(item => item.type === "liability" || item.is_loan));
     } finally {
       setLoading(false);
@@ -39,6 +110,7 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
 
   return (
     <div className="space-y-8 pb-32">
+      {selectedLoan && <AmortizationModal loan={selectedLoan} onClose={() => setSelectedLoan(null)} />}
       <div className="flex items-center gap-4 pb-4 border-b border-white/5">
         <motion.button 
           whileHover={{ scale: 1.05, x: -2 }}
@@ -147,23 +219,25 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
                   </div>
                 </div>
 
-                {/* Loan Details */}
-                <div className="flex gap-4 flex-wrap">
-                  {principal > 0 && (
-                    <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" /> Principal: {formatIndianCompact(principal)}
-                    </span>
-                  )}
-                  {monthsLeft > 0 && (
-                    <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> ~{monthsLeft} months left
-                    </span>
-                  )}
-                  {loan.start_date && (
-                    <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> Since {loan.start_date}
-                    </span>
-                  )}
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-4 flex-wrap">
+                    {principal > 0 && (
+                      <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" /> Principal: {formatIndianCompact(principal)}
+                      </span>
+                    )}
+                    {monthsLeft > 0 && (
+                      <span className="px-2 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> ~{monthsLeft} months left
+                      </span>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => setSelectedLoan(loan)}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-colors flex items-center gap-2"
+                  >
+                    View Schedule <ChevronRight className="w-3 h-3" />
+                  </button>
                 </div>
               </motion.div>
             );
@@ -174,6 +248,7 @@ const ActiveLoansPage = ({ wealthItems, onBack }) => {
       <motion.button
          whileHover={{ scale: 1.02 }}
          whileTap={{ scale: 0.98 }}
+         onClick={() => setActiveTab(TABS.CHAT)}
          className="w-full py-5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-[2rem] text-slate-400 hover:text-white font-black uppercase text-xs tracking-widest transition-all mt-4 flex items-center justify-center gap-3"
       >
          <Zap className="w-4 h-4 text-amber-400" />

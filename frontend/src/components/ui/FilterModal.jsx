@@ -1,18 +1,23 @@
 //No database needed
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Check, RotateCcw, Calendar, IndianRupee } from 'lucide-react';
 import { CATEGORIES } from '@shared/config/constants';
 
 const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
+    if (!isOpen) return null;
+
+    return (
+        <FilterModalContent
+            currentFilters={currentFilters}
+            onApply={onApply}
+            onClose={onClose}
+        />
+    );
+};
+
+const FilterModalContent = ({ onClose, currentFilters, onApply }) => {
     // Local state for the modal form
     const [localFilters, setLocalFilters] = useState(currentFilters);
-
-    // Reset local state when modal opens with new props
-    useEffect(() => {
-        setLocalFilters(currentFilters);
-    }, [currentFilters, isOpen]);
-
-    if (!isOpen) return null;
 
     const handleCategoryToggle = (catId) => {
         setLocalFilters(prev => {
@@ -50,6 +55,12 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
         });
     };
 
+    const handleApply = () => {
+        const shouldClose = onApply(localFilters);
+        if (shouldClose !== false) {
+            onClose();
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
@@ -174,6 +185,7 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                                     type="date" 
                                     value={localFilters.startDate}
                                     onChange={(e) => setLocalFilters({...localFilters, startDate: e.target.value})}
+                                    aria-label="Start date"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-white text-xs outline-none focus:border-blue-500"
                                 />
                             </div>
@@ -184,6 +196,7 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                                     type="date" 
                                     value={localFilters.endDate}
                                     onChange={(e) => setLocalFilters({...localFilters, endDate: e.target.value})}
+                                    aria-label="End date"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-white text-xs outline-none focus:border-blue-500"
                                 />
                             </div>
@@ -199,8 +212,10 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                                 <input 
                                     type="number" 
                                     placeholder="Min"
+                                    min="0"
                                     value={localFilters.minAmount}
                                     onChange={(e) => setLocalFilters({...localFilters, minAmount: e.target.value})}
+                                    aria-label="Minimum amount"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-8 pr-3 text-white text-sm outline-none focus:border-blue-500"
                                 />
                             </div>
@@ -209,8 +224,10 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                                 <input 
                                     type="number" 
                                     placeholder="Max"
+                                    min="0"
                                     value={localFilters.maxAmount}
                                     onChange={(e) => setLocalFilters({...localFilters, maxAmount: e.target.value})}
+                                    aria-label="Maximum amount"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-8 pr-3 text-white text-sm outline-none focus:border-blue-500"
                                 />
                             </div>
@@ -246,7 +263,7 @@ const FilterModal = ({ isOpen, onClose, currentFilters, onApply }) => {
                 {/* Footer Actions */}
                 <div className="p-6 border-t border-white/5 shrink-0 bg-[#0f172a]">
                     <button 
-                        onClick={() => { onApply(localFilters); onClose(); }}
+                        onClick={handleApply}
                         className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-900/20 transition-all active:scale-95"
                     >
                         Apply Filters
