@@ -7,7 +7,7 @@ import {
   Calendar, AlertTriangle, ArrowRight, ArrowDown, ArrowUp, Eye, EyeOff,
   ChevronDown, ChevronUp, Shield, Target, Zap, HelpCircle, X,
   IndianRupee, Home, CircleDollarSign, Banknote, Percent, Clock,
-  BadgeCheck, TriangleAlert, Star, Sparkles, BookOpen, FileWarning,
+  BadgeCheck, TriangleAlert, Star, Sparkles, BookOpen, FileWarning, Plus,
 } from "lucide-react";
 import { TAX_CONSTANTS } from "@shared/config/constants";
 import { TaxService, getITRFormType } from "@shared/services/taxService";
@@ -1058,79 +1058,6 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
                           ))}
                           <button onClick={addProperty} className="w-full py-3 border border-dashed border-white/10 rounded-xl text-[10px] font-bold text-slate-500 hover:border-blue-500/30 hover:text-blue-400 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
                             <Plus size={14} className="text-blue-400" /> Add Property
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* House Property Details */}
-                <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
-                  <button onClick={() => toggleSection("hp_detail")} className="w-full flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors">
-                    <div className="flex items-center gap-3">
-                      <Home size={16} className="text-emerald-400" />
-                      <span className="text-sm font-bold text-white">Detailed House Property Info</span>
-                    </div>
-                    {expandedSections.hp_detail ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-                  </button>
-                  <AnimatePresence>
-                    {expandedSections.hp_detail && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                        <div className="p-5 pt-0 space-y-6">
-                          {(income.properties || []).map((prop, idx) => (
-                            <div key={idx} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl relative group">
-                              <button onClick={() => removeProperty(idx)} className="absolute top-4 right-4 text-slate-600 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
-                                <X size={14} />
-                              </button>
-                              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4">Property #{idx + 1}</p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {HOUSE_PROPERTY_FIELDS.map((field) => {
-                                  if (field.condition && !field.condition(prop)) return null;
-                                  
-                                  if (field.type === "select") {
-                                    return (
-                                      <div key={field.key} className="space-y-1.5">
-                                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                                        <select
-                                          value={prop[field.key] || ""}
-                                          onChange={(e) => updatePropertyDetail(idx, field.key, e.target.value)}
-                                          className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-3 text-xs text-white focus:border-blue-500/50 outline-none transition-all"
-                                        >
-                                          {field.options.map(opt => <option key={opt} value={opt}>{opt.replace(/_/g, " ").toUpperCase()}</option>)}
-                                        </select>
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  if (field.type === "currency") {
-                                    return (
-                                      <CurrencyInput
-                                        key={field.key} compact
-                                        label={field.label}
-                                        value={prop[field.key] || ""}
-                                        onChange={(v) => updatePropertyDetail(idx, field.key, v)}
-                                      />
-                                    );
-                                  }
-
-                                  return (
-                                    <div key={field.key} className="space-y-1.5">
-                                      <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                                      <input
-                                        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
-                                        value={prop[field.key] || ""}
-                                        onChange={(e) => updatePropertyDetail(idx, field.key, e.target.value)}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:border-blue-500/50 outline-none transition-all"
-                                      />
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                          <button onClick={addProperty} className="w-full py-3 border border-dashed border-white/10 rounded-xl text-[10px] font-bold text-slate-500 hover:border-blue-500/30 hover:text-blue-400 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
-                            <Plus size={14} /> Add Property
                           </button>
                         </div>
                       </motion.div>

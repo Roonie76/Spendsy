@@ -28,7 +28,10 @@ from app.core.redis import (
     reset_failed_login,
 )
 from app.models import User, RefreshToken
-from app.schemas import AuthResponse, RefreshRequest, TokenPair, UserCreate, UserLogin, UserOut
+from app.schemas import (
+    AuthResponse, ChangePasswordRequest, RefreshRequest, SessionOut,
+    TokenPair, UpdateProfileRequest, UserCreate, UserLogin, UserOut,
+)
 
 router = APIRouter(tags=["auth"])
 
@@ -429,3 +432,147 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     _record_audit(db, request, action="logout", resource_type="user", status_code=200, user_id=int(user_id) if user_id else None)
     _clear_auth_cookies(response)
     return {"ok": True, "message": "Logged out successfully"}
+
+
+def _get_current_user(request: Request, db: Session) -> User:
+    """Extract and validate user from access token (cookie or header)."""
+    token = (
+        request.cookies.get("access_token")
+        or request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        or None
+    )
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        claims = security.decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="Invalid token") from exc
+    if claims.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token")
+    jti = claims.get("jti")
+    if jti and is_token_blacklisted(jti):
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+    user_id = claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = _get_current_user(request, db)
+
+    if not security.verify_password(payload.current_password, user.password):
+        _record_audit(db, request, action="change_password_failed", resource_type="user", status_code=401, user_id=user.id)
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+    user.password = security.hash_password(payload.new_password)
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+
+    _record_audit(db, request, action="change_password", resource_type="user", status_code=200, user_id=user.id)
+    return {"ok": True, "message": "Password updated successfully"}
+
+
+@router.put("/me", response_model=UserOut)
+def update_profile(
+    payload: UpdateProfileRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = _get_current_user(request, db)
+    updates = payload.model_dump(exclude_unset=True)
+
+    if "first_name" in updates:
+        user.first_name = updates["first_name"]
+    if "last_name" in updates:
+        user.last_name = updates["last_name"]
+
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+    db.refresh(user)
+
+    _record_audit(db, request, action="profile_updated", resource_type="user", status_code=200, user_id=user.id)
+    return UserOut(id=user.id, uid=user.uid, username=user.username, email=user.email, created_at=user.date_joined)
+
+
+@router.get("/sessions")
+def list_sessions(request: Request, db: Session = Depends(get_db)):
+    user = _get_current_user(request, db)
+
+    # Get current session's JTI from access token
+    current_jti = None
+    token = request.cookies.get("access_token") or request.headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
+    if token:
+        try:
+            claims = security.decode_token(token)
+            current_jti = claims.get("jti")
+        except Exception:
+            pass
+
+    # Active = not revoked and not expired
+    active_tokens = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user.id,
+            RefreshToken.is_revoked == False,
+            RefreshToken.expires_at > datetime.now(timezone.utc),
+        )
+        .order_by(RefreshToken.created_at.desc())
+        .all()
+    )
+
+    sessions = []
+    for rt in active_tokens:
+        sessions.append(
+            SessionOut(
+                id=rt.id,
+                created_at=rt.created_at,
+                expires_at=rt.expires_at,
+                is_current=(rt.jti == current_jti) if current_jti else False,
+            )
+        )
+    return {"sessions": [s.model_dump() for s in sessions]}
+
+
+@router.delete("/sessions/{session_id}")
+def revoke_session(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = _get_current_user(request, db)
+    rt = db.query(RefreshToken).filter(
+        RefreshToken.id == session_id,
+        RefreshToken.user_id == user.id,
+    ).first()
+    if not rt:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    rt.is_revoked = True
+    # Also blacklist the JTI in Redis
+    remaining = int((rt.expires_at - datetime.now(timezone.utc)).total_seconds())
+    if remaining > 0:
+        blacklist_token(rt.jti, remaining)
+
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+
+    _record_audit(db, request, action="session_revoked", resource_type="session", resource_id=str(session_id), status_code=200, user_id=user.id)
+    return {"ok": True, "message": "Session revoked"}

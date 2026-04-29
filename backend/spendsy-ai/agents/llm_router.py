@@ -1,12 +1,28 @@
 import logging
 import json
+import time
 from typing import Dict, Any
 from config import settings
 from .ollama_client import call_ollama
-from .gemini_client import call_gemini  # Kept as deep fallback
-from .mistral_client import call_mistral # Kept as deep fallback
 
 logger = logging.getLogger(__name__)
+
+
+def check_ollama_health() -> dict:
+    """Quick connectivity check against Ollama. Returns status dict."""
+    import urllib.request
+    import urllib.error
+    try:
+        req = urllib.request.Request(f"{settings.ollama_base_url}/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode())
+            models = [m.get("name", "") for m in data.get("models", [])]
+            return {"ok": True, "models": models}
+    except urllib.error.URLError as e:
+        return {"ok": False, "error": f"Connection refused: {e.reason}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
 
 def call_llm(
     model_branding: str,
@@ -16,24 +32,16 @@ def call_llm(
     thinking: bool = False,
 ) -> str:
     """
-    Route the prompt to specialized local models via Ollama with reasoning fallback.
+    Route the prompt to local Ollama models.
 
-    Logic:
-    - 'tora' -> primary local model (see settings.model_gemma)
-    - 'tora_plus' -> DISABLED (pending fine-tuning)
-    - Fallback -> settings.model_llama, then Mistral Cloud if configured
+    Chain: primary (model_gemma) → fallback (model_llama) → error.
 
     Args:
         thinking: If True, enable gemma4's thinking mode on the primary model.
-            Gated by the caller based on query complexity (track 2 decisions).
-            Fallback model does NOT use thinking — when the primary failed,
-            we want the fastest-possible recovery path.
     """
     logger.info(f"Routing request to model branding: {model_branding}")
-    logger.info(f"LLM Prompt: {prompt}")
 
     branding = model_branding.lower()
-
     if branding == "tora_plus":
         logger.warning("TORA+ requested but not yet available — falling back to TORA")
 
@@ -44,35 +52,44 @@ def call_llm(
             primary_model, prompt, context,
             system_prompt=system_prompt, thinking=thinking,
         )
-        logger.info(f"Primary model raw response: {response}")
         json.loads(response)
-        logger.info(f"Successfully received valid JSON from {primary_model}")
+        logger.info(f"Valid JSON from {primary_model}")
         return response
 
     except (Exception, json.JSONDecodeError) as e:
-        logger.warning(f"Primary model ({primary_model}) failed or returned invalid JSON: {e}")
+        logger.warning(f"Primary model ({primary_model}) failed: {e}")
 
-        import time
-        logger.info(f"Cooling down for 2 seconds to ensure {primary_model} is unloaded...")
         time.sleep(2)
-
-        logger.info(f"Triggering reasoning fallback to {settings.model_llama}")
+        logger.info(f"Fallback to {settings.model_llama}")
 
         try:
-            fallback_response = call_ollama(settings.model_llama, prompt, context, system_prompt=system_prompt)
-            logger.info(f"Fallback model raw response: {fallback_response}")
+            fallback_response = call_ollama(
+                settings.model_llama, prompt, context,
+                system_prompt=system_prompt,
+            )
             try:
                 json.loads(fallback_response)
-                logger.info(f"Successfully received valid JSON from fallback model {settings.model_llama}")
             except json.JSONDecodeError:
-                logger.warning(f"Fallback model {settings.model_llama} returned invalid JSON, but returning it for agent recovery")
+                logger.warning(f"Fallback {settings.model_llama} returned invalid JSON, passing through")
             return fallback_response
 
         except Exception as fe:
-            logger.error(f"Fallback model ({settings.model_llama}) also failed: {fe}")
+            logger.error(f"Fallback ({settings.model_llama}) also failed: {fe}")
 
-            if settings.mistral_api_key:
-                logger.info("Ultimate fallback: dashboarding to Mistral Cloud")
-                return call_mistral(prompt, context)
+            # Surface actionable diagnostics
+            health = check_ollama_health()
+            if not health["ok"]:
+                raise RuntimeError(
+                    f"Ollama unreachable at {settings.ollama_base_url}. "
+                    f"Ensure Ollama is running: 'ollama serve'. Error: {health['error']}"
+                )
+            else:
+                available = health["models"]
+                if primary_model not in available and settings.model_llama not in available:
+                    raise RuntimeError(
+                        f"Ollama is running but required models not found. "
+                        f"Available: {available}. "
+                        f"Run: 'ollama pull {primary_model}' and 'ollama pull {settings.model_llama}'"
+                    )
 
-            raise RuntimeError(f"All LLM tiers failed to provide a valid response. Original error: {e}")
+            raise RuntimeError(f"All LLM tiers failed. Primary error: {e}")

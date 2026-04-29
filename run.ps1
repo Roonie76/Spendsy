@@ -55,7 +55,8 @@ switch ($ACTION) {
         $services = [ordered]@{
             "Auth Service"    = "http://localhost:8001/health"
             "Finance Service" = "http://localhost:8002/health"
-            "AI Service"      = "http://localhost:8004/health"
+            "TORA AI"         = "http://localhost:8004/health"
+            "Ollama"          = "http://localhost:11434/api/tags"
             "Gateway"         = "http://localhost:8080"
             "Frontend"        = "http://localhost:3000"
         }
@@ -92,9 +93,10 @@ switch ($ACTION) {
         Write-Host ""
         Write-Host "  Auth Service:    http://localhost:8001" -ForegroundColor DarkGray
         Write-Host "  Finance Service: http://localhost:8002" -ForegroundColor DarkGray
-        Write-Host "  AI Service:      http://localhost:8004" -ForegroundColor DarkGray
+        Write-Host "  TORA AI:         http://localhost:8004/health" -ForegroundColor DarkGray
         Write-Host "  PostgreSQL:      localhost:5434" -ForegroundColor DarkGray
         Write-Host "  Redis:           localhost:6379" -ForegroundColor DarkGray
+        Write-Host "  Ollama:          http://localhost:11434 (must run on host)" -ForegroundColor DarkGray
         Write-Host ""
         Write-Host "  .\run.ps1 status   - Check service health" -ForegroundColor DarkGray
         Write-Host "  .\run.ps1 logs     - Tail all logs" -ForegroundColor DarkGray

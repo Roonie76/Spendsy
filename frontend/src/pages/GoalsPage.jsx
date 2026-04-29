@@ -202,6 +202,7 @@ function GoalCard({ goal, onDelete, onUpdate, theme }) {
   const meta = CATEGORY_META[goal.category] || CATEGORY_META.other;
   const pct = Math.min(100, parseFloat(goal.progress_percent || 0));
   const isComplete = goal.is_completed;
+  const [customAmt, setCustomAmt] = useState("");
 
   const bouncySpring = { type: "spring", stiffness: 500, damping: 22 };
 
@@ -290,21 +291,56 @@ function GoalCard({ goal, onDelete, onUpdate, theme }) {
 
       {/* Quick Add Progress */}
       {!isComplete && (
-        <div className="mt-4 flex gap-2">
-          {[1000, 5000, 10000].map((amt) => (
-            <button
-              key={amt}
-              onClick={() => onUpdate(goal.id, parseFloat(goal.current_amount) + amt)}
+        <div className="mt-4 space-y-2">
+          <div className="flex gap-2">
+            {[1000, 5000, 10000].map((amt) => (
+              <button
+                key={amt}
+                onClick={() => onUpdate(goal.id, parseFloat(goal.current_amount) + amt)}
+                className={cn(
+                  "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors",
+                  theme === "dark"
+                    ? "bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 text-white/60"
+                    : "bg-gray-100 hover:bg-blue-50 hover:text-blue-600 text-gray-500"
+                )}
+              >
+                +₹{(amt / 1000).toFixed(0)}K
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min="1"
+              placeholder="Custom ₹"
+              value={customAmt}
+              onChange={(e) => setCustomAmt(e.target.value)}
               className={cn(
-                "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors",
+                "flex-1 px-3 py-2 rounded-xl text-[11px] font-bold outline-none transition-colors",
                 theme === "dark"
-                  ? "bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 text-white/60"
-                  : "bg-gray-100 hover:bg-blue-50 hover:text-blue-600 text-gray-500"
+                  ? "bg-white/5 border border-white/10 text-white placeholder-white/20 focus:border-blue-500/40"
+                  : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-400"
+              )}
+            />
+            <button
+              onClick={() => {
+                const val = parseFloat(customAmt);
+                if (val > 0) {
+                  onUpdate(goal.id, parseFloat(goal.current_amount) + val);
+                  setCustomAmt("");
+                }
+              }}
+              disabled={!customAmt || parseFloat(customAmt) <= 0}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors disabled:opacity-30",
+                theme === "dark"
+                  ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
+                  : "bg-blue-50 text-blue-600 hover:bg-blue-100"
               )}
             >
-              +₹{(amt / 1000).toFixed(0)}K
+              Add
             </button>
-          ))}
+          </div>
         </div>
       )}
     </motion.div>
@@ -411,9 +447,30 @@ export default function GoalsPage({ theme = "dark", showToast }) {
 
       {/* Goal Cards Grid */}
       {loading ? (
-        <div className="text-center py-20 opacity-20">
-          <Target className="w-12 h-12 mx-auto mb-3 stroke-[1px]" />
-          <p className="text-xs font-black uppercase tracking-widest">Loading Goals…</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-6 rounded-[2.5rem] border border-white/10 bg-white/[0.04] animate-pulse">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-white/10" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 bg-white/10 rounded-lg w-3/4" />
+                  <div className="h-3 bg-white/5 rounded-full w-1/2" />
+                </div>
+              </div>
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between">
+                  <div className="h-3 bg-white/5 rounded w-16" />
+                  <div className="h-3 bg-white/5 rounded w-16" />
+                </div>
+                <div className="h-3 rounded-full bg-white/5" />
+              </div>
+              <div className="flex gap-2">
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className="flex-1 h-8 rounded-xl bg-white/5" />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : goals.length === 0 ? (
         <motion.div

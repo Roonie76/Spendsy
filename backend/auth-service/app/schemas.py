@@ -62,6 +62,33 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password_strength(cls, v: str) -> str:
+        if not PASSWORD_PATTERN.match(v):
+            raise ValueError(
+                "Password must be at least 8 characters and contain "
+                "at least one uppercase letter, one lowercase letter, and one digit."
+            )
+        return v
+
+
+class UpdateProfileRequest(BaseModel):
+    first_name: str | None = Field(None, max_length=150)
+    last_name: str | None = Field(None, max_length=150)
+
+
+class SessionOut(BaseModel):
+    id: int
+    created_at: datetime
+    expires_at: datetime
+    is_current: bool = False
+
+
 class HealthResponse(BaseModel):
     status: str
     service: str

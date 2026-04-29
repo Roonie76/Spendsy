@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, Index, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
+from pgvector.sqlalchemy import Vector
 
 from app.core.database import Base
 
@@ -69,6 +70,7 @@ class Transaction(Base):
     # the aggregation filter — all spend/income queries exclude these.
     transfer_group_id = Column(String(36), nullable=True)
     is_transfer = Column(Boolean, default=False, nullable=False)
+    embedding = Column(Vector(768), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
@@ -316,6 +318,7 @@ class Document(Base):
     file_hash = Column(String(64), nullable=True, index=True)
     storage_path = Column(String(512), nullable=True)  # Relative to storage root
     metadata_json = Column(JSONB, default=dict)
+    embedding = Column(Vector(768), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 

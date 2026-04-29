@@ -23,12 +23,12 @@ from typing import Any, Dict, List
 
 # ─── 1. Transaction compression ───
 
-def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 15) -> str:
+def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 15, query: str = "") -> str:
     """Compress transaction list into a dense block.
 
-    Instead of 15 individual lines, group by category and show:
+    Instead of individual lines, group by category and show:
     - Top 5 categories with totals
-    - Only name individual transactions if they're large outliers (>3x median)
+    - Notable transactions: outliers (>1.5x median) OR matches for query keywords.
     """
     if not transactions:
         return ""
@@ -37,29 +37,62 @@ def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 1
     cat_totals: Dict[str, float] = {}
     cat_counts: Dict[str, int] = {}
     all_amounts: List[float] = []
-    outliers: List[Dict[str, Any]] = []
+    
+    # Keyword matching for query-relevance
+    query_terms = set(re.findall(r"\w+", (query or "").lower()))
+    important_keywords = {"card", "bill", "emi", "loan", "rent", "tax", "insurance", "salary", "subscription"}
+    
+    # We'll use a larger window for analysis but only list a few
+    analysis_items = transactions[:max_items * 2] 
+    
+    for tx in analysis_items:
+        amt = abs(float(tx.get("amount", 0)))
+        if amt > 0:
+            all_amounts.append(amt)
 
+    # Threshold for outliers (lowered to 1.5x for more visibility)
+    threshold = 0
+    if all_amounts:
+        sorted_amts = sorted(all_amounts)
+        median = sorted_amts[len(sorted_amts) // 2]
+        threshold = median * 1.5 if median > 0 else 0
+
+    notable_txs = []
+    seen_ids = set()
+
+    # Pass 1: Find transactions relevant to the query or important keywords
+    for tx in analysis_items:
+        title = str(tx.get("title", "")).lower()
+        amt = abs(float(tx.get("amount", 0)))
+        
+        # Is it relevant to what the user asked?
+        is_query_relevant = any(term in title for term in query_terms if len(term) > 3)
+        # Is it a generally "important" transaction type?
+        is_important = any(kw in title for kw in important_keywords)
+        
+        if (is_query_relevant or is_important) and tx.get("id") not in seen_ids:
+            notable_txs.append(tx)
+            seen_ids.add(tx.get("id"))
+            if len(notable_txs) >= 5: break
+
+    # Pass 2: Add large outliers if we have space
+    if len(notable_txs) < 8:
+        for tx in analysis_items:
+            amt = abs(float(tx.get("amount", 0)))
+            if amt > threshold and tx.get("id") not in seen_ids:
+                notable_txs.append(tx)
+                seen_ids.add(tx.get("id"))
+                if len(notable_txs) >= 8: break
+
+    # Build category summary for the recent window
     for tx in transactions[:max_items]:
         cat = tx.get("category", "other")
         amt = float(tx.get("amount", 0))
         cat_totals[cat] = cat_totals.get(cat, 0) + amt
         cat_counts[cat] = cat_counts.get(cat, 0) + 1
-        all_amounts.append(amt)
 
-    # Find outliers (>3x median)
-    if all_amounts:
-        sorted_amts = sorted(all_amounts)
-        median = sorted_amts[len(sorted_amts) // 2]
-        threshold = median * 3 if median > 0 else float("inf")
-
-        for tx in transactions[:max_items]:
-            amt = float(tx.get("amount", 0))
-            if amt > threshold:
-                outliers.append(tx)
-
-    # Build compressed block
     lines = []
-    top_cats = sorted(cat_totals.items(), key=lambda x: x[1], reverse=True)[:6]
+    top_cats = sorted(cat_totals.items(), key=lambda x: abs(x[1]), reverse=True)[:6]
     for cat, total in top_cats:
         count = cat_counts[cat]
         lines.append(f"{cat}: ₹{total:,.0f} ({count} txns)")
@@ -67,11 +100,17 @@ def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 1
     result = "=== RECENT ACTIVITY (compressed) ===\n"
     result += " | ".join(lines) + "\n"
 
-    if outliers:
+    if notable_txs:
+        # Sort notable by relevance (query matches first) then amount
+        notable_txs.sort(key=lambda x: (
+            any(term in str(x.get("title", "")).lower() for term in query_terms if len(term) > 3),
+            abs(float(x.get("amount", 0)))
+        ), reverse=True)
+        
         result += "Notable: "
         result += ", ".join(
-            f"{tx.get('title', '?')} {'+'if tx.get('type')=='income' else '-'}₹{float(tx.get('amount',0)):,.0f}"
-            for tx in outliers[:3]
+            f"{tx.get('title', '?')} {'+' if tx.get('type')=='income' else '-'}₹{abs(float(tx.get('amount',0))):,.0f}"
+            for tx in notable_txs[:6] # Show up to 6 notable items
         )
         result += "\n"
 

@@ -66,8 +66,37 @@ class FeedbackRequest(BaseModel):
     trace_id: str | None = None  # Link to Agent Lightning trace
 
 @app.get("/")
-def health_check():
+def root():
     return {"status": "healthy", "service": "spendsy-ai"}
+
+
+@app.get("/health")
+async def health_check():
+    """Deep health check — verifies Ollama connectivity and model availability."""
+    from agents.llm_router import check_ollama_health
+    ollama = check_ollama_health()
+    primary = settings.model_gemma
+    fallback = settings.model_llama
+    models_available = ollama.get("models", [])
+
+    status = "healthy" if ollama["ok"] else "degraded"
+    details = {
+        "service": "spendsy-ai",
+        "ollama_url": settings.ollama_base_url,
+        "ollama_connected": ollama["ok"],
+        "primary_model": primary,
+        "primary_loaded": primary in models_available,
+        "fallback_model": fallback,
+        "fallback_loaded": fallback in models_available,
+    }
+    if not ollama["ok"]:
+        details["ollama_error"] = ollama.get("error", "unknown")
+        details["fix"] = "Run 'ollama serve' on the host machine"
+    elif primary not in models_available:
+        status = "degraded"
+        details["fix"] = f"Run 'ollama pull {primary}'"
+
+    return {"status": status, **details}
 
 
 async def fetch_user_tier(user_id: int) -> str:

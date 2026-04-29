@@ -20,7 +20,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
   const authHeader = useMemo(() => buildAuthHeader(authToken || ""), [authToken]);
   const authMissing = !authHeader;
   const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
-  const toraBaseUrl = import.meta.env.VITE_TORA_URL || aiBaseUrl || `${gatewayUrl}/ai`;
+  const toraBaseUrl = import.meta.env.VITE_TORA_URL || aiBaseUrl || `${gatewayUrl}/tora`;
 
   // Handle tool call confirmation from the chat UI
   const handleConfirmTool = useCallback(async (messageIndex, tool) => {

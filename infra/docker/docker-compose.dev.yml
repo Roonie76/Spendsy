@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     container_name: spendsy_postgres
     restart: always
     environment:
@@ -123,30 +123,6 @@ services:
           cpus: "1.00"
           memory: 1024M
 
-  ai-service:
-    build:
-      context: ../../
-      dockerfile: backend/ai-service/Dockerfile
-    container_name: spendsy_ai
-    restart: always
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-    env_file:
-      - ../../.env
-    environment:
-      PYTHONPATH: /app
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-    volumes:
-      - ../../backend/ai-service:/app
-    working_dir: /app
-    ports:
-      - "8003:8000" # Host port 8003 -> AI Service
-    deploy:
-      resources:
-        limits:
-          cpus: "1.00"
-          memory: 1024M
-
   spendsy-ai:
     build:
       context: ../../
@@ -162,6 +138,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       FINANCE_SERVICE_URL: http://finance-service:8000
       SPENDSY_MCP_URL: http://spendsy-mcp:8006/mcp/sse
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
       MODEL_GEMMA: gemma4:e2b
       MODEL_LLAMA: gemma4:e2b
       VAULT_BASE_PATH: /data/vaults
@@ -171,6 +148,9 @@ services:
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - finance-service
+      - redis
     ports:
       - "8004:8005" # Host port 8004 -> Spendsy AI (TORA)
     deploy:

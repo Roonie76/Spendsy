@@ -46,7 +46,7 @@ export const AUTH_BASE_URL =
   getEnv("AUTH_URL") || viteEnv.VITE_AUTH_URL || `${GATEWAY_URL}/auth`;
 
 export const AI_BASE_URL =
-  getEnv("AI_URL") || viteEnv.VITE_AI_URL || `${GATEWAY_URL}/ai`;
+  getEnv("AI_URL") || viteEnv.VITE_AI_URL || `${GATEWAY_URL}/tora`;
 
 // --- DOMAIN CONSTANTS ---
 const {
@@ -273,6 +273,7 @@ export const TABS = {
   PLANNER: "planner",
   BUDGET: "budget",
   LOANS: "loans",
+  CHAT: "chat",
 };
 
 export const BANKS = [

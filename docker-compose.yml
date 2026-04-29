@@ -19,6 +19,31 @@ services:
 
   # Legacy monolithic backend is disabled. Use the microservices in backend/
 
+  spendsy-ai:
+    build:
+      context: .
+      dockerfile: backend/spendsy-ai/Dockerfile
+    container_name: spendsy_tora_prod
+    restart: always
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+      ENVIRONMENT: production
+      FINANCE_SERVICE_URL: http://finance-service:8000
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8004:8005"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1024M
+
+
   frontend:
     build:
       context: .

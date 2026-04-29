@@ -17,7 +17,7 @@ export const API_BASE = import.meta.env.VITE_FINANCE_URL
 export const AUTH_BASE = import.meta.env.VITE_AUTH_URL
   ? `${import.meta.env.VITE_AUTH_URL}`
   : `${GATEWAY_URL}/auth`;
-export const AI_BASE = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/ai`;
+export const AI_BASE = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/tora`;
 const ACCESS_TOKEN_KEYS = ["access_token", "auth_token", "token"];
 const REFRESH_TOKEN_KEY = "refresh_token";
 
@@ -242,6 +242,14 @@ export const authApi = {
     }),
   me: () =>
     apiFetch(`${AUTH_BASE}/me`),
+  updateProfile: (body) =>
+    apiFetch(`${AUTH_BASE}/me`, { method: "PUT", body: JSON.stringify(body) }),
+  changePassword: (body) =>
+    apiFetch(`${AUTH_BASE}/change-password`, { method: "POST", body: JSON.stringify(body) }),
+  sessions: () =>
+    apiFetch(`${AUTH_BASE}/sessions`),
+  revokeSession: (id) =>
+    apiFetch(`${AUTH_BASE}/sessions/${id}`, { method: "DELETE" }),
 };
 
 // ─── Finance ──────────────────────────────────────────────────────────────

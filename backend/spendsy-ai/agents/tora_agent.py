@@ -304,7 +304,7 @@ def build_ai_context(
     # 2b. Recent Transactions - MLA-inspired compression.
     recent_txs = summary.get("recent_transactions", [])
     if recent_txs:
-        compressed_txs = compress_transactions(recent_txs, max_items=15)
+        compressed_txs = compress_transactions(recent_txs, max_items=15, query=question)
         if compressed_txs:
             user_msg += compressed_txs + "\n"
 

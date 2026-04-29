@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../api";
 import { formatIndianCompact } from "@shared/utils/helpers";
+import { cn } from "@shared/utils/cn";
 
 const CreditCardsPage = ({ 
   apiBaseUrl, 

@@ -24,7 +24,7 @@ PyYAML==6.0.2
 redis==5.0.7
 requests
 rq==1.16.1
-sqlalchemy==2.0.25
+sqlalchemy
 tenacity==8.5.0
 starlette>=0.40.0
 uvicorn[standard]==0.27.0
@@ -34,3 +34,4 @@ python-dateutil==2.8.2
 camelot-py[cv]
 opencv-python-headless
 pytesseract
+pgvector

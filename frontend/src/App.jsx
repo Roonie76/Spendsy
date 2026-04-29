@@ -45,7 +45,7 @@ export default function App() {
   const API_BASE_URL = import.meta.env.VITE_FINANCE_URL
     ? `${import.meta.env.VITE_FINANCE_URL}`
     : `${GATEWAY_URL}/finance`;
-  const AI_BASE_URL = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/ai`;
+  const AI_BASE_URL = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/tora`;
   const initialDefaultProfile = useMemo(
     () => ({
       annualRent: 0,
@@ -246,8 +246,10 @@ export default function App() {
     });
     setTaxProfile(initialDefaultProfile);
     setShowWizard(false);
+    setActiveTab(TABS.HOME);
     localStorage.removeItem("tax_profile");
     localStorage.removeItem("auth_user");
+    localStorage.removeItem("active_tab");
     clearStoredAuth();
   }, [initialDefaultProfile]);
 
@@ -264,6 +266,8 @@ export default function App() {
   const handleAuthSuccess = useCallback((user) => {
     unauthorizedHandledRef.current = false;
     setCurrentUser(user);
+    setActiveTab(TABS.HOME);
+    localStorage.setItem("active_tab", TABS.HOME);
   }, []);
 
   // Fixed: The triggerConfirm function was defined but the confirmModal state (isOpen, message, action) was never utilized.
@@ -881,7 +885,6 @@ export default function App() {
                   transactions={transactions}
                   settings={settings}
                   onUpdateSettings={saveSettings}
-                  onSignOut={clearClientSession}
                   triggerConfirm={triggerConfirm}
                   setActiveTab={setActiveTab}
                 />
