@@ -1,0 +1,127 @@
+{
+  "total": 112,
+  "winners": 112,
+  "stored": 112,
+  "errors": 0,
+  "avg_score": 0.885,
+  "min_score": 0.808,
+  "max_score": 0.925,
+  "by_category": {
+    "appliances": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "gadgets": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "vehicle": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "short_trip": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "long_vacation": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "medical": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "tax_saving": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "home_buying": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "education": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "wedding": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "retirement": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "credit_repair": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "salary_planning": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    },
+    "side_income": {
+      "runs": 8,
+      "winners": 8,
+      "errors": 0
+    }
+  },
+  "by_archetype": {
+    "fresh_grad": {
+      "runs": 14,
+      "winners": 14
+    },
+    "mid_career_single": {
+      "runs": 14,
+      "winners": 14
+    },
+    "young_couple": {
+      "runs": 14,
+      "winners": 14
+    },
+    "family_one_income": {
+      "runs": 14,
+      "winners": 14
+    },
+    "high_earner": {
+      "runs": 14,
+      "winners": 14
+    },
+    "debt_stressed": {
+      "runs": 14,
+      "winners": 14
+    },
+    "freelancer_gig": {
+      "runs": 14,
+      "winners": 14
+    },
+    "near_retirement": {
+      "runs": 14,
+      "winners": 14
+    }
+  },
+  "hot_index": {
+    "car": 5,
+    "invest": 11,
+    "loan_repay": 1,
+    "house": 13,
+    "generic": 42,
+    "emergency": 6,
+    "travel": 16,
+    "retirement": 10,
+    "education": 4,
+    "wedding": 8
+  }
+}

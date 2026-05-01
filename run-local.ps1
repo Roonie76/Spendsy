@@ -20,7 +20,7 @@ Set-StrictMode -Version Latest
 $PROJECT_ROOT = $PSScriptRoot
 $DOCKER_DIR = Join-Path $PROJECT_ROOT "infra\docker"
 $COMPOSE_FILE = Join-Path $DOCKER_DIR "docker-compose.dev.yml"
-$BackendServices = @("postgres", "redis", "auth-service", "finance-service", "spendsy-ai", "spendsy-mcp", "nginx")
+$BackendServices = @("postgres", "redis", "auth-service", "finance-service", "ai-service", "spendsy-ai", "spendsy-mcp", "obscura", "nginx")
 $ManagedPorts = @(5173, 8080)
 
 function Write-Step($Message) {

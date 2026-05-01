@@ -6,7 +6,7 @@ import hashlib
 import logging
 import re
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
@@ -221,18 +221,42 @@ def _infer_category(description: str, tx_type: str) -> str:
     return "other"
 
 
-def _build_financial_summary(db: Session, user_id: int) -> dict:
+def _build_financial_summary(db: Session, user_id: int, period: str = "LIFE") -> dict:
     # All aggregations exclude transfers so inter-account moves (e.g. a
     # credit-card bill payment from a debit account) don't double-count.
     not_transfer = Transaction.is_transfer.is_(False)
 
     # Lifetime Totals
-    income = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+    income_q = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
         Transaction.user_id == user_id, Transaction.type == "income", not_transfer
-    ).scalar()
-    expense = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+    )
+    expense_q = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
         Transaction.user_id == user_id, Transaction.type == "expense", not_transfer
-    ).scalar()
+    )
+    # Apply Period Filtering
+    now = date.today()
+    if period == "1D":
+        income_q = income_q.filter(Transaction.date == now)
+        expense_q = expense_q.filter(Transaction.date == now)
+    elif period == "1W":
+        income_q = income_q.filter(Transaction.date >= now - timedelta(days=7))
+        expense_q = expense_q.filter(Transaction.date >= now - timedelta(days=7))
+    elif period == "1M":
+        income_q = income_q.filter(Transaction.date >= now - timedelta(days=30))
+        expense_q = expense_q.filter(Transaction.date >= now - timedelta(days=30))
+    elif period == "3M":
+        income_q = income_q.filter(Transaction.date >= now - timedelta(days=90))
+        expense_q = expense_q.filter(Transaction.date >= now - timedelta(days=90))
+    elif period == "6M":
+        income_q = income_q.filter(Transaction.date >= now - timedelta(days=180))
+        expense_q = expense_q.filter(Transaction.date >= now - timedelta(days=180))
+    elif period == "1Y":
+        income_q = income_q.filter(Transaction.date >= now - timedelta(days=365))
+        expense_q = expense_q.filter(Transaction.date >= now - timedelta(days=365))
+
+    # Calculate Totals
+    income = income_q.scalar()
+    expense = expense_q.scalar()
     count = db.query(func.count(Transaction.id)).filter(Transaction.user_id == user_id).scalar()
 
     # Current Month Totals
@@ -265,6 +289,7 @@ def _build_financial_summary(db: Session, user_id: int) -> dict:
         "month_expense": str(m_expense_val.quantize(Decimal("0.01"))),
         "balance": str((income_val - expense_val).quantize(Decimal("0.01"))),
         "transaction_count": int(count or 0),
+        "period": period,
     }
 
 
@@ -459,9 +484,9 @@ def readiness(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/summary")
-def financial_summary(request: Request, user: UserContext = Depends(get_current_user), db: Session = Depends(get_db)):
-    summary = _build_financial_summary(db, user.id)
-    return success_response(request, summary, message="Financial summary")
+def financial_summary(request: Request, period: str = "LIFE", user: UserContext = Depends(get_current_user), db: Session = Depends(get_db)):
+    summary = _build_financial_summary(db, user.id, period=period)
+    return success_response(request, summary, message=f"Financial summary for {period}")
 
 
 @router.get("/profile/{uid}")
@@ -651,8 +676,8 @@ def get_transaction_history(
                 "fingerprint": t.fingerprint,
                 "is_recurring": t.is_recurring,
                 "account_type": t.account_type,
+                "confidence": t.confidence,   # needed by HistoryPage manual-entry filter
                 "status": t.status,
-
                 "reconciliation_flags": t.reconciliation_flags,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             }
@@ -1551,6 +1576,28 @@ async def parse_digital_pdf_route(
         logger.error("Deterministic parser exception: %s\n%s", error_msg, traceback.format_exc())
         
         if "OCR_REQUIRED" in error_msg:
+            ocr_debug = getattr(exc, "debug_info", None)
+            logger.info(
+                "OCR detection blocked filename=%s user_id=%s debug=%s",
+                file.filename,
+                user.id,
+                ocr_debug,
+            )
+            _audit(
+                db,
+                request,
+                action="parser_failed",
+                resource_type="digital_pdf_parser",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                error_code=ErrorCode.OCR_REQUIRED,
+                user=user,
+                details={
+                    "filename": file.filename,
+                    "file_size": file_size,
+                    "file_hash": file_hash,
+                    "ocr_detection": ocr_debug,
+                },
+            )
             return error_response(request, "This PDF appears to be a scanned image. Please provide a digital statement or use an OCR tool.", code=ErrorCode.OCR_REQUIRED, http_status=422)
             
         return error_response(request, error_msg, code=ErrorCode.PARSER_ERROR, http_status=422)
@@ -1785,6 +1832,6 @@ def delete_user_plan(request: Request, uid: str, user: UserContext = Depends(get
         db.rollback()
         raise
         
-    _audit(db, request, action="plan_deleted", resource_type="finance_plan", resource_id=str(plan_id), status_code=200, user=user)
-    clear_user_financial_cache(user.id)
-    return success_response(request, None, message="Plan deleted")
+    _audit(db, request, action="plan_deleted", resource_type="finance_plan", resource_id=str(plan_id))
+    return success_response(request, {"deleted": True})
+

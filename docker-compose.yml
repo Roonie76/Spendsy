@@ -55,14 +55,25 @@ services:
     ports:
       - "3000:80"
 
+
+  # CDP-capable headless browser — exposes Chrome DevTools Protocol on :9222.
+  # Uses browserless/chromium (public, maintained) in place of the original
+  # h4ckf0r0day/obscura image which is no longer publicly accessible.
+  # Guarded by the 'cdp' profile so it is opt-in and never blocks normal startup:
+  #   docker compose --profile cdp up
   obscura:
-    image: ghcr.io/h4ckf0r0day/obscura:latest
+    image: ghcr.io/browserless/chromium:latest
     container_name: spendsy_obscura
+    restart: unless-stopped
+    environment:
+      - TIMEOUT=60000
+      - CONCURRENT=4
+      - TOKEN=${OBSCURA_TOKEN:-}
     ports:
-      - "9222:9222"
-    command: ["--cdp-port=9222", "--stealth", "--parallel=4"]
-    mem_limit: 128m
-    restart: always
+      - "9222:3000"   # browserless exposes on 3000 internally; mapped to host 9222
+    mem_limit: 512m
+    profiles:
+      - cdp
 
 volumes:
   postgres_data:

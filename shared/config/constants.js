@@ -46,6 +46,9 @@ export const AUTH_BASE_URL =
   getEnv("AUTH_URL") || viteEnv.VITE_AUTH_URL || `${GATEWAY_URL}/auth`;
 
 export const AI_BASE_URL =
+  getEnv("LEGACY_AI_URL") || viteEnv.VITE_LEGACY_AI_URL || `${GATEWAY_URL}/ai_legacy`;
+
+export const TORA_BASE_URL =
   getEnv("AI_URL") || viteEnv.VITE_AI_URL || `${GATEWAY_URL}/tora`;
 
 // --- DOMAIN CONSTANTS ---

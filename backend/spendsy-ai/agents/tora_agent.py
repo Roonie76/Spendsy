@@ -2,6 +2,10 @@ import json
 import logging
 import copy
 import re
+import asyncio
+import math
+import time
+from datetime import datetime
 from typing import Dict, Any, List
 import urllib.request
 import urllib.error
@@ -48,6 +52,31 @@ from .tora.context_compressor import (
     compress_history,
     compress_trends,
 )
+from .tora.compliance_filter import ComplianceFilter
+from .tora.rag import pack_context_for_tora
+from .tora.reasoning import decompose_goal, compute_strategies, rank_strategies
+from .tora.reasoning.calc_verifier import verify_strategy_numbers, build_verifier_note
+from .tora.reasoning.faithfulness_checker import apply_faithfulness
+try:
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    from fine_tuning.evaluator import evaluate_async
+    from fine_tuning.reasoning_store import save as reasoning_store_save
+    from fine_tuning.few_shot_injector import inject_few_shots
+    from fine_tuning.seed_traces import load_seed_traces as _load_seed_traces
+    from agents.tora.reasoning.techniques import tag_techniques, build_technique_block
+    _PHASE4_AVAILABLE = True
+    # Load seed traces into hot index on startup (idempotent)
+    try:
+        _load_seed_traces()
+    except Exception:
+        pass
+except Exception as _p4e:
+    _PHASE4_AVAILABLE = False
+    tag_techniques = None
+    build_technique_block = None
+    logger = __import__("logging").getLogger(__name__)
+    logger.warning("Phase 4/5 trainer loop unavailable: %s", _p4e)
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +262,8 @@ def build_ai_context(
     conversation_history: List[Dict[str, Any]] | None = None,
     user_id: int | None = None,
     market_block: str = "",
+    rag_context: str = "",
+    strategy_block: str = "",
 ) -> tuple[str, str]:
     """
     Build a (system_prompt, user_message) pair for the LLM.
@@ -260,6 +291,7 @@ def build_ai_context(
     system += "- Memory: persistent conversation history across sessions\n"
     system += f"- Tax Features: {', '.join(tax_features) or 'none'}\n"
     system += f"- Simulations Available: {', '.join(TieringConfig.get_simulations(user_tier)) or 'none'}\n"
+    system += f"- Today's Date: {datetime.now().strftime('%Y-%m-%d')}\n"
 
     # === USER MESSAGE ===
     user_msg = ""
@@ -332,7 +364,18 @@ def build_ai_context(
         user_msg += "SIMULATIONS:\n"
         user_msg += json.dumps(simulations, indent=2, default=str) + "\n\n"
 
-    # 4. Market/category enrichment from the universal intelligence engine.
+    # 4. Strategy ranking block — ranked options from financial_reasoner.
+    if strategy_block:
+        user_msg += "=== STRATEGY ANALYSIS (pre-computed ranked options — present top 3 to user) ===\n"
+        user_msg += strategy_block + "\n\n"
+
+    # 4b. RAG context block — retrieval-ranked rules + live data.
+    #    Injected before market_block so fresh scraped data takes precedence.
+    if rag_context:
+        user_msg += "=== KNOWLEDGE CONTEXT (tax rules, rates, live prices — cite only facts from here) ===\n"
+        user_msg += rag_context + "\n\n"
+
+    # 4b. Market/category enrichment from the universal intelligence engine.
     #    Only present for track 2 queries where a plugin matched; track 1
     #    profile-only questions skip this block entirely.
     if market_block:
@@ -614,8 +657,16 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
     4. Loads conversation history (tier-limited)
     5. Builds context and calls LLM
     """
+    _t0 = time.perf_counter()
+    _timings: dict[str, float] = {}
+
     # 1. Fetch (Now async via MCP)
-    raw_summary = await fetch_financial_summary(user_id)
+    try:
+        raw_summary = await asyncio.wait_for(fetch_financial_summary(user_id), timeout=4.0)
+    except asyncio.TimeoutError:
+        logger.warning("fetch_financial_summary timed out for user %s", user_id)
+        raw_summary = {}
+    _timings["fetch"] = round(time.perf_counter() - _t0, 3)
     if not raw_summary:
         return {"error": "Could not fetch user financial summary."}
         
@@ -634,10 +685,8 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
         conversation_history = []
 
     # 4b. Universal Intelligence Engine — resolve entities, fetch plugin data.
-    #     Track 1 queries ("how much did I spend on food") return no matches
-    #     and `market_block` stays empty; track 2 queries ("can I afford a
-    #     car") get ~200-500 tokens of grounded enrichment.
     market_block = ""
+    fetch_results = None
     try:
         user_surplus = float(clean_summary.get("monthly_surplus", 0) or 0)
         fetch_results = await resolve_and_fetch(question, user_surplus=user_surplus)
@@ -650,18 +699,91 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
     except Exception as e:
         logger.warning(f"Universal engine failed, continuing without enrichment: {e}")
         market_block = ""
+    _timings["universal_engine"] = round(time.perf_counter() - _t0, 3)
+
+    # 5a. Goal decompose + strategy ranking (Phase 3).
+    strategy_block = ""
+    goal = None
+    strategies = []
+    ranked = {}
+    user_profile = {
+        "city":    clean_summary.get("city", ""),
+        "surplus": float(clean_summary.get("monthly_surplus", 0) or 0),
+        "tier":    user_tier,
+        "income":  float(clean_summary.get("total_income", 0) or 0),
+    }
+    try:
+        goal = decompose_goal(question, user_profile=user_profile)
+        if goal.goal_type.value != "generic" or goal.target_amount:
+            # Extract live rates from Phase 1 fetch_results if available
+            live_rates: dict = {}
+            if fetch_results:
+                for fr in fetch_results:
+                    facts = getattr(fr, "facts", {})
+                    if "auto_loan_rate_pct_pa" in facts:
+                        live_rates["car_loan"] = facts["auto_loan_rate_pct_pa"].get("value", 9.25)
+            loans = clean_summary.get("loans", []) or []
+            strategies = compute_strategies(goal, user_profile=user_profile,
+                                            live_rates=live_rates, loans=loans)
+            ranked = rank_strategies(strategies, user_profile=user_profile)
+            strategy_block = ranked["recommendation"]
+            # Trigger thinking mode if near-tie
+            if ranked["near_tie"] and not bool(market_block):
+                market_block = "__near_tie__"   # sentinel for thinking_gate
+            logger.info("Goal=%s strategies=%d near_tie=%s",
+                        goal.goal_type.value, len(strategies), ranked["near_tie"])
+    except Exception as e:
+        logger.warning("Goal decomposer/ranker failed: %s", e)
+    _timings["reasoning"] = round(time.perf_counter() - _t0, 3)
+
+    # 5b. RAG context packing — retrieval-ranked context replacing rule-based compressor.
+    rag_context = ""
+    try:
+        recent_txs = clean_summary.get("recent_transactions", [])
+        rag_context = pack_context_for_tora(
+            query=question,
+            transactions=recent_txs,
+            user_profile=user_profile,
+            fetch_results=fetch_results if fetch_results else None,
+            tier=user_tier,
+        )
+        logger.info("RAG context packed: %d chars (tier=%s)", len(rag_context), user_tier)
+    except Exception as e:
+        logger.warning("RAG packing failed, falling back to compressor: %s", e)
+        rag_context = ""
 
     # 5. Contextualize (tier-aware with memory injection + market enrichment)
     system_prompt, user_message = build_ai_context(
         clean_summary, simulations, question, user_tier, conversation_history,
         user_id=user_id,
         market_block=market_block,
+        rag_context=rag_context,
+        strategy_block=strategy_block,
     )
 
     # 5b. MoE-inspired expert routing: prepend domain-specific preamble.
     system_prompt, expert_id = inject_expert_preamble(system_prompt, question)
     if expert_id:
         logger.info("Expert router activated: %s", expert_id)
+
+    # 5c. Reasoning techniques injection (Phase 5) + few-shot injection (Phase 4).
+    if _PHASE4_AVAILABLE:
+        try:
+            _goal_type_for_fs = getattr(goal, "goal_type", None)
+            _goal_type_str = _goal_type_for_fs.value if _goal_type_for_fs else "generic"
+            _goal_struct_dict = goal.raw_entities if goal and hasattr(goal, "raw_entities") else {}
+
+            # Phase 5: tag and inject reasoning techniques
+            _technique_ids = tag_techniques(question, _goal_struct_dict)
+            _technique_block = build_technique_block(_technique_ids)
+            if _technique_block:
+                system_prompt = system_prompt + "\n\n" + _technique_block
+                logger.info("Techniques injected: %s", _technique_ids)
+
+            # Phase 4: inject few-shot examples (with technique-boosted scoring)
+            system_prompt = inject_few_shots(system_prompt, question, goal_type=_goal_type_str)
+        except Exception as _fse:
+            logger.debug("few_shot/technique injection skipped: %s", _fse)
 
     # 6. Execute
     # Thinking mode is ON when the query is a track 2 decision (plugin matched)
@@ -674,7 +796,9 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
         "ENABLED" if thinking_enabled else "disabled",
     )
     # === RECURRENT REASONING LOOP (OpenMythos Recurrent-Depth) ===
-    max_loops = 3 if thinking_enabled else 1
+    # Even if thinking is disabled, we allow up to 2 loops if tool calls are present
+    # so the model can process the tool output.
+    max_loops = 3 if thinking_enabled else 2
     current_loop = 0
     raw_response = ""
     structured_advice = {}
@@ -760,9 +884,16 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
                     logger.error(f"Error executing TORA tool {tool}: {e}")
             if loop_tool_results:
                 accumulated_tool_results.extend(loop_tool_results)
+                # Append tool results to history so the model sees them in the next loop iteration
+                for res in loop_tool_results:
+                    conversation_history.append({
+                        "role": "assistant",
+                        "content": f"[TOOL RESULT: {res['tool']}] {res['result']}"
+                    })
                 continue
         break  # No tool calls; exit loop
 
+      _timings["llm"] = round(time.perf_counter() - _t0, 3)
       # --- Post-processing ---
       answer_content = structured_advice.get("answer", structured_advice)
 
@@ -788,13 +919,99 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
           final_output = {"mode": "simple", "content": str(answer_content)}
 
       final_output = _rupee_ize(final_output)
+      audit_warnings = []
       if market_block:
           final_output, audit_warnings = audit_structured_output(final_output, user_message)
           if audit_warnings:
               logger.info("Number auditor hedged %d figure(s): %s", len(audit_warnings), audit_warnings[:5])
-      final_output = _sebi_disclaim(final_output)
+
+      # Calculation verifier — cross-check math from strategy parameters
+      _calc_warns: list[str] = []
+      _calc_flags: list[str] = []
+      _strategies_for_verify = locals().get("strategies", [])
+      if _strategies_for_verify:
+          try:
+              _resp_for_verify = (
+                  final_output.get("content", "") if isinstance(final_output, dict)
+                  else str(final_output)
+              )
+              _calc_warns, _calc_flags = verify_strategy_numbers(
+                  _resp_for_verify, _strategies_for_verify
+              )
+              if _calc_flags:
+                  logger.warning("calc_verifier hard flags: %s", _calc_flags)
+                  _note = build_verifier_note(_calc_flags)
+                  if isinstance(final_output, dict):
+                      if final_output.get("mode") == "simple":
+                          final_output["content"] = str(final_output.get("content","")) + _note
+                      else:
+                          for _k in reversed(("Expected Outcome","Recommended Strategy","Current Position","Financial Overview")):
+                              if isinstance(final_output.get(_k), str) and final_output[_k].strip():
+                                  final_output[_k] += _note
+                                  break
+          except Exception as _cve:
+              logger.debug("calc_verifier skipped: %s", _cve)
+
+      # Faithfulness checker — LLM output vs ranker output
+      _ranked_for_faith = locals().get("ranked", {})
+      if _ranked_for_faith and isinstance(final_output, dict):
+          try:
+              final_output, _faith_soft, _faith_hard = apply_faithfulness(
+                  final_output, _ranked_for_faith
+              )
+              if _faith_hard:
+                  logger.warning("faithfulness hard flags: %s", _faith_hard)
+              audit_warnings = audit_warnings + _calc_warns + _faith_soft
+          except Exception as _fe:
+              logger.debug("faithfulness check skipped: %s", _fe)
+
+      # Compliance filter — hard blocks + soft disclaimers
+      _user_profile_for_comp = locals().get("user_profile", {})
+      compliance_result = ComplianceFilter.process_response(
+          final_output,
+          user_profile=_user_profile_for_comp,
+          query=question,
+      )
+      final_output = compliance_result if isinstance(compliance_result, dict) else final_output
       if thinking_enabled:
           logger.info("Recurrent loop: %d/%d passes, expert=%s", current_loop, max_loops, expert_id or "general")
+
+      # Phase 4: fire evaluator as background task (non-blocking).
+      if _PHASE4_AVAILABLE:
+          try:
+              _resp_text = final_output.get("content", "") if isinstance(final_output, dict) else str(final_output)
+              _goal_type_ev = getattr(goal, "goal_type", None)
+              _goal_str_ev  = _goal_type_ev.value if _goal_type_ev else "generic"
+              _ranked_ev    = locals().get("ranked", {})
+              _strategies_ev = locals().get("strategies", [])
+
+              def _on_winner(eval_result):
+                  reasoning_store_save(
+                      query=question,
+                      goal_struct=getattr(goal, "raw_entities", {}),
+                      strategies=_strategies_ev,
+                      ranked_output=_ranked_ev,
+                      response_text=_resp_text,
+                      eval_result=eval_result,
+                      user_id=user_id,
+                  )
+
+              asyncio.create_task(evaluate_async(
+                  query=question,
+                  response_text=_resp_text,
+                  goal_type=_goal_str_ev,
+                  audit_warnings=audit_warnings,
+                  compliance_result={"passed": not final_output.get("_compliance_blocked"), "flags": _calc_flags + locals().get("_faith_hard", [])},
+                  user_feedback=None,
+                  on_winner=_on_winner,
+              ))
+          except Exception as _ev_exc:
+              logger.debug("Evaluator task skipped: %s", _ev_exc)
+
+      _timings["total"] = round(time.perf_counter() - _t0, 3)
+      logger.info("TORA latency breakdown: %s", _timings)
+      if _timings["total"] > 5.0:
+          logger.warning("TORA slow response: %.2fs for user %s", _timings["total"], user_id)
       return final_output
 
     except Exception as e:
@@ -921,21 +1138,19 @@ async def handle_user_question(user_id: int, question: str, model: str = "tora",
         _save_conversation(user_id, "assistant", _summary_text(response), response)
         return response
 
-    if intent == "conversational" and not has_prior_conversation:
-        # First-turn capability question → canned capability card
-        capability_pattern = re.compile(
-            r'what\s+can\s+you\s+do|what\s+do\s+you\s+do|who\s+are\s+you|'
-            r'what\s+are\s+you|your\s+feature|your\s+capabilit|what\s+else|'
-            r'get\s+started|how\s+do\s+i\s+use',
-            re.IGNORECASE
-        )
-        if capability_pattern.search(question):
-            logger.info(f"Capability question detected: {question}")
-            response = json.loads(get_capability_response())
-            _save_conversation(user_id, "user", question)
-            _save_conversation(user_id, "assistant", _summary_text(response), response)
-            return response
-        logger.info(f"Conversational query routed to LLM: {question}")
+    # First-turn capability question → canned capability card
+    capability_pattern = re.compile(
+        r'what\s+can\s+you\s+do|what\s+do\s+you\s+do|who\s+are\s+you|'
+        r'what\s+are\s+you|your\s+feature|your\s+capabilit|what\s+else|'
+        r'get\s+started|how\s+do\s+i\s+use',
+        re.IGNORECASE
+    )
+    if intent == "conversational" and capability_pattern.search(question):
+        logger.info(f"Capability question detected: {question}")
+        response = json.loads(get_capability_response())
+        _save_conversation(user_id, "user", question)
+        _save_conversation(user_id, "assistant", _summary_text(response), response)
+        return response
 
     if intent == "non_finance_query" and not has_prior_conversation and not is_short_followup:
         logger.info(f"Non-financial query detected: {question}")
@@ -944,19 +1159,6 @@ async def handle_user_question(user_id: int, question: str, model: str = "tora",
         _save_conversation(user_id, "assistant", _summary_text(response), response)
         return response
 
-    # Deterministic ambiguity pre-filter — catches obvious "I want to save more"
-    # style asks before we spend tokens on the LLM. Only fires on first-turn
-    # or non-follow-up messages so we don't short-circuit a legitimate thread.
-    if intent == "finance_query" and not is_short_followup:
-        canned = detect_ambiguous_goal(question)
-        if canned is not None:
-            logger.info(f"Ambiguous goal detected — returning clarifier: {question!r}")
-            response = json.loads(get_ambiguous_goal_response(question))
-            _save_conversation(user_id, "user", question)
-            _save_conversation(user_id, "assistant", _summary_text(response), response)
-            return response
-
-    # Otherwise: the user is mid-conversation or asked a finance question —
     # fall through to the full LLM path with context + history injected.
 
     # 2. Proceed with financial intelligence lifecycle for 'finance_query' and 'conversational'
@@ -969,7 +1171,7 @@ async def handle_user_question(user_id: int, question: str, model: str = "tora",
         save_content = strategy_json.get("Financial Overview") or strategy_json.get("content") or ""
         _save_conversation(user_id, "assistant", save_content, strategy_json)
 
-        # Sync vault (fire-and-forget — never blocks the response)
+        # Sync vault (fire-and-forget - never blocks the response)
         try:
             raw_summary = await fetch_financial_summary(user_id)
             if raw_summary:

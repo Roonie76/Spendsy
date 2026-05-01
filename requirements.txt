@@ -35,3 +35,6 @@ camelot-py[cv]
 opencv-python-headless
 pytesseract
 pgvector
+trafilatura==1.12.2
+playwright==1.49.0
+chromadb==0.5.23

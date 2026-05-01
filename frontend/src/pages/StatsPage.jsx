@@ -151,15 +151,20 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
   const pieChartData = useMemo(() => {
     const categoryMap = {};
     let total = 0;
-    
-    // Calculate date threshold based on range
+
+    // Calculate date threshold based on range.
+    // All thresholds use local-midnight boundaries so they align with
+    // normalizeDate() which also returns local-midnight for YYYY-MM-DD strings.
     const now = new Date();
-    let threshold = new Date(0); // Default to all time if range unrecognized
-    if (range === "1D") threshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    else if (range === "1W") threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    else if (range === "1M") threshold = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    else if (range === "6M") threshold = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-    else if (range === "1Y") threshold = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    // Rewind to start of today (local midnight) so "1D" means today only,
+    // not "last 24 clock-hours" which would cut off yesterday's data at odd times.
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let threshold = new Date(0); // Default: all time
+    if (range === "1D")  threshold = todayMidnight;
+    else if (range === "1W")  threshold = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    else if (range === "1M")  threshold = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    else if (range === "6M")  threshold = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+    else if (range === "1Y")  threshold = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
 
     transactions.forEach((t) => {
       const tDate = normalizeDate(t.date);
@@ -242,8 +247,12 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
 
     let unit = "month";
     if (range === "1D") {
-      initData(24, "hour");
-      unit = "hour";
+      // Transactions from the backend carry only a date (YYYY-MM-DD) — no time
+      // component. Rendering 24 hourly slots would leave every bar empty because
+      // normalizeDate() produces local-midnight (hour 0) for all of them.
+      // Use 2-day (today + yesterday) granularity instead so the chart is useful.
+      initData(2, "day");
+      unit = "day";
     } else if (range === "1W") {
       initData(7, "day");
       unit = "day";

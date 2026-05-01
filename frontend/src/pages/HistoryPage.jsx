@@ -36,9 +36,12 @@ const HistoryPage = ({ transactions, isLoading, onDelete, onBulkDelete, setActiv
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState(null);
 
-    // Undo state for bulk delete
+    // Deletion states
     const [undoBar, setUndoBar] = useState(null); // { items: [], timeoutId }
+    const [deletionCountdown, setDeletionCountdown] = useState(0);
+    const [isExecutingDeletion, setIsExecutingDeletion] = useState(false);
     const undoRef = useRef(null);
+    const countdownIntervalRef = useRef(null);
 
     // Complex Filter State
     const [filters, setFilters] = useState({
@@ -108,32 +111,73 @@ const HistoryPage = ({ transactions, isLoading, onDelete, onBulkDelete, setActiv
 
     const UNDO_DELAY_MS = 5000;
 
-    const confirmBulkDelete = useCallback(() => {
-        if (!pendingBulkDelete?.length) return;
-        const items = pendingBulkDelete;
-        setPendingBulkDelete(null);
-
+    const startDeletionProcess = useCallback((items) => {
         // Clear any previous undo timer
         if (undoRef.current) window.clearTimeout(undoRef.current);
+        if (countdownIntervalRef.current) window.clearInterval(countdownIntervalRef.current);
+
+        setDeletionCountdown(5);
+        setIsExecutingDeletion(false);
+        
+        const countdownId = window.setInterval(() => {
+            setDeletionCountdown(prev => {
+                if (prev <= 1) {
+                    window.clearInterval(countdownId);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        countdownIntervalRef.current = countdownId;
 
         // Show undo bar — delay actual deletion
-        const tid = window.setTimeout(() => {
-            onBulkDelete(items);
-            setUndoBar(null);
+        const tid = window.setTimeout(async () => {
+            setIsExecutingDeletion(true);
+            try {
+                if (items.length > 1) {
+                    await onBulkDelete(items);
+                } else {
+                    await onDelete(items[0].id || items[0].uid);
+                }
+            } finally {
+                setUndoBar(null);
+                setIsExecutingDeletion(false);
+                window.clearInterval(countdownIntervalRef.current);
+            }
         }, UNDO_DELAY_MS);
+        
         undoRef.current = tid;
         setUndoBar({ items, timeoutId: tid });
-    }, [pendingBulkDelete, onBulkDelete]);
+    }, [onDelete, onBulkDelete]);
+
+    const confirmBulkDelete = useCallback(() => {
+        if (!pendingBulkDelete?.length) return;
+        const items = [...pendingBulkDelete];
+        setPendingBulkDelete(null);
+        startDeletionProcess(items);
+    }, [pendingBulkDelete, startDeletionProcess]);
+
+    const handleSingleDelete = useCallback((id) => {
+        const item = transactions.find(t => (t.id === id || t.uid === id));
+        if (!item) return;
+        startDeletionProcess([item]);
+    }, [transactions, startDeletionProcess]);
 
     const handleUndo = useCallback(() => {
-        if (undoBar?.timeoutId) window.clearTimeout(undoBar.timeoutId);
+        if (isExecutingDeletion) return; // Cannot undo once execution starts
+        if (undoRef.current) window.clearTimeout(undoRef.current);
+        if (countdownIntervalRef.current) window.clearInterval(countdownIntervalRef.current);
         undoRef.current = null;
         setUndoBar(null);
-    }, [undoBar]);
+        setDeletionCountdown(0);
+    }, [isExecutingDeletion]);
 
     // Cleanup on unmount
     useEffect(() => {
-        return () => { if (undoRef.current) window.clearTimeout(undoRef.current); };
+        return () => { 
+            if (undoRef.current) window.clearTimeout(undoRef.current); 
+            if (countdownIntervalRef.current) window.clearInterval(countdownIntervalRef.current);
+        };
     }, []);
 
     const handleExport = () => {
@@ -411,18 +455,72 @@ const HistoryPage = ({ transactions, isLoading, onDelete, onBulkDelete, setActiv
                 </div>
             )}
 
-            {/* --- Undo Bar --- */}
+            {/* --- Deleting Popup Module --- */}
             {undoBar && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 animate-in slide-in-from-bottom-2" role="status">
-                    <span className="text-sm text-amber-200">
-                        {undoBar.items.length} transaction{undoBar.items.length === 1 ? '' : 's'} will be deleted
-                    </span>
-                    <button
-                        onClick={handleUndo}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-sm font-bold transition-colors"
-                    >
-                        <Undo2 className="w-3.5 h-3.5" /> Undo
-                    </button>
+                <div className="fixed bottom-24 sm:bottom-10 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-2rem)] max-w-md animate-in slide-in-from-bottom-5">
+                    <div className="relative overflow-hidden rounded-[2rem] bg-slate-900/90 border border-white/10 backdrop-blur-xl shadow-2xl p-4 sm:p-5">
+                        {/* Progress Bar Background */}
+                        <div className="absolute top-0 left-0 w-full h-1 bg-white/5">
+                            <div 
+                                className="h-full bg-blue-500 transition-all duration-1000 ease-linear"
+                                style={{ width: `${(deletionCountdown / 5) * 100}%` }}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="relative w-10 h-10 flex items-center justify-center">
+                                    <svg className="w-10 h-10 -rotate-90">
+                                        <circle
+                                            cx="20"
+                                            cy="20"
+                                            r="18"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="3"
+                                            className="text-white/5"
+                                        />
+                                        <circle
+                                            cx="20"
+                                            cy="20"
+                                            r="18"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="3"
+                                            strokeDasharray={113}
+                                            strokeDashoffset={113 - (113 * (deletionCountdown / 5))}
+                                            className="text-blue-500 transition-all duration-1000 ease-linear"
+                                        />
+                                    </svg>
+                                    <span className="absolute text-xs font-bold text-white">{deletionCountdown}</span>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-white">
+                                        {isExecutingDeletion ? "Finalizing Deletion..." : "Deleting Transactions"}
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400">
+                                        {isExecutingDeletion 
+                                            ? "Removing from server, please wait..." 
+                                            : `${undoBar.items.length} item${undoBar.items.length === 1 ? '' : 's'} being removed...`}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {!isExecutingDeletion && (
+                                <button
+                                    onClick={handleUndo}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 text-xs font-bold transition-all border border-white/5"
+                                >
+                                    <Undo2 className="w-4 h-4" /> Cancel
+                                </button>
+                            )}
+                            {isExecutingDeletion && (
+                                <div className="flex items-center gap-2 px-4 py-2">
+                                    <LoaderCircle className="w-4 h-4 text-blue-400 animate-spin" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -444,7 +542,7 @@ const HistoryPage = ({ transactions, isLoading, onDelete, onBulkDelete, setActiv
                         <TransactionItem
                             key={t.id}
                             item={t}
-                            onDelete={onDelete}
+                            onDelete={handleSingleDelete}
                             onEdit={setEditingTransaction}
                         />
                     ))

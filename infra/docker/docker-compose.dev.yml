@@ -142,6 +142,10 @@ services:
       MODEL_GEMMA: gemma4:e2b
       MODEL_LLAMA: gemma4:e2b
       VAULT_BASE_PATH: /data/vaults
+      # browserless/chromium exposes CDP on internal port 3000, not 9222.
+      # Only active when the 'cdp' profile is passed; TORA gracefully skips
+      # browser-tool calls when this URL is unreachable.
+      OBSCURA_CDP_URL: ws://obscura:3000
     volumes:
       - ../../backend/spendsy-ai:/app
       - spendsy-vaults:/data/vaults
@@ -158,6 +162,31 @@ services:
         limits:
           cpus: "1.00"
           memory: 1024M
+
+  ai-service:
+    build:
+      context: ../../
+      dockerfile: backend/ai-service/Dockerfile
+    container_name: spendsy_ai_legacy
+    restart: always
+    env_file:
+      - ../../.env
+    environment:
+      PYTHONPATH: /app
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-spendsy-internal-api-key-32chars-long}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - ../../backend/ai-service:/app
+    working_dir: /app
+    depends_on:
+      - redis
+    ports:
+      - "8003:8000" # Host port 8003 -> Legacy AI Service
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
 
   spendsy-mcp:
     build:
@@ -183,6 +212,28 @@ services:
     working_dir: /app
     ports:
       - "8005:8006" # Host port 8005 -> Spendsy MCP
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+
+  # CDP-capable headless browser — exposes Chrome DevTools Protocol.
+  # Replaces the no-longer-accessible h4ckf0r0day/obscura image.
+  # Guarded by the 'cdp' profile — does NOT start during normal `docker compose up`.
+  # To enable: docker compose --profile cdp up
+  obscura:
+    image: ghcr.io/browserless/chromium:latest
+    container_name: spendsy_obscura
+    restart: unless-stopped
+    environment:
+      - TIMEOUT=60000
+      - CONCURRENT=4
+      - TOKEN=${OBSCURA_TOKEN:-}
+    ports:
+      - "9222:3000"   # browserless internal port is 3000; host keeps 9222 for compat
+    profiles:
+      - cdp
     deploy:
       resources:
         limits:

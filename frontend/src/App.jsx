@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   TABS,
   APP_VERSION,
+  TORA_BASE_URL,
 } from "@shared/config/constants";
 import { cn } from "@shared/utils/cn";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +14,7 @@ import {
   ArrowUp,
   Layout as LayoutIcon,
 } from "lucide-react";
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import { formatIndianCompact, normalizeDate } from "@shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
@@ -166,33 +168,122 @@ export default function App() {
   ];
   const [balanceRange, setBalanceRange] = useState("LIFE");
 
+  // Re-fetch summary from backend whenever the hero card's time range changes.
+  // This ensures we get full-history aggregates even if only recent transactions are loaded.
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchSummary(balanceRange);
+    }
+  }, [balanceRange, currentUser?.id]);
+
+
   const rangedTotals = useMemo(() => {
-    if (balanceRange === "LIFE") {
-      return { income: totals.income, expenses: totals.expenses };
-    }
-    const cfg = BALANCE_RANGES.find((r) => r.id === balanceRange);
-    if (!cfg || !cfg.days) {
-      return { income: totals.income, expenses: totals.expenses };
-    }
-    const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - (cfg.days - 1));
     if (!Array.isArray(transactions)) return { income: 0, expenses: 0 };
-    return transactions.reduce(
+    
+    const cfg = BALANCE_RANGES.find((r) => r.id === balanceRange);
+    const hasRange = cfg && cfg.days !== null;
+    
+    let cutoff = null;
+    if (hasRange) {
+      cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - (cfg.days - 1));
+    }
+
+    const res = transactions.reduce(
       (acc, t) => {
+        // Solely from transactions: ignore server summary for this calculation.
+        // Also exclude transfers as they are not income/expense.
         if (t.is_transfer) return acc;
-        const d = normalizeDate(t.date);
-        if (!d || d < cutoff) return acc;
+        
+        // Apply date filter if range is selected
+        if (cutoff) {
+          const d = normalizeDate(t.date);
+          if (!d || d < cutoff) return acc;
+        }
+
         const amt = parseFloat(t.amount || 0);
-        if (t.type === "income") acc.income += amt;
-        else if (t.type === "expense") acc.expenses += amt;
+        const type = String(t.type || "").toLowerCase();
+        
+        if (type === "income" || type === "credit") {
+          acc.income += amt;
+        } else if (type === "expense" || type === "debit") {
+          acc.expenses += amt;
+        }
         return acc;
       },
       { income: 0, expenses: 0 },
     );
-  }, [balanceRange, transactions, totals.income, totals.expenses]);
+
+    // If the server summary matches our current range, it's the source of truth.
+    // Otherwise, fallback to the local calculation (limited to the loaded batch).
+    return serverSummary?.period === balanceRange
+      ? { 
+          income: Number(serverSummary.income), 
+          expenses: Number(serverSummary.expense) 
+        }
+      : res;
+  }, [balanceRange, transactions, serverSummary]);
 
   const rangedBalance = rangedTotals.income - rangedTotals.expenses;
+
+  // ── Sparkline data for the balance hero card ──────────────────────────────
+  // Builds a small day-by-day net array for the selected range so the
+  // balance card can show a mini trend chart.
+  const sparklineData = useMemo(() => {
+    if (!Array.isArray(transactions) || transactions.length === 0) return [];
+    const cfg = BALANCE_RANGES.find((r) => r.id === balanceRange);
+    const days = cfg?.days ?? null;
+
+    // Number of buckets to show (cap at 90 for readability)
+    const bucketCount = days ? Math.min(days, 90) : 180;
+    const unit = days && days <= 31 ? "day" : "month";
+
+    const dataMap = new Map();
+    for (let i = bucketCount - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      let key, label;
+      if (unit === "day") {
+        d.setDate(d.getDate() - i);
+        key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      } else {
+        d.setDate(1);
+        d.setMonth(d.getMonth() - i);
+        key = `${d.getFullYear()}-${d.getMonth()}`;
+        label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      }
+      dataMap.set(key, { name: label, net: 0, income: 0, expense: 0 });
+    }
+
+    transactions.forEach((t) => {
+      if (t.is_transfer) return;
+      const d = normalizeDate(t.date);
+      if (!d) return;
+      let key;
+      if (unit === "day") {
+        key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      } else {
+        key = `${d.getFullYear()}-${d.getMonth()}`;
+      }
+      if (!dataMap.has(key)) return;
+      const entry = dataMap.get(key);
+      const amt = parseFloat(t.amount || 0);
+      const type = String(t.type || "").toLowerCase();
+      if (type === "income" || type === "credit") {
+        entry.income += amt;
+        entry.net += amt;
+      } else if (type === "expense" || type === "debit") {
+        entry.expense += amt;
+        entry.net -= amt;
+      }
+    });
+
+    return Array.from(dataMap.values());
+  }, [balanceRange, transactions]);
+
+  const sparkPositive = rangedBalance >= 0;
 
   const netWorth = useMemo(
     () =>
@@ -290,35 +381,45 @@ export default function App() {
     if (!currentUser?.id) return;
     setHistoryLoading(true);
     try {
-      const data = await apiFetch(`${API_BASE_URL}/transactions`);
-      const payload = data?.data || data;
-      const items = Array.isArray(payload) ? payload : payload?.data;
+      // Paginate through ALL pages using the cursor returned by the backend.
+      // Previously only the first page (50 rows) was loaded, which caused
+      // client-side filters like 1D/1W to silently miss older transactions.
+      const allItems = [];
+      let cursor = undefined;
+      const PAGE_LIMIT = 200; // max the backend allows per call
 
-      if (!Array.isArray(items)) {
-        throw new Error("Unexpected transaction response shape");
-      }
+      do {
+        const qs = new URLSearchParams({ limit: PAGE_LIMIT });
+        if (cursor) qs.set("cursor", cursor);
+        const data = await apiFetch(`${API_BASE_URL}/transactions?${qs.toString()}`);
+        const payload = data?.data || data;
+        const page = Array.isArray(payload) ? payload : payload?.data;
 
-      const cleanedData = items.map((item) => {
+        if (!Array.isArray(page)) {
+          throw new Error("Unexpected transaction response shape");
+        }
+
+        allItems.push(...page);
+        cursor = (payload?.next_cursor) ?? null;
+      } while (cursor);
+
+      const cleanedData = allItems.map((item) => {
         const normalizedType = String(item.type || "expense").toLowerCase();
-
         return {
           ...item,
-          // Use item.id from Django or fallback to item.pk
           id: item.id || item.pk,
           title: item.raw_description || item.description || item.title || "Unnamed",
           raw_description: item.raw_description || item.description || item.title || null,
           amount: parseFloat(item.amount || 0),
           type: normalizedType,
-          date: item.date || new Date().toISOString(),
+          // Keep date as YYYY-MM-DD string — normalizeDate() handles parsing
+          date: item.date || null,
         };
       });
 
-      // SORTING LOGIC: Descending order of entry (ID)
-      // If IDs are equal or missing, it falls back to Date
+      // Newest-first by ID, fallback to date
       cleanedData.sort((a, b) => {
-        if (b.id !== a.id) {
-          return b.id - a.id;
-        }
+        if (b.id !== a.id) return b.id - a.id;
         return new Date(b.date) - new Date(a.date);
       });
 
@@ -350,10 +451,11 @@ export default function App() {
     }
   }
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async (periodOverride) => {
     if (!currentUser?.id) return;
+    const period = periodOverride || balanceRange;
     try {
-      const data = await apiFetch(`${API_BASE_URL}/summary`);
+      const data = await apiFetch(`${API_BASE_URL}/summary?period=${period}`);
       setServerSummary(data?.data || null);
     } catch (err) {
       if (err.status === 401) {
@@ -362,7 +464,7 @@ export default function App() {
       }
       console.error("Failed to load summary:", err);
     }
-  }, [API_BASE_URL, currentUser?.id, handleUnauthorized]);
+  }, [API_BASE_URL, currentUser?.id, handleUnauthorized, balanceRange]);
 
   const fetchWealth = useCallback(async () => {
     if (!currentUser?.id) return;
@@ -754,7 +856,7 @@ export default function App() {
 
               <h2
                 className={cn(
-                  "font-black mb-6 md:mb-10 tracking-tighter text-4xl sm:text-5xl md:text-6xl xl:text-7xl leading-tight break-all",
+                  "font-black mb-3 tracking-tighter text-4xl sm:text-5xl md:text-6xl xl:text-7xl leading-tight break-all",
                   theme === "dark" ? "text-white" : "text-slate-900",
                 )}
               >
@@ -762,6 +864,44 @@ export default function App() {
                   ? formatIndianCompact(netWorth.assets - netWorth.liabilities)
                   : `₹${rangedBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
               </h2>
+
+              {/* ── Sparkline trend chart ──────────────────────────────────── */}
+              {activeTab !== TABS.WEALTH && sparklineData.length > 1 && (
+                <div className="mb-6 md:mb-8 -mx-1">
+                  <ResponsiveContainer width="100%" height={64}>
+                    <AreaChart data={sparklineData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={sparkPositive ? "#10b981" : "#f43f5e"} stopOpacity={0.35} />
+                          <stop offset="95%" stopColor={sparkPositive ? "#10b981" : "#f43f5e"} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <Tooltip
+                        contentStyle={{
+                          background: theme === "dark" ? "#1e293b" : "#fff",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: "0.75rem",
+                          fontSize: "11px",
+                          color: theme === "dark" ? "#e2e8f0" : "#0f172a",
+                          padding: "6px 10px",
+                        }}
+                        formatter={(v) => [`₹${Math.abs(v).toLocaleString("en-IN")}`, v >= 0 ? "Net in" : "Net out"]}
+                        labelFormatter={(l) => l}
+                        cursor={{ stroke: "rgba(255,255,255,0.15)", strokeWidth: 1 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="net"
+                        stroke={sparkPositive ? "#10b981" : "#f43f5e"}
+                        strokeWidth={2}
+                        fill="url(#sparkGrad)"
+                        dot={false}
+                        activeDot={{ r: 3, strokeWidth: 0 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 sm:gap-6">
                 <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-emerald-500/10 border border-emerald-500/20">
@@ -850,58 +990,39 @@ export default function App() {
                   }}
                 />
               )}
-              {activeTab === TABS.SETTINGS && (
+                            {activeTab === TABS.SETTINGS && (
                 <SettingsPage
                   user={currentUser}
                   settings={settings}
                   onUpdateSettings={saveSettings}
-                  onBack={() => setActiveTab(TABS.PROFILE)}
-                  onSignOut={clearClientSession}
-                  triggerConfirm={triggerConfirm}
-                  theme={theme}
-                  onThemeChange={(newTheme) => {
-                    setTheme(newTheme);
-                    localStorage.setItem("app_theme", newTheme);
-                  }}
-                  transactions={transactions}
-                  onDeleteAll={() => bulkDeleteTransactions(transactions)}
                   showToast={showToast}
-                  onNavigateImport={() => setActiveTab(TABS.ADD)}
-                />
-              )}
-              {activeTab === TABS.GOALS && (
-                <GoalsPage theme={theme} showToast={showToast} />
-              )}
-              {activeTab === TABS.BANK_ACCOUNTS && (
-                <BankAccountsPage
-                  setActiveTab={setActiveTab}
-                  onBack={() => setActiveTab(TABS.PROFILE)}
+                  theme={theme}
                 />
               )}
               {activeTab === TABS.PROFILE && (
                 <ProfilePage
                   user={currentUser}
-                  wealthItems={wealthItems}
                   transactions={transactions}
                   settings={settings}
-                  onUpdateSettings={saveSettings}
-                  triggerConfirm={triggerConfirm}
-                  setActiveTab={setActiveTab}
+                  showToast={showToast}
+                  apiBaseUrl={API_BASE_URL}
+                  authToken={authToken}
+                  onLogout={handleLogout}
                 />
               )}
-              {activeTab === TABS.LOANS && (
-                <ActiveLoansPage
-                  wealthItems={wealthItems}
-                  onBack={() => setActiveTab(TABS.PROFILE)}
-                  setActiveTab={setActiveTab}
+              {activeTab === TABS.DEBIT_CARDS && (
+                <DebitCardsPage
+                  user={currentUser}
+                  authToken={authToken}
+                  apiBaseUrl={API_BASE_URL}
+                  transactions={transactions}
                 />
               )}
-              {activeTab === TABS.BUDGET && (
-                <BudgetPage
-                  settings={settings}
-                  onUpdateSettings={saveSettings}
-                  triggerConfirm={triggerConfirm}
-                  onBack={() => setActiveTab(TABS.PROFILE)}
+              {activeTab === TABS.CREDIT_CARDS && (
+                <CreditCardsPage
+                  user={currentUser}
+                  authToken={authToken}
+                  apiBaseUrl={API_BASE_URL}
                   transactions={transactions}
                 />
               )}
@@ -956,7 +1077,7 @@ export default function App() {
                 <ITRPage
                   user={currentUser}
                   authToken={authToken}
-                  apiBaseUrl={API_BASE_URL} // Pass the base URL here
+                  apiBaseUrl={API_BASE_URL}
                   transactions={transactions}
                   setActiveTab={setActiveTab}
                   showToast={showToast}
@@ -981,4 +1102,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-

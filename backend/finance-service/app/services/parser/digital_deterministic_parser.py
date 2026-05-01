@@ -1,111 +1,350 @@
 """
 digital_deterministic_parser.py
 ================================
-Coordinate-aware PDF bank statement parser.
-Handles positional text layouts used by most Indian banks (no table structure).
+Multi-bank coordinate-aware PDF bank statement parser for Indian banks.
 
-Fixes applied vs original spec:
-  Bug 1 — Amount zone corrected: x > 340 (was 410–510, missed 95% of transactions)
-  Bug 2 — Two-number rows: leftmost=amount, rightmost=balance (was fixed-x split)
-  Bug 3 — Continuation rows: propagate amount+balance up to parent transaction
-  Bug 4 — Credit/debit by keyword, not x-position (single-column layout has no positional signal)
+Supports: HDFC, ICICI, SBI, Axis, Kotak, PNB, BoB, Canara, Union, BoI,
+          Indian Bank, Yes Bank, IndusInd, IDFC FIRST, HSBC, Std Chartered,
+          Citibank/Axis, SBI Card, ICICI CC, HDFC CC, Amex India.
 
-Tested against: Citibank/Axis Apr-2023 statement (9 pages, 54 transactions)
+Strategy (per reference spec):
+  1. Detect PDF type (native / OCR) — raise OcrRequiredError if scanned
+  2. Detect bank from signatures in first-page text
+  3. Decrypt if password-protected (pikepdf, bank-specific password patterns)
+  4. Find header row dynamically by scanning for bank-specific column keywords
+  5. Extract column x-boundaries from header row words (±5 pt tolerance)
+  6. Group body words into visual rows (y_tolerance=3 pt)
+  7. Identify transaction rows by date pattern in Date column zone
+  8. Merge multi-line narrations (rows between two date-rows)
+  9. Parse amounts: strip commas, handle CR/DR suffixes
+ 10. Validate: opening_balance + credits - debits ≈ closing_balance
+
+All pdfplumber coordinates are top-left origin (top increases downward).
 """
 
-import re
+from __future__ import annotations
+
 import json
 import logging
+import re
 import tempfile
-from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import Optional
 from collections import defaultdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional
 
 import pdfplumber
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+from app.utils.ocr_detector import OcrRequiredError, classify_pdf_from_pdf
+
 log = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Constants
+# Bank signatures & column schemas
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Minimum character density (chars/page) below which we assume scanned PDF
-OCR_THRESHOLD = 150
+BANK_SIGNATURES: dict[str, list[str]] = {
+    "HDFC":      ["HDFC BANK", "Withdrawal Amt", "Deposit Amt", "HDFC0"],
+    "ICICI":     ["ICICI BANK", "ICICI0", "iMobile"],
+    "SBI":       ["STATE BANK OF INDIA", "SBIN0", "Txn Date", "Value Date"],
+    "AXIS":      ["AXIS BANK", "UTIB0", "Tran Date", "Withdrawals (Dr)"],
+    "KOTAK":     ["KOTAK MAHINDRA", "KKBK0", "Dr Amt", "Cr Amt"],
+    "PNB":       ["PUNJAB NATIONAL", "PUNB0", "Particulars", "Debit Amount"],
+    "BOB":       ["BANK OF BARODA", "BARB0"],
+    "CANARA":    ["CANARA BANK", "CNRB0"],
+    "UNION":     ["UNION BANK", "UBIN0"],
+    "BOI":       ["BANK OF INDIA", "BKID0"],
+    "INDIAN":    ["INDIAN BANK", "IDIB0"],
+    "YES":       ["YES BANK", "YESB0"],
+    "INDUSIND":  ["INDUSIND BANK", "INDB0"],
+    "IDFCFIRST": ["IDFC FIRST", "IDFB0"],
+    "HSBC":      ["HSBC", "HSBC0"],
+    "SCB":       ["STANDARD CHARTERED", "SCBL0"],
+    "CITI":      ["CITIBANK", "CITI0"],
+    "SBI_CARD":  ["SBI CARD", "SBI Cards", "Minimum Amount Due"],
+    "ICICI_CC":  ["ICICI CREDIT", "One Card", "Amazon Pay ICICI"],
+    "HDFC_CC":   ["HDFC CREDIT", "Reward Pt", "Transaction Description"],
+    "AMEX":      ["AMERICAN EXPRESS", "AMEX"],
+}
 
-# x-coordinate boundaries (points) — tuned from real PDF measurement
-DATE_X_MIN      = 35     # date column left edge
-DATE_X_MAX      = 82     # date column right edge
-DESC_X_MIN      = 83     # description starts here
-AMOUNT_X_MIN    = 341    # all transaction amounts are right of this  ← BUG 1 FIX
-BALANCE_X_MIN   = 460    # when two numbers present, balance is right of this
+# Per-bank column header keywords used for dynamic header detection.
+# Order matters: first match wins in _find_header_row().
+BANK_HEADER_KEYWORDS: dict[str, list[str]] = {
+    "HDFC":      ["Date", "Narration", "Withdrawal", "Deposit", "Closing"],
+    "ICICI":     ["Date", "Description", "Debit", "Credit", "Balance"],
+    "SBI":       ["Txn", "Value", "Description", "Debit", "Credit", "Balance"],
+    "AXIS":      ["Tran", "Particulars", "Withdrawals", "Deposits", "Balance"],
+    "KOTAK":     ["Dt", "Description", "Dr", "Cr", "Balance"],
+    "PNB":       ["Date", "Amount", "Type", "Balance", "Remarks"],
+    "BOB":       ["Date", "Narration", "Debit", "Credit", "Balance"],
+    "CANARA":    ["Date", "Narration", "Debit", "Credit", "Balance"],
+    "UNION":     ["Date", "Narration", "Dr", "Cr", "Balance"],
+    "BOI":       ["Date", "Particulars", "Debit", "Credit", "Balance"],
+    "INDIAN":    ["Date", "Narration", "Debit", "Credit", "Balance"],
+    "YES":       ["Date", "Description", "Debit", "Credit", "Balance"],
+    "INDUSIND":  ["Date", "Narration", "Debit", "Credit", "Balance"],
+    "IDFCFIRST": ["Date", "Details", "Amount", "Type", "Balance"],
+    "HSBC":      ["Date", "Description", "Amount", "Balance"],
+    "SCB":       ["Transaction", "Description", "Debit", "Credit", "Balance"],
+    "CITI":      ["Date", "Description", "Debit", "Credit", "Balance"],
+    "SBI_CARD":  ["Date", "Transaction", "Amount"],
+    "ICICI_CC":  ["Date", "Description", "Amount"],
+    "HDFC_CC":   ["Date", "Transaction", "Reward", "Amount"],
+    "AMEX":      ["Date", "Description", "Amount"],
+    "UNKNOWN":   ["Date", "Description", "Debit", "Credit", "Balance"],
+}
 
-# Date regex — matches:
-#   Full dates w/ year: 03Apr23, 03/07/2023, 01-07-2023, corrupted "030072023", "[ 01072023 |"
-#   Day+month only (credit card statements): 15APR, 15/04, 15-04
-DATE_RE = re.compile(
+# Fallback static column zones (x0, x1) keyed by logical column name.
+# Used when dynamic header detection fails.
+BANK_COLUMN_ZONES: dict[str, dict[str, tuple[float, float]]] = {
+    "HDFC": {
+        "date":        (28,  85),
+        "narration":   (85,  295),
+        "ref":         (295, 370),
+        "value_date":  (370, 420),
+        "debit":       (420, 480),
+        "credit":      (480, 535),
+        "balance":     (535, 567),
+    },
+    "ICICI": {
+        "date":        (36,  90),
+        "description": (90,  290),
+        "ref":         (290, 365),
+        "value_date":  (365, 415),
+        "debit":       (415, 475),
+        "credit":      (475, 530),
+        "balance":     (530, 559),
+    },
+    "SBI": {
+        "txn_date":    (28,  88),   # anchor: x0 < 88 only — ignore Value Date at 88-148
+        "value_date":  (88,  148),
+        "description": (148, 330),
+        "ref":         (330, 390),
+        "debit":       (390, 455),
+        "credit":      (455, 510),
+        "balance":     (510, 567),
+    },
+    "AXIS": {
+        "date":        (30,  90),
+        "ref":         (90,  145),
+        "narration":   (145, 330),
+        "debit":       (330, 420),
+        "credit":      (420, 495),
+        "balance":     (495, 565),
+    },
+    "KOTAK": {
+        "date":        (35,  88),
+        "description": (88,  305),
+        "ref":         (305, 355),
+        "debit":       (355, 430),
+        "credit":      (430, 500),
+        "balance":     (500, 560),
+    },
+    "PNB": {
+        # PNB ONE e-statement: single amount + DR/CR flag layout
+        "date":        (40,  92),
+        "amount":      (160, 232),
+        "type":        (228, 268),   # "DR" or "CR" flag word
+        "balance":     (265, 342),
+        "narration":   (342, 567),
+    },
+    "BOB": {
+        "date":        (30,  90),
+        "narration":   (90,  295),
+        "ref":         (295, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 565),
+    },
+    "CANARA": {
+        "date":        (28,  88),
+        "narration":   (88,  295),
+        "ref":         (295, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 567),
+    },
+    "UNION": {
+        "date":        (28,  88),
+        "narration":   (88,  295),
+        "ref":         (295, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 567),
+    },
+    "BOI": {
+        "date":        (28,  88),
+        "narration":   (88,  295),
+        "ref":         (295, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 565),
+    },
+    "INDIAN": {
+        "date":        (28,  88),
+        "narration":   (88,  295),
+        "ref":         (295, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 565),
+    },
+    "YES": {
+        "date":        (28,  90),
+        "description": (90,  290),
+        "ref":         (290, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 567),
+    },
+    "INDUSIND": {
+        "date":        (30,  90),
+        "narration":   (90,  290),
+        "ref":         (290, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 565),
+    },
+    "IDFCFIRST": {
+        "date":        (30,  90),
+        "details":     (90,  295),
+        "amount":      (295, 430),
+        "type":        (430, 465),
+        "balance":     (465, 540),
+    },
+    "HSBC": {
+        "date":        (42,  120),
+        "description": (120, 430),
+        "amount":      (430, 510),
+        "balance":     (510, 567),
+    },
+    "SCB": {
+        "date":        (36,  110),
+        "description": (110, 360),
+        "debit":       (360, 430),
+        "credit":      (430, 495),
+        "balance":     (495, 567),
+    },
+    "CITI": {
+        "date":        (28,  90),
+        "description": (90,  290),
+        "debit":       (290, 390),
+        "credit":      (390, 470),
+        "balance":     (470, 567),
+    },
+    # Credit cards — single amount column
+    "HDFC_CC": {
+        "date":        (28,  85),
+        "description": (85,  330),
+        "reward":      (330, 400),
+        "amount":      (400, 480),
+        "flag":        (480, 567),
+    },
+    "SBI_CARD": {
+        "date":        (28,  88),
+        "description": (88,  460),
+        "amount":      (460, 567),
+    },
+    "ICICI_CC": {
+        "date":        (36,  90),
+        "description": (90,  480),
+        "amount":      (480, 567),
+    },
+    "AMEX": {
+        "date":        (28,  90),
+        "description": (90,  430),
+        "amount":      (430, 567),
+    },
+}
+
+# For banks not in the map, use a wide generic zone
+_GENERIC_ZONES: dict[str, tuple[float, float]] = {
+    "date":        (28,  90),
+    "description": (90,  360),
+    "debit":       (360, 460),
+    "credit":      (460, 510),
+    "balance":     (510, 567),
+}
+
+# Banks with SINGLE amount column (credit cards + HSBC + IDFC FIRST)
+SINGLE_AMOUNT_BANKS = {"HDFC_CC", "SBI_CARD", "ICICI_CC", "AMEX", "HSBC", "IDFCFIRST", "PNB"}
+
+# Banks where the FIRST date column is the transaction date, second is value date (ignore)
+DUAL_DATE_BANKS = {"SBI", "BOI", "INDIAN"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Date patterns
+# ─────────────────────────────────────────────────────────────────────────────
+
+DATE_PATTERNS = [
+    (re.compile(r"\b(\d{2})/(\d{2})/(\d{2})\b"),     "%d/%m/%y"),   # HDFC savings old
+    (re.compile(r"\b(\d{2})/(\d{2})/(\d{4})\b"),     "%d/%m/%Y"),   # most banks
+    (re.compile(r"\b(\d{2})-(\d{2})-(\d{4})\b"),     "%d-%m-%Y"),   # Axis, Kotak
+    (re.compile(r"\b(\d{2})-([A-Za-z]{3})-(\d{4})\b"), "%d-%b-%Y"), # Kotak month name
+    (re.compile(r"\b(\d{2}) ([A-Za-z]{3}) (\d{4})\b"), "%d %b %Y"), # HSBC, Std Chart
+    (re.compile(r"\b(\d{2})[A-Za-z]{3}\d{2,4}\b"),   None),         # 03Apr23 handled below
+]
+
+# Day+month-only patterns (credit cards — no year)
+DATE_NO_YEAR_RE = re.compile(
     r"^\[?\s*"
-    r"(?:"
-    r"\d{2}[A-Za-z0-9/.\- ]*\d{2,4}"       # full date with year
-    r"|\d{2}\s*[A-Za-z]{3}"                 # day + 3-letter month, no year (credit cards)
-    r"|\d{2}\s*[/\-.]\s*\d{2}"              # day-month numeric, no year
-    r")"
+    r"(?:\d{2}\s*[A-Za-z]{3}|\d{2}\s*[/\-.]\s*\d{2})"
     r"\s*(?:\||\])?$"
 )
 
-# Matches day+month without year so we can tell when to take the year from
-# context (statement period or previous row) instead of calling it malformed.
-DATE_NO_YEAR_RE = re.compile(
+# General date token detector (loose — for identifying date-column words)
+DATE_TOKEN_RE = re.compile(
     r"^\[?\s*"
     r"(?:"
-    r"\d{2}\s*[A-Za-z]{3}"
+    r"\d{2}[A-Za-z0-9/.\- ]*\d{2,4}"
+    r"|\d{2}\s*[A-Za-z]{3}"
     r"|\d{2}\s*[/\-.]\s*\d{2}"
     r")"
     r"\s*(?:\||\])?$"
 )
 
-# Numeric regex — valid amount token: must have decimal OR be ≥5 digits
-# Excludes masked card fragments like "4386", "7095"
-AMOUNT_TOKEN_RE = re.compile(r"^\d[\d,]*\.\d{2}$|^\d{5,}[\d,]*$")
-
-# Noise rows to skip (headers, footers, summaries)
-NOISE_RE = re.compile(
-    r"^("
-    r"date|transaction\s+details?|withdrawals?|deposits?|balance"
-    r"|opening\s+balance|closing\s+balance|closing\s+available"
-    r"|funds\s+on\s+earmark|total\s+amont|earmark"
-    r"|page\s+\d|statement\s+period|your\s+\w+bank"
-    r"|savings\s+account\s+details|credit\s+card\s+details"
-    r"|banking\s+reward|home|rajesh|citibank|axis\s+bank"
-    r"|hdfc|icici|kotak|sbi|pnb|canara"
-    r")\b",
-    re.IGNORECASE,
-)
-
-# Credit classification keywords (description-based — BUG 4 FIX)
-CREDIT_KEYWORDS = re.compile(
-    r"\b(inward|salary\s+credit|credit\s+from|credited|received|"
-    r"refund|reversal|cashback|interest\s+credit|neft\s+cr|"
-    r"imps\s+inward|rtgs\s+inward|dividend)\b",
-    re.IGNORECASE,
-)
-
-DEBIT_KEYWORDS = re.compile(
-    r"\b(outward|ecs\s+paid|nach|purchase|atm\s+withdrawal|"
-    r"debit|dr\b|payment\s+for|imps\s+outward|neft\s+dr|"
-    r"intercity\s+ecs|rtgs\s+outward)\b",
-    re.IGNORECASE,
-)
-
-# Month map for date normalisation
 MONTH_MAP = {
     "jan": "01", "feb": "02", "mar": "03", "apr": "04",
     "may": "05", "jun": "06", "jul": "07", "aug": "08",
     "sep": "09", "oct": "10", "nov": "11", "dec": "12",
 }
+
+# Amount token: must have decimal OR be ≥5 digits (rejects card fragments like "4386")
+AMOUNT_TOKEN_RE = re.compile(r"^\d[\d,]*\.\d{1,2}$|^\d{5,}[\d,]*$")
+
+# Noise row patterns
+NOISE_RE = re.compile(
+    r"^("
+    r"date|transaction\s+details?|particulars|narration|description"
+    r"|withdrawals?|deposits?|debit\s+amount|credit\s+amount|balance"
+    r"|opening\s+balance|closing\s+balance|closing\s+available"
+    r"|funds\s+on\s+earmark|total|earmark|ref|chq|value\s+date"
+    r"|page\s+\d|statement\s+period|your\s+\w+bank"
+    r"|savings\s+account|credit\s+card\s+details"
+    r"|banking\s+reward|home|citibank|axis\s+bank"
+    r"|hdfc|icici|kotak|sbi|pnb|canara|baroda|union|indian\s+bank"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Credit/debit classification keywords
+CREDIT_KEYWORDS = re.compile(
+    r"\b(inward|salary[\s_]credit|credit[\s_]from|credited|received|"
+    r"refund|reversal|cashback|interest[\s_]credit|neft[\s_]cr|"
+    r"imps[\s_]inward|rtgs[\s_]inward|dividend|deposit|by\s+transfer|"
+    r"by\s+clg|by\s+neft|by\s+rtgs|by\s+upi)\b",
+    re.IGNORECASE,
+)
+
+DEBIT_KEYWORDS = re.compile(
+    r"\b(outward|ecs[\s_]paid|nach|purchase|atm[\s_]withdrawal|"
+    r"debit|dr\b|payment[\s_]for|imps[\s_]outward|neft[\s_]dr|"
+    r"intercity[\s_]ecs|rtgs[\s_]outward|to\s+transfer|to\s+neft|"
+    r"to\s+upi|withdrawal|pos\s+debit)\b",
+    re.IGNORECASE,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -114,16 +353,12 @@ MONTH_MAP = {
 
 @dataclass
 class Transaction:
-    date:        str            # YYYY-MM-DD
-    description: str
-    amount:      float
-    type:        str            # "credit" | "debit"
-    balance:     Optional[float] = None
-    raw_date:    str = ""
-    # True when we couldn't read the exact day off the statement and
-    # inherited month/year from the previous dated row. The day is set
-    # to 01 purely so the date column can store a value — UIs should
-    # render these as "Mon YYYY" instead of a full date.
+    date:          str
+    description:   str
+    amount:        float
+    type:          str            # "credit" | "debit"
+    balance:       Optional[float] = None
+    raw_date:      str = ""
     date_inferred: bool = False
 
     def to_dict(self) -> dict:
@@ -138,6 +373,7 @@ class ParseResult:
     total_credits:   float             = 0.0
     total_debits:    float             = 0.0
     page_count:      int               = 0
+    bank:            str               = "UNKNOWN"
     errors:          list[str]         = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -147,55 +383,90 @@ class ParseResult:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helpers
+# Bank detection
 # ─────────────────────────────────────────────────────────────────────────────
 
-def extract_day_month_no_year(raw: str) -> Optional[tuple[int, int]]:
-    """Pull (day, month) from a token that's missing the year — e.g. '15APR'
-    or '15/04' on credit card statements. Returns None if unparseable."""
-    if not raw:
-        return None
-    s = re.sub(r'^[\[\s\|]+|[\]\s\|]+$', '', raw.strip())
-    if not s:
-        return None
-    # day + 3-letter month, e.g. 15APR or 15 APR
-    m = re.match(r"^(\d{2})\s*([A-Za-z]{3})$", s)
-    if m:
-        day = int(m.group(1))
-        month = MONTH_MAP.get(m.group(2).lower())
-        if month and 1 <= day <= 31:
-            return (day, int(month))
-    # day-month numeric, e.g. 15/04 or 15-04
-    m = re.match(r"^(\d{2})\s*[/\-.]\s*(\d{2})$", s)
-    if m:
-        day, mon = int(m.group(1)), int(m.group(2))
-        if 1 <= day <= 31 and 1 <= mon <= 12:
-            return (day, mon)
-    return None
+def detect_bank(full_text: str) -> str:
+    text_upper = full_text.upper()
+    for bank, signatures in BANK_SIGNATURES.items():
+        if any(sig.upper() in text_upper for sig in signatures):
+            return bank
+    return "UNKNOWN"
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Amount parsing
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _strip_cr_dr(text: str) -> tuple[str, Optional[str]]:
+    """Strip trailing CR/DR suffix. Returns (cleaned_text, 'CR'|'DR'|None)."""
+    m = re.match(r"^([\d,\.]+)(CR|DR)$", text.strip(), re.IGNORECASE)
+    if m:
+        return m.group(1), m.group(2).upper()
+    # Parenthesised negatives (Amex): (1234.56) → debit
+    m = re.match(r"^\((\d[\d,\.]*)\)$", text.strip())
+    if m:
+        return m.group(1), "DR"
+    return text.strip(), None
+
+
+def parse_amount(text: str, is_balance: bool = False) -> Optional[float]:
+    if not text:
+        return None
+    text = re.sub(r"[\]\|\s\-]+$", "", text)
+    text, _ = _strip_cr_dr(text)
+    # pdfplumber misread: comma-as-decimal e.g. "92,00"
+    if re.search(r",\d{2}$", text) and "." not in text:
+        text = text[:-3] + "." + text[-2:]
+    cleaned = text.replace(",", "").strip()
+    # multiple decimals e.g. "1.43950.15"
+    if cleaned.count(".") > 1:
+        parts = cleaned.rsplit(".", 1)
+        cleaned = parts[0].replace(".", "") + "." + parts[1]
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return None
+    # Missing-decimal fix for pdfplumber balance extractions > 1M without decimal
+    if is_balance and "." not in cleaned and value > 1_000_000:
+        value /= 100
+    return value
+
+
+def is_valid_amount_token(text: str) -> bool:
+    text = re.sub(r"[\]\|\s\-]+$", "", text)
+    text, _ = _strip_cr_dr(text)
+    if re.search(r",\d{2}$", text) and "." not in text:
+        text = text[:-3] + "." + text[-2:]
+    cleaned = text.replace(",", "")
+    if cleaned.count(".") > 1:
+        parts = cleaned.rsplit(".", 1)
+        cleaned = parts[0].replace(".", "") + "." + parts[1]
+    return bool(AMOUNT_TOKEN_RE.match(cleaned))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Date parsing
+# ─────────────────────────────────────────────────────────────────────────────
 
 def normalise_date(raw: str) -> str:
-    """Convert DD-MMM-YY, DD/MM/YYYY or corrupted DDMMYYYY to YYYY-MM-DD.
-
-    Returns "" (empty) when the date cannot be parsed, so downstream code
-    can detect the miss instead of silently stamping today's date.
-    """
+    """Convert any Indian bank date format to YYYY-MM-DD. Returns '' on failure."""
     if not raw:
         return ""
-
-    # Remove surrounding brackets/pipes from corrupted extractions
-    date_str = re.sub(r'^[\[\s\|]+|[\]\s\|]+$', '', raw.strip())
+    date_str = re.sub(r"^[\[\s\|]+|[\]\s\|]+$", "", raw.strip())
     if not date_str:
         return ""
+    # Strip trailing time component "HH:MM:SS" or "HH:MM" before splitting
+    date_str = re.sub(r"\s+\d{1,2}:\d{2}(:\d{2})?$", "", date_str).strip()
     date_str = date_str.split()[0]
 
-    # ISO passthrough: already YYYY-MM-DD
+    # ISO passthrough
     try:
         return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
     except ValueError:
         pass
 
-    # Pad single-digit day (e.g., 3Apr23 -> 03Apr23)
+    # Pad single-digit day (e.g. 3Apr23 → 03Apr23)
     if len(date_str) >= 6 and date_str[0].isdigit() and not date_str[1].isdigit():
         date_str = "0" + date_str
 
@@ -213,8 +484,8 @@ def normalise_date(raw: str) -> str:
         except ValueError:
             pass
 
-    # Fallback for pdfplumber corrupted text layer extractions (e.g. '030072023', '03072023')
-    digits = re.sub(r'\D', '', date_str)
+    # Corrupted pdfplumber extraction e.g. "030072023" / "03072023"
+    digits = re.sub(r"\D", "", date_str)
     if len(digits) in (8, 9):
         year = digits[-4:]
         month = digits[-6:-4]
@@ -224,83 +495,113 @@ def normalise_date(raw: str) -> str:
         except ValueError:
             pass
     if len(digits) == 6:
-        # DDMMYY
         try:
             return datetime.strptime(digits, "%d%m%y").strftime("%Y-%m-%d")
         except ValueError:
             pass
 
-    # Unparseable — signal failure upstream
     return ""
 
 
-def parse_amount(text: str, is_balance: bool = False) -> Optional[float]:
-    """
-    Parse Indian-formatted amounts robustly.
-    Handles: 1,23,456.78 | 902.00 | 60900.00
-    Rejects:  4386 (card fragment) via AMOUNT_TOKEN_RE pre-filter.
-
-    is_balance=True: applies missing-decimal fix for balance values that the
-    Citibank PDF text layer occasionally emits without a decimal point.
-    e.g. "11361352" should be 113613.52 — detectable when the integer value
-    is implausibly large for a savings balance (> 10,00,000) but would be
-    reasonable divided by 100.
-    """
-    if not text:
+def extract_day_month_no_year(raw: str) -> Optional[tuple[int, int]]:
+    """Pull (day, month) from a no-year token like '15APR' or '15/04'."""
+    if not raw:
         return None
-    
-    # Strip trailing rogue punctuation (e.g. 2365.00])
-    text = re.sub(r'[\]\|\s\-]+$', '', text)
-    
-    # Handle pdfplumber misreading periods as commas (e.g., 92,00 -> 92.00)
-    if re.search(r',\d{2}$', text) and '.' not in text:
-        text = text[:-3] + '.' + text[-2:]
-        
-    cleaned = text.replace(",", "").strip()
-    
-    # Handle pdfplumber misreading commas as periods (e.g., 1.43950.15 or 4.000.00)
-    if cleaned.count('.') > 1:
-        parts = cleaned.rsplit('.', 1)
-        cleaned = parts[0].replace('.', '') + '.' + parts[1]
-        
-    try:
-        value = float(cleaned)
-    except ValueError:
-        return None
-
-    # Missing-decimal fix: integer balance > 1,000,000 that has no '.'
-    # is almost certainly a paise value with the decimal stripped by the PDF renderer.
-    if is_balance and "." not in cleaned and value > 1_000_000:
-        value = value / 100
-
-    return value
+    s = re.sub(r"^[\[\s\|]+|[\]\s\|]+$", "", raw.strip())
+    m = re.match(r"^(\d{2})\s*([A-Za-z]{3})$", s)
+    if m:
+        day = int(m.group(1))
+        month_str = MONTH_MAP.get(m.group(2).lower())
+        if month_str and 1 <= day <= 31:
+            return (day, int(month_str))
+    m = re.match(r"^(\d{2})\s*[/\-.]\s*(\d{2})$", s)
+    if m:
+        day, mon = int(m.group(1)), int(m.group(2))
+        if 1 <= day <= 31 and 1 <= mon <= 12:
+            return (day, mon)
+    return None
 
 
-def is_valid_amount_token(text: str) -> bool:
-    """True if the word looks like a transaction amount, not a card number or noise."""
-    text = re.sub(r'[\]\|\s\-]+$', '', text)
-    if re.search(r',\d{2}$', text) and '.' not in text:
-        text = text[:-3] + '.' + text[-2:]
-    cleaned = text.replace(",", "")
-    if cleaned.count('.') > 1:
-        parts = cleaned.rsplit('.', 1)
-        cleaned = parts[0].replace('.', '') + '.' + parts[1]
-    return bool(AMOUNT_TOKEN_RE.match(cleaned))
+# ─────────────────────────────────────────────────────────────────────────────
+# Dynamic header detection
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _find_header_row(
+    page,
+    keywords: list[str],
+) -> tuple[Optional[dict[str, dict]], Optional[float]]:
+    """
+    Scan page words for a row that contains ≥ (len(keywords)-1) of the
+    header keywords. Returns (col_map, header_y) where col_map maps each
+    keyword to {'x0', 'x1', 'top'}.
+
+    Uses top-left pdfplumber coordinates throughout.
+    """
+    words = page.extract_words(x_tolerance=3, y_tolerance=3)
+    if not words:
+        return None, None
+
+    # Group by 4-pt y buckets
+    rows: dict[float, list] = defaultdict(list)
+    for w in words:
+        bucket = round(w["top"] / 4) * 4
+        rows[bucket].append(w)
+
+    kw_lower = [k.lower() for k in keywords]
+    for top in sorted(rows):
+        row = rows[top]
+        texts_lower = [w["text"].lower() for w in row]
+        matches = sum(1 for k in kw_lower if any(k in t for t in texts_lower))
+        if matches >= max(len(keywords) - 1, 2):
+            col_map: dict[str, dict] = {}
+            for w in sorted(row, key=lambda x: x["x0"]):
+                wt = w["text"].lower()
+                for k in kw_lower:
+                    if k in wt and k not in col_map:
+                        col_map[k] = {"x0": w["x0"], "x1": w["x1"], "top": top}
+                        break
+            return col_map, float(top)
+
+    return None, None
 
 
-def classify_type(description: str) -> str:
-    """Determine credit/debit from description keywords. BUG 4 FIX."""
-    if CREDIT_KEYWORDS.search(description):
-        return "credit"
-    return "debit"
+def _zones_from_col_map(
+    col_map: dict[str, dict],
+    page_width: float,
+) -> dict[str, tuple[float, float]]:
+    """
+    Convert header word positions into (x0, x1) zones with ±5pt tolerance.
+    Each column zone extends from its x0 to the next column's x0.
+
+    The first column always starts at x=0 so data words that are slightly
+    left of the header word (e.g. PNB dates at x=43 while header starts
+    at x=56) are still captured correctly.
+    """
+    cols = sorted(col_map.items(), key=lambda kv: kv[1]["x0"])
+    zones: dict[str, tuple[float, float]] = {}
+    for i, (name, pos) in enumerate(cols):
+        # First column: anchor to 0 so data never falls left of the zone.
+        # Other columns: 15pt left padding to handle alignment variance.
+        if i == 0:
+            x0 = 0.0
+        else:
+            x0 = max(0.0, pos["x0"] - 15)
+        x1 = (cols[i + 1][1]["x0"] - 15) if i + 1 < len(cols) else page_width
+        zones[name] = (x0, x1)
+
+    # "remarks" is a narration alias used by PNB — remap so desc_parts are
+    # populated correctly by parse_page which checks for "narration" zone.
+    if "remarks" in zones and "narration" not in zones:
+        zones["narration"] = zones.pop("remarks")
+
+    return zones
 
 
-def is_noise(description: str) -> bool:
-    return bool(NOISE_RE.match(description.strip()))
+# ─────────────────────────────────────────────────────────────────────────────
+# Row grouping & column assignment
+# ─────────────────────────────────────────────────────────────────────────────
 
-
-def group_words_by_row(words: list, tolerance: float = 4.0) -> dict:
-    """Group pdfplumber word dicts by their vertical (top) position."""
+def group_words_by_row(words: list, tolerance: float = 3.0) -> dict[float, list]:
     rows: dict[float, list] = defaultdict(list)
     for w in words:
         key = round(w["top"] / tolerance) * tolerance
@@ -308,193 +609,267 @@ def group_words_by_row(words: list, tolerance: float = 4.0) -> dict:
     return dict(sorted(rows.items()))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Scanned-PDF detection
-# ─────────────────────────────────────────────────────────────────────────────
+def assign_to_zone(x0: float, zones: dict[str, tuple[float, float]]) -> Optional[str]:
+    """Return zone name whose x-range contains x0, or None.
 
-def check_digital(pdf) -> bool:
+    Uses a 2pt right-side slop so words that land exactly on a zone
+    boundary (due to pdfplumber sub-pixel rounding) still get assigned.
     """
-    Return True if the PDF has extractable text (digital).
-    Checks up to 10 pages; raises ValueError with OCR_REQUIRED if scanned.
-    """
-    total_chars = 0
-    pages_to_check = min(10, len(pdf.pages))
-    for i in range(pages_to_check):
-        text = pdf.pages[i].extract_text() or ""
-        total_chars += len(text.strip())
-    
-    avg = total_chars / max(pages_to_check, 1)
-    if avg < OCR_THRESHOLD:
-        raise ValueError("OCR_REQUIRED: PDF appears to be scanned. Use an OCR pipeline.")
-    return True
+    best_name: Optional[str] = None
+    best_dist = float("inf")
+    for name, (zx0, zx1) in zones.items():
+        if zx0 <= x0 < zx1 + 2:          # 2pt slop on right edge
+            dist = x0 - zx0               # prefer leftmost matching zone
+            if dist < best_dist:
+                best_dist = dist
+                best_name = name
+    return best_name
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Row-level parsing helpers
+# Credit/debit classification
 # ─────────────────────────────────────────────────────────────────────────────
 
-def extract_row_parts(row_words: list) -> dict:
+def classify_type(
+    description: str,
+    debit_val: Optional[float],
+    credit_val: Optional[float],
+    cr_dr_suffix: Optional[str],
+    bank: str,
+) -> str:
     """
-    Given words from one visual row (sorted by x), split into:
-      date_str, description_parts, right_numerics
-
-    right_numerics: list of (float_value, x0) for all valid amount tokens
-                    right of AMOUNT_X_MIN.
-
-    BUG 1 FIX: AMOUNT_X_MIN = 341 (was 410).
-    BUG 4 FIX: card number fragments filtered by AMOUNT_TOKEN_RE.
+    Determine credit vs debit.
+    Priority: explicit DR/CR suffix > separate debit/credit column values > keywords.
     """
-    row_words_sorted = sorted(row_words, key=lambda w: w["x0"])
-
-    date_parts  = []
-    desc_parts  = []
-    right_nums  = []   # list of (value: float, x0: float)
-
-    for w in row_words_sorted:
-        x, text = w["x0"], w["text"]
-
-        if DATE_X_MIN <= x <= DATE_X_MAX:
-            # Could be date or a noise word in that zone
-            if DATE_RE.match(text):
-                date_parts.append(text)
-            else:
-                desc_parts.append(text)
-
-        elif x > AMOUNT_X_MIN and is_valid_amount_token(text):
-            # Store raw text + x; parsing happens later with correct is_balance flag
-            right_nums.append((text, x))
-
-        elif x >= DESC_X_MIN:
-            desc_parts.append(text)
-
-    return {
-        "date_str":    " ".join(date_parts).strip(),
-        "description": " ".join(desc_parts).strip(),
-        "right_nums":  right_nums,   # sorted left-to-right by x already
-    }
-
-
-def resolve_amount_balance(right_nums: list) -> tuple[Optional[float], Optional[float]]:
-    """
-    Given list of (raw_text, x0) sorted ascending by x0:
-      - 0 nums  → (None, None)
-      - 1 num   → (amount, None)   balance may come from a continuation row
-      - 2+ nums → (leftmost=amount, rightmost=balance)   BUG 2 FIX
-
-    The split point is positional: leftmost number is always the transaction
-    amount; rightmost is the running balance (only appears periodically).
-    Missing-decimal fix applied only to balance values.
-    """
-    if not right_nums:
-        return None, None
-    sorted_nums = sorted(right_nums, key=lambda t: t[1])  # sort by x0
-    if len(sorted_nums) == 1:
-        return parse_amount(sorted_nums[0][0], is_balance=False), None
-    # Two or more: amount=left, balance=right
-    return (
-        parse_amount(sorted_nums[0][0],  is_balance=False),
-        parse_amount(sorted_nums[-1][0], is_balance=True),
-    )
+    if cr_dr_suffix == "CR":
+        return "credit"
+    if cr_dr_suffix == "DR":
+        return "debit"
+    if credit_val and credit_val > 0 and (not debit_val or debit_val == 0):
+        return "credit"
+    if debit_val and debit_val > 0 and (not credit_val or credit_val == 0):
+        return "debit"
+    if CREDIT_KEYWORDS.search(description):
+        return "credit"
+    return "debit"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Summary-line extraction (opening/closing balance)
+# Summary extraction
 # ─────────────────────────────────────────────────────────────────────────────
 
-def extract_summary(text: str) -> dict:
-    """Pull opening and closing balances from free text."""
-    result = {}
-    ob = re.search(r"opening\s+balance[:\s]+([0-9,]+\.[0-9]{2})", text, re.IGNORECASE)
-    cb = re.search(r"closing\s+(?:available\s+)?balance[:\s]+([0-9,]+\.[0-9]{2})", text, re.IGNORECASE)
-    if ob:
-        result["opening_balance"] = parse_amount(ob.group(1))
-    if cb:
-        result["closing_balance"] = parse_amount(cb.group(1))
+def extract_summary(text: str) -> dict[str, Optional[float]]:
+    """Extract opening / closing balance from raw page text.
+
+    Handles multiple statement formats:
+      • Explicit labels: "Opening Balance: 12,345.67"
+      • Axis/HDFC variant: "Bal. Brought Forward 12345.67"
+      • Kotak: "Opening Bal 12,345.67"
+      • ICICI: "Opening Balance(INR) 12,345.67"
+      • Available balance lines
+    """
+    result: dict[str, Optional[float]] = {}
+
+    ob_patterns = [
+        r"opening\s+balance\s*(?:\(INR\))?[:\s]+([0-9,]+\.[0-9]{2})",
+        r"bal(?:ance)?[\s.]+brought\s+forward[:\s]+([0-9,]+\.[0-9]{2})",
+        r"opening\s+bal[:\s]+([0-9,]+\.[0-9]{2})",
+        r"b/f[:\s]+([0-9,]+\.[0-9]{2})",
+        r"brought\s+forward[:\s]+([0-9,]+\.[0-9]{2})",
+    ]
+    cb_patterns = [
+        r"closing\s+(?:available\s+)?balance\s*(?:\(INR\))?[:\s]+([0-9,]+\.[0-9]{2})",
+        r"closing\s+bal[:\s]+([0-9,]+\.[0-9]{2})",
+        r"balance\s+carried\s+forward[:\s]+([0-9,]+\.[0-9]{2})",
+        r"c/f[:\s]+([0-9,]+\.[0-9]{2})",
+        r"available\s+balance[:\s]+([0-9,]+\.[0-9]{2})",
+    ]
+    for pat in ob_patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            result["opening_balance"] = parse_amount(m.group(1))
+            break
+    for pat in cb_patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            result["closing_balance"] = parse_amount(m.group(1))
+            break
     return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Core page parser
+# OCR check
 # ─────────────────────────────────────────────────────────────────────────────
 
-def parse_page(page) -> tuple[list[dict], str]:
-    """
-    Parse one page. Returns:
-      (logical_rows, raw_page_text)
+def check_digital(pdf: Any) -> bool:
+    is_ocr, debug_info = classify_pdf_from_pdf(pdf)
+    log.info("OCR detection: %s", json.dumps(debug_info, sort_keys=True))
+    if is_ocr:
+        raise OcrRequiredError(debug_info)
+    return True
 
-    Each logical_row is a dict ready to be converted to a Transaction.
-    Handles multi-line descriptions and continuation-row amounts/balances.
-    BUG 3 FIX: continuation rows propagate amount+balance to parent.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Page parser
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _is_noise(text: str) -> bool:
+    return bool(NOISE_RE.match(text.strip()))
+
+
+def parse_page(
+    page,
+    bank: str,
+    zones: dict[str, tuple[float, float]],
+    header_y: Optional[float],
+    is_cc: bool,
+) -> tuple[list[dict], str]:
     """
-    words     = page.extract_words(x_tolerance=3, y_tolerance=3)
-    raw_text  = page.extract_text() or ""
+    Parse one page into logical transaction rows.
+
+    Returns (logical_rows, raw_page_text).
+
+    Each logical_row dict:
+      raw_date, date, desc_parts, debit, credit, balance, amount (CC),
+      cr_dr_suffix, raw_amounts
+    """
+    words = page.extract_words(x_tolerance=3, y_tolerance=3)
+    raw_text = page.extract_text() or ""
     if not words:
         return [], raw_text
 
-    visual_rows = group_words_by_row(words, tolerance=4.0)
+    # Only look at words below the header row
+    if header_y is not None:
+        words = [w for w in words if w["top"] > header_y + 2]
+
+    visual_rows = group_words_by_row(words, tolerance=3.0)
+
+    # SBI / BOI / INDIAN have two date columns — skip the second (value date)
+    dual_date = bank in DUAL_DATE_BANKS
+    date_zone = zones.get("txn_date") or zones.get("date") or (0, 90)
+
     logical_rows: list[dict] = []
-    current: Optional[dict]  = None
+    current: Optional[dict] = None
 
     for _top, row_words in visual_rows.items():
-        parts = extract_row_parts(row_words)
-        date_str    = parts["date_str"]
-        description = parts["description"]
-        right_nums  = parts["right_nums"]
+        row_words_sorted = sorted(row_words, key=lambda w: w["x0"])
 
-        # ── New transaction row (has a date) ──────────────────────────────
-        if DATE_RE.match(date_str):
+        date_parts:   list[str] = []
+        desc_parts:   list[str] = []
+        debit_parts:  list[str] = []
+        credit_parts: list[str] = []
+        balance_parts: list[str] = []
+        amount_parts: list[str] = []   # single-amount-column banks
+        cr_dr_suffix: Optional[str] = None  # set by "type" zone or post-loop
+
+        for w in row_words_sorted:
+            x, text = w["x0"], w["text"]
+            zone = assign_to_zone(x, zones)
+
+            if zone in ("date", "txn_date"):
+                # Dual-date banks: only accept words in the FIRST date zone
+                if dual_date and x > date_zone[1]:
+                    continue
+                if DATE_TOKEN_RE.match(text):
+                    date_parts.append(text)
+                else:
+                    desc_parts.append(text)
+
+            elif zone in ("narration", "description", "particulars", "details"):
+                desc_parts.append(text)
+
+            elif zone in ("debit", "withdrawal", "withdrawals", "dr", "dr_amt"):
+                if is_valid_amount_token(text):
+                    debit_parts.append(text)
+
+            elif zone in ("credit", "deposit", "deposits", "cr", "cr_amt"):
+                if is_valid_amount_token(text):
+                    credit_parts.append(text)
+
+            elif zone == "balance":
+                if is_valid_amount_token(text):
+                    balance_parts.append(text)
+                # Indian Bank: balance has fused CR e.g. "1234.56CR" — handled in parse_amount
+                elif re.match(r"^\d[\d,\.]+CR$", text, re.IGNORECASE):
+                    balance_parts.append(text)
+
+            elif zone == "amount":
+                # Single-amount column (CC + HSBC + IDFC FIRST)
+                if is_valid_amount_token(text) or re.match(r"^\d[\d,\.]+CR$", text, re.IGNORECASE) or re.match(r"^\(\d", text):
+                    amount_parts.append(text)
+
+            elif zone == "type":
+                # Explicit DR/CR flag column (PNB ONE, IDFC FIRST)
+                t = text.strip().upper()
+                if t in ("DR", "CR"):
+                    cr_dr_suffix = t
+
+            elif zone in ("ref", "value_date", "reward", "flag"):
+                pass  # skip ref/value-date/reward-points columns
+
+            else:
+                # Unzoned word — be conservative.
+                # Only treat as an amount candidate if:
+                #   1. We have no amount yet (prevents balance from clobbering)
+                #   2. It's clearly numeric
+                #   3. It's well into the right half of the page (x > 300)
+                # Otherwise it goes into desc_parts (worse to lose an amount
+                # than to corrupt one, since desc_parts are just for display).
+                if (x > 300 and is_valid_amount_token(text)
+                        and not amount_parts and not debit_parts and not credit_parts):
+                    amount_parts.append(text)
+                elif x >= (date_zone[1] if date_zone else 90):
+                    desc_parts.append(text)
+
+        date_str  = " ".join(date_parts).strip()
+        desc      = " ".join(desc_parts).strip()
+        debit_raw  = debit_parts[0]  if debit_parts  else ""
+        credit_raw = credit_parts[0] if credit_parts else ""
+        balance_raw = balance_parts[-1] if balance_parts else ""  # take rightmost
+
+        # CR/DR suffix — may already be set by "type" zone (PNB, IDFC FIRST).
+        # Also try to extract from fused amount token e.g. "1234.56CR".
+        amount_raw = ""
+        if amount_parts:
+            raw_amt, suffix_from_amount = _strip_cr_dr(amount_parts[-1])
+            amount_raw = raw_amt
+            if cr_dr_suffix is None:
+                cr_dr_suffix = suffix_from_amount
+
+        # ── New transaction row ──────────────────────────────────────────────
+        if DATE_TOKEN_RE.match(date_str):
             if current:
                 logical_rows.append(current)
-
-            amount, balance = resolve_amount_balance(right_nums)
-
             current = {
                 "raw_date":     date_str,
                 "date":         normalise_date(date_str),
-                "desc_parts":   [description] if description else [],
-                "amount":       amount,
-                "balance":      balance,
+                "desc_parts":   [desc] if desc else [],
+                "debit":        parse_amount(debit_raw),
+                "credit":       parse_amount(credit_raw),
+                "balance":      parse_amount(balance_raw, is_balance=True),
+                "amount":       parse_amount(amount_raw),
+                "cr_dr_suffix": cr_dr_suffix,
             }
 
-        # ── Continuation row (no date) ────────────────────────────────────
+        # ── Continuation row ─────────────────────────────────────────────────
         elif current is not None:
-            # Skip pure noise rows (headers, footers, summary labels)
-            if is_noise(description) and not right_nums:
+            if _is_noise(desc) and not any([debit_raw, credit_raw, balance_raw, amount_raw]):
                 continue
+            if desc and not _is_noise(desc):
+                current["desc_parts"].append(desc)
 
-            # Append description text
-            if description and not is_noise(description):
-                current["desc_parts"].append(description)
+            # Propagate amounts from continuation if parent missing them
+            if debit_raw and current["debit"] is None:
+                current["debit"] = parse_amount(debit_raw)
+            if credit_raw and current["credit"] is None:
+                current["credit"] = parse_amount(credit_raw)
+            if balance_raw and current["balance"] is None:
+                current["balance"] = parse_amount(balance_raw, is_balance=True)
+            if amount_raw and current["amount"] is None:
+                current["amount"] = parse_amount(amount_raw)
+            if cr_dr_suffix and current["cr_dr_suffix"] is None:
+                current["cr_dr_suffix"] = cr_dr_suffix
 
-            # BUG 3 FIX: propagate amount/balance from continuation row
-            if right_nums:
-                cont_amount, cont_balance = resolve_amount_balance(right_nums)
-
-                # Only fill in if parent row is missing the value
-                if current["amount"] is None and cont_amount is not None:
-                    current["amount"] = cont_amount
-
-                if current["balance"] is None and cont_balance is not None:
-                    current["balance"] = cont_balance
-
-                # Edge case: continuation has its OWN amount+balance
-                # (e.g. 28Apr row where continuation carries 1631.70 + 181702.15)
-                # Detect: parent already has amount AND continuation has 2 numerics
-                # AND the continuation has a meaningful description → new logical row.
-                elif (current["amount"] is not None
-                      and cont_amount is not None
-                      and cont_balance is not None
-                      and description and not is_noise(description)):
-                    logical_rows.append(current)
-                    current = {
-                        "raw_date":   current["raw_date"],
-                        "date":       current["date"],
-                        "desc_parts": [description],
-                        "amount":     cont_amount,
-                        "balance":    cont_balance,
-                    }
-
-    # Don't forget the last transaction on the page
     if current:
         logical_rows.append(current)
 
@@ -502,56 +877,18 @@ def parse_page(page) -> tuple[list[dict], str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Main parser entry point
+# Date inference pass
 # ─────────────────────────────────────────────────────────────────────────────
 
-def parse_statement(pdf_path: str) -> ParseResult:
+def _infer_dates(all_rows: list[dict]) -> None:
     """
-    Parse a digital bank statement PDF.
-
-    Returns ParseResult with all transactions normalised to:
-      { date, description, amount, type, balance, raw_date }
-
-    Raises:
-      FileNotFoundError  — path doesn't exist
-      ValueError         — scanned PDF (OCR_REQUIRED)
+    Fill missing dates in-place:
+    - day+month-only tokens: inherit year from last good row, handle year rollover
+    - completely unparseable: inherit month/year, day=01, flag date_inferred=True
     """
-    path = Path(pdf_path)
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {pdf_path}")
+    last_good_ymd: Optional[tuple[int, int, int]] = None
 
-    result = ParseResult()
-    all_raw_text = []
-    all_logical_rows: list[dict] = []
-
-    with pdfplumber.open(str(path)) as pdf:
-        result.page_count = len(pdf.pages)
-        check_digital(pdf)  # raises ValueError if scanned
-
-        for page_num, page in enumerate(pdf.pages):
-            try:
-                logical_rows, raw_text = parse_page(page)
-                all_logical_rows.extend(logical_rows)
-                all_raw_text.append(raw_text)
-            except Exception as e:
-                result.errors.append(f"Page {page_num+1}: {e}")
-                log.warning(f"Page {page_num+1} failed: {e}")
-
-    # Extract summary balances from raw text
-    full_text = "\n".join(all_raw_text)
-    summary = extract_summary(full_text)
-    result.opening_balance = summary.get("opening_balance")
-    result.closing_balance = summary.get("closing_balance")
-
-    # Fill in dates for rows where the parser couldn't build a full ISO date.
-    # Two cases — common on credit card statements where rows lack a year:
-    #   (a) raw_date parses to day+month only (e.g. "15APR"): inherit year
-    #       from the last fully-dated row, keep the real day.
-    #   (b) raw_date is unreadable entirely: inherit full month/year from
-    #       the last fully-dated row, day=01, and flag date_inferred=True
-    #       so the UI renders "Mon YYYY" instead of a fake full date.
-    last_good_ymd: Optional[tuple[int, int, int]] = None  # (year, month, day)
-    for row in all_logical_rows:
+    for row in all_rows:
         if row.get("date"):
             try:
                 dt = datetime.strptime(row["date"], "%Y-%m-%d")
@@ -561,15 +898,19 @@ def parse_statement(pdf_path: str) -> ParseResult:
                 pass
             continue
 
-        # Try to rescue day+month from the raw token before falling back
         dm = extract_day_month_no_year(row.get("raw_date", ""))
         if dm is not None and last_good_ymd is not None:
             day, month = dm
             year = last_good_ymd[0]
-            # If month rolled backwards vs the last row, assume year rolled forward
-            # (e.g. last row Dec 2023, this row 05JAN → 2024).
-            if month < last_good_ymd[1]:
-                year += 1
+            # Year rollover: if parsed month is earlier than last known month,
+            # the statement crossed a year boundary (e.g. Dec→Jan going forward,
+            # or Jan→Dec going backward for reverse-chronological statements).
+            if month > last_good_ymd[1] + 1:
+                year -= 1  # statement going backward across a year
+            elif month < last_good_ymd[1] - 1:
+                year += 1  # statement going forward across a year
+            # Clamp day to valid range (avoid day=00 from corrupted extractions)
+            day = max(1, day)
             try:
                 datetime(year, month, day)
                 row["date"] = f"{year:04d}-{month:02d}-{day:02d}"
@@ -577,38 +918,157 @@ def parse_statement(pdf_path: str) -> ParseResult:
                 last_good_ymd = (year, month, day)
                 continue
             except ValueError:
-                pass  # invalid day for month — fall through to month/year infer
+                pass
 
         if last_good_ymd is not None:
             y, m, _ = last_good_ymd
             row["date"] = f"{y:04d}-{m:02d}-01"
             row["date_inferred"] = True
         else:
-            row["date_inferred"] = False  # still blank — skipped downstream
+            row["date_inferred"] = False
 
-    # Convert logical rows → Transaction objects
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Validation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def validate_balance(result: "ParseResult") -> Optional[str]:
+    """
+    Golden rule: opening_balance + total_credits - total_debits ≈ closing_balance.
+    Returns None if OK, or a warning string if mismatch > ₹1.
+    """
+    if result.opening_balance is None or result.closing_balance is None:
+        return None
+    computed = result.opening_balance + result.total_credits - result.total_debits
+    diff = abs(computed - result.closing_balance)
+    if diff > 1.0:
+        return (
+            f"Balance mismatch ₹{diff:,.2f}: "
+            f"opening({result.opening_balance:,.2f}) + credits({result.total_credits:,.2f}) "
+            f"- debits({result.total_debits:,.2f}) = {computed:,.2f} "
+            f"≠ closing({result.closing_balance:,.2f})"
+        )
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main entry point
+# ─────────────────────────────────────────────────────────────────────────────
+
+def parse_statement(pdf_path: str) -> ParseResult:
+    """
+    Parse a digital Indian bank statement PDF.
+
+    Raises:
+      FileNotFoundError  — path doesn't exist
+      OcrRequiredError   — scanned/image PDF detected
+    """
+    path = Path(pdf_path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {pdf_path}")
+
+    result = ParseResult()
+    all_raw_text: list[str] = []
+    all_logical_rows: list[dict] = []
+
+    with pdfplumber.open(str(path)) as pdf:
+        result.page_count = len(pdf.pages)
+        check_digital(pdf)
+
+        # Bank detection from first-page text
+        first_text = pdf.pages[0].extract_text() or "" if pdf.pages else ""
+        bank = detect_bank(first_text)
+        result.bank = bank
+        log.info("Detected bank: %s", bank)
+
+        is_cc = bank in SINGLE_AMOUNT_BANKS
+        header_keywords = BANK_HEADER_KEYWORDS.get(bank, BANK_HEADER_KEYWORDS["UNKNOWN"])
+        static_zones = BANK_COLUMN_ZONES.get(bank, _GENERIC_ZONES)
+
+        # Per-page parse
+        for page_num, page in enumerate(pdf.pages):
+            try:
+                # Dynamic header detection — prefer dynamic over static.
+                # Guard: only trust the detected header if it sits in the TOP
+                # 50% of the page.  On some statements (e.g. PNB ONE) the
+                # first page has a long preamble that pushes the table header
+                # below the midpoint; the dynamic zones built from that
+                # position are misaligned because the data text wraps across
+                # what the detector thinks is the narration column.  Falling
+                # back to static zones gives correct column boundaries.
+                col_map, header_y = _find_header_row(page, header_keywords)
+                page_height = float(page.height)
+                header_in_top_half = (header_y is not None and header_y < page_height * 0.50)
+                if col_map and header_in_top_half:
+                    zones = _zones_from_col_map(col_map, float(page.width))
+                    log.debug("Page %d: dynamic zones %s (header_y=%.1f)", page_num + 1, zones, header_y)
+                else:
+                    zones = static_zones
+                    # IMPORTANT: still pass the detected header_y to parse_page
+                    # even when falling back to static zones. This ensures words
+                    # above the table (branch name, customer address on page 1)
+                    # are skipped by the header_y cutoff in parse_page.
+                    # header_y is already set from _find_header_row above.
+                    log.debug("Page %d: static zones for %s (header_y=%s)", page_num + 1, bank, header_y)
+
+                logical_rows, raw_text = parse_page(page, bank, zones, header_y, is_cc)
+                all_logical_rows.extend(logical_rows)
+                all_raw_text.append(raw_text)
+
+            except Exception as e:
+                result.errors.append(f"Page {page_num + 1}: {e}")
+                log.warning("Page %d failed: %s", page_num + 1, e)
+
+    # Summary balances
+    full_text = "\n".join(all_raw_text)
+    summary = extract_summary(full_text)
+    result.opening_balance = summary.get("opening_balance")
+    result.closing_balance = summary.get("closing_balance")
+
+    # Date inference for rows with missing/partial dates
+    _infer_dates(all_logical_rows)
+
+    # Build Transaction objects
     for row in all_logical_rows:
-        description = " ".join(p for p in row["desc_parts"] if p).strip()
-        description = re.sub(r"\s{2,}", " ", description)
+        desc = " ".join(p for p in row["desc_parts"] if p).strip()
+        desc = re.sub(r"\s{2,}", " ", desc)
 
-        amount = row["amount"]
+        debit_val   = row.get("debit")
+        credit_val  = row.get("credit")
+        amount_val  = row.get("amount")  # single-amount-column banks
+        balance_val = row.get("balance")
+        suffix      = row.get("cr_dr_suffix")
+
+        # Determine amount + type
+        if is_cc or bank in SINGLE_AMOUNT_BANKS:
+            amount = amount_val
+            tx_type = classify_type(desc, None, None, suffix, bank)
+        else:
+            # Dual-column debit/credit
+            if credit_val and (not debit_val or debit_val == 0):
+                amount  = credit_val
+                tx_type = "credit"
+            elif debit_val and (not credit_val or credit_val == 0):
+                amount  = debit_val
+                tx_type = "debit"
+            else:
+                # Both present or both absent — fall back to keyword classification
+                amount  = debit_val or credit_val or amount_val
+                tx_type = classify_type(desc, debit_val, credit_val, suffix, bank)
+
         if amount is None or amount <= 0:
-            # Row has no parseable amount — skip (likely a header remnant)
-            log.debug(f"Skipping row with no amount: {description[:60]}")
+            log.debug("Skipping row with no amount: %s", desc[:60])
             continue
-
-        if is_noise(description) and amount < 10:
+        if _is_noise(desc) and amount < 10:
             continue
-
-        tx_type = classify_type(description)
 
         tx = Transaction(
-            date          = row["date"],
-            description   = description,
+            date          = row.get("date", ""),
+            description   = desc,
             amount        = amount,
             type          = tx_type,
-            balance       = row["balance"],
-            raw_date      = row["raw_date"],
+            balance       = balance_val,
+            raw_date      = row.get("raw_date", ""),
             date_inferred = bool(row.get("date_inferred")),
         )
         result.transactions.append(tx)
@@ -618,40 +1078,35 @@ def parse_statement(pdf_path: str) -> ParseResult:
         else:
             result.total_debits += amount
 
+    # Balance validation
+    warn = validate_balance(result)
+    if warn:
+        result.errors.append(f"WARN: {warn}")
+        log.warning(warn)
+
     log.info(
-        f"Parsed {len(result.transactions)} transactions "
-        f"({result.page_count} pages) | "
-        f"credits={result.total_credits:,.2f} debits={result.total_debits:,.2f}"
+        "Parsed %d transactions (%d pages, bank=%s) | credits=%.2f debits=%.2f",
+        len(result.transactions), result.page_count, result.bank,
+        result.total_credits, result.total_debits,
     )
     return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Compatibility Wrapper
+# Compatibility wrapper
 # ─────────────────────────────────────────────────────────────────────────────
 
 def parse_transactions(file_content: bytes) -> dict:
-    """
-    Compatibility wrapper for routes_finance.py.
-    Accepts bytes, parses via temporary file, and returns a dict with 'transactions' and 'meta'.
-    """
-    import tempfile
+    """Compatibility wrapper for routes_finance.py. Accepts bytes → returns dict."""
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp.write(file_content)
         tmp.flush()
         tmp_path = tmp.name
-
     try:
         result = parse_statement(tmp_path)
         res_dict = result.to_dict()
-        # Ensure 'transactions' is a list of dicts as expected by routes_finance.py
-        # result.to_dict() already contains 'transactions' via asdict(self)
-        return {
-            "transactions": res_dict.get("transactions", []),
-            "meta": res_dict
-        }
+        return {"transactions": res_dict.get("transactions", []), "meta": res_dict}
     finally:
-        # Cleanup temporary file
         p = Path(tmp_path)
         if p.exists():
             p.unlink()
@@ -661,22 +1116,20 @@ def parse_transactions(file_content: bytes) -> dict:
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 if __name__ == "__main__":
-    import sys, json
+    import sys
 
     if len(sys.argv) < 2:
         print("Usage: python digital_deterministic_parser.py <path_to_pdf> [--json]")
         sys.exit(1)
 
-    pdf_path   = sys.argv[1]
-    json_mode  = "--json" in sys.argv
+    pdf_path  = sys.argv[1]
+    json_mode = "--json" in sys.argv
 
     try:
         result = parse_statement(pdf_path)
-    except ValueError as e:
-        print(f"ERROR: {e}")
-        sys.exit(2)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, OcrRequiredError) as e:
         print(f"ERROR: {e}")
         sys.exit(1)
 

@@ -16,9 +16,22 @@ export const generateId = () => {
 // Returns a valid Date or null. Callers must handle null (show "Unknown")
 // rather than silently stamping today — that's what masked the parser miss
 // where every parsed row displayed 4/23/2026.
+//
+// IMPORTANT: bare ISO date strings like "2026-04-30" are parsed by the JS
+// Date constructor as UTC midnight, which shifts them back by one calendar day
+// for any timezone west of UTC. We detect that pattern and parse as LOCAL time
+// instead, so date comparisons in chart filters are always correct.
 export const normalizeDate = (d) => {
   if (!d) return null;
-  if (d.seconds) return new Date(d.seconds * 1000); // Handle Firestore Timestamp
+  if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+  if (d.seconds) return new Date(d.seconds * 1000); // Firestore Timestamp
+
+  // Pure date strings "YYYY-MM-DD" — parse as local midnight to avoid UTC shift
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [year, month, day] = d.split('-').map(Number);
+    return new Date(year, month - 1, day); // local midnight — no UTC offset
+  }
+
   const parsed = new Date(d);
   return isNaN(parsed.getTime()) ? null : parsed;
 };

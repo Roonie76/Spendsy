@@ -1,0 +1,79 @@
+{
+  "total": 456,
+  "winners": 0,
+  "neg_stored": 8,
+  "errors": 448,
+  "elapsed_s": 0.1,
+  "by_category": {
+    "appliances": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "gadgets": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "vehicle": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "short_trip": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "long_vacation": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "medical": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "tax_saving": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "home_buying": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "education": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "wedding": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "retirement": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "credit_repair": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "salary_planning": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    },
+    "side_income": {
+      "runs": 32,
+      "winners": 0,
+      "errors": 32
+    }
+  }
+}
