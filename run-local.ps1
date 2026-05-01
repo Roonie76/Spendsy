@@ -132,6 +132,13 @@ foreach ($svc in $healthChecks) {
 Write-Status "Giving app services 5s to run migrations..." -Color Gray
 Start-Sleep -Seconds 5
 
+# 4b. Restart gateway so Nginx picks up fresh DNS for all backend services
+# (Nginx caches DNS at startup; if the gateway started before services settled,
+# it may route to stale IPs.)
+Write-Status "Restarting gateway for fresh DNS..." -Color Gray
+docker restart spendsy_gateway 2>$null
+Write-Status "Gateway restarted" -Color Green
+
 # 5. Database Maintenance
 Write-Step "Database Maintenance"
 try {
