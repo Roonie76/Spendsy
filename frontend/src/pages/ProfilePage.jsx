@@ -39,7 +39,7 @@ const Pill = ({ label, color = "indigo" }) => {
 
 // ─── 1. HERO ─────────────────────────────────────────────────────────────────
 
-const HeroSection = ({ user, setActiveTab }) => {
+const HeroSection = ({ user, setActiveTab, onLogout }) => {
   const initials = [user?.first_name, user?.last_name].filter(Boolean).map(n => n[0]).join("").toUpperCase() || (user?.username || "U")[0].toUpperCase();
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || "User";
   return (
@@ -67,14 +67,25 @@ const HeroSection = ({ user, setActiveTab }) => {
             </div>
           </div>
         </div>
-        <motion.button
-          whileHover={{ rotate: 90, scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setActiveTab(TABS.SETTINGS)}
-          className="shrink-0 p-2.5 bg-white/5 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all"
-        >
-          <SettingsIcon className="w-5 h-5" />
-        </motion.button>
+        <div className="flex gap-2 shrink-0">
+          <motion.button
+            whileHover={{ rotate: 90, scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setActiveTab(TABS.SETTINGS)}
+            className="p-2.5 bg-white/5 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all"
+          >
+            <SettingsIcon className="w-5 h-5" />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onLogout}
+            className="p-2.5 bg-rose-500/10 rounded-2xl border border-rose-500/20 text-rose-400 hover:text-white hover:bg-rose-500 transition-all flex items-center gap-2"
+          >
+            <ExternalLink className="w-4 h-4" />
+            <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">Sign Out</span>
+          </motion.button>
+        </div>
       </div>
       <div className="relative z-10 mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] text-slate-600">
@@ -618,6 +629,7 @@ const ProfilePage = ({
   triggerConfirm,
   setActiveTab,
   showToast,
+  onLogout,
 }) => (
   <motion.div
     initial={{ opacity: 0, y: 16 }}
@@ -625,7 +637,7 @@ const ProfilePage = ({
     transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
     className="space-y-4 pb-32"
   >
-    <HeroSection user={user} setActiveTab={setActiveTab} />
+    <HeroSection user={user} setActiveTab={setActiveTab} onLogout={onLogout} />
     <QuickStatsBar wealthItems={wealthItems} transactions={transactions} settings={settings} />
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <HealthScoreSection wealthItems={wealthItems} settings={settings} />

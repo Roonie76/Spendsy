@@ -344,6 +344,10 @@ export default function App() {
     clearStoredAuth();
   }, [initialDefaultProfile]);
 
+  const handleLogout = () => {
+    triggerConfirm("Are you sure you want to sign out?", clearClientSession);
+  };
+
   const handleUnauthorized = useCallback(
     (message = "Session expired. Please sign in again.") => {
       if (unauthorizedHandledRef.current) return;
