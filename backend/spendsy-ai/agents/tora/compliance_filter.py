@@ -178,7 +178,8 @@ class ComplianceFilter:
                                      user_profile.get("income") or 0)
                 loans        = user_profile.get("loans") or []
                 existing_emi = sum(
-                    float(l.get("emi", 0) or 0)
+                    # finance-context returns emi_amount; MCP may return emi — check both
+                    float(l.get("emi_amount") or l.get("emi") or 0)
                     for l in loans if isinstance(l, dict)
                 )
                 if income > 0 and existing_emi > 0 and (existing_emi / income) > 0.40:

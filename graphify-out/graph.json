@@ -5885,108 +5885,108 @@
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L507",
-      "id": "digital_deterministic_parser_rationale_507",
       "community": 8,
-      "norm_label": "pull (day, month) from a no-year token like '15apr' or '15/04'."
+      "norm_label": "pull (day, month) from a no-year token like '15apr' or '15/04'.",
+      "id": "digital_deterministic_parser_rationale_507"
     },
     {
       "label": "Scan page words for a row that contains \u2265 (len(keywords)-1) of the     header ke",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L533",
-      "id": "digital_deterministic_parser_rationale_533",
       "community": 8,
-      "norm_label": "scan page words for a row that contains \u2265 (len(keywords)-1) of the     header ke"
+      "norm_label": "scan page words for a row that contains \u2265 (len(keywords)-1) of the     header ke",
+      "id": "digital_deterministic_parser_rationale_533"
     },
     {
       "label": "Convert header word positions into (x0, x1) zones with \u00b15pt tolerance.     Each",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L572",
-      "id": "digital_deterministic_parser_rationale_572",
       "community": 8,
-      "norm_label": "convert header word positions into (x0, x1) zones with \u00b15pt tolerance.     each"
+      "norm_label": "convert header word positions into (x0, x1) zones with \u00b15pt tolerance.     each",
+      "id": "digital_deterministic_parser_rationale_572"
     },
     {
       "label": "Return zone name whose x-range contains x0, or None.      Uses a 2pt right-side",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L613",
-      "id": "digital_deterministic_parser_rationale_613",
       "community": 8,
-      "norm_label": "return zone name whose x-range contains x0, or none.      uses a 2pt right-side"
+      "norm_label": "return zone name whose x-range contains x0, or none.      uses a 2pt right-side",
+      "id": "digital_deterministic_parser_rationale_613"
     },
     {
       "label": "Determine credit vs debit.     Priority: explicit DR/CR suffix > separate debit/",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L640",
-      "id": "digital_deterministic_parser_rationale_640",
       "community": 8,
-      "norm_label": "determine credit vs debit.     priority: explicit dr/cr suffix > separate debit/"
+      "norm_label": "determine credit vs debit.     priority: explicit dr/cr suffix > separate debit/",
+      "id": "digital_deterministic_parser_rationale_640"
     },
     {
       "label": "Extract opening / closing balance from raw page text.      Handles multiple stat",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L662",
-      "id": "digital_deterministic_parser_rationale_662",
       "community": 8,
-      "norm_label": "extract opening / closing balance from raw page text.      handles multiple stat"
+      "norm_label": "extract opening / closing balance from raw page text.      handles multiple stat",
+      "id": "digital_deterministic_parser_rationale_662"
     },
     {
       "label": "Parse one page into logical transaction rows.      Returns (logical_rows, raw_pa",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L727",
-      "id": "digital_deterministic_parser_rationale_727",
       "community": 8,
-      "norm_label": "parse one page into logical transaction rows.      returns (logical_rows, raw_pa"
+      "norm_label": "parse one page into logical transaction rows.      returns (logical_rows, raw_pa",
+      "id": "digital_deterministic_parser_rationale_727"
     },
     {
       "label": "Fill missing dates in-place:     - day+month-only tokens: inherit year from last",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L884",
-      "id": "digital_deterministic_parser_rationale_884",
       "community": 8,
-      "norm_label": "fill missing dates in-place:     - day+month-only tokens: inherit year from last"
+      "norm_label": "fill missing dates in-place:     - day+month-only tokens: inherit year from last",
+      "id": "digital_deterministic_parser_rationale_884"
     },
     {
       "label": "Golden rule: opening_balance + total_credits - total_debits \u2248 closing_balance.",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L936",
-      "id": "digital_deterministic_parser_rationale_936",
       "community": 8,
-      "norm_label": "golden rule: opening_balance + total_credits - total_debits \u2248 closing_balance."
+      "norm_label": "golden rule: opening_balance + total_credits - total_debits \u2248 closing_balance.",
+      "id": "digital_deterministic_parser_rationale_936"
     },
     {
       "label": "Parse a digital Indian bank statement PDF.      Raises:       FileNotFoundError",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L959",
-      "id": "digital_deterministic_parser_rationale_959",
       "community": 8,
-      "norm_label": "parse a digital indian bank statement pdf.      raises:       filenotfounderror"
+      "norm_label": "parse a digital indian bank statement pdf.      raises:       filenotfounderror",
+      "id": "digital_deterministic_parser_rationale_959"
     },
     {
       "label": "Compatibility wrapper for routes_finance.py. Accepts bytes \u2192 returns dict.",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L1100",
-      "id": "digital_deterministic_parser_rationale_1100",
       "community": 8,
-      "norm_label": "compatibility wrapper for routes_finance.py. accepts bytes \u2192 returns dict."
+      "norm_label": "compatibility wrapper for routes_finance.py. accepts bytes \u2192 returns dict.",
+      "id": "digital_deterministic_parser_rationale_1100"
     },
     {
       "label": "# IMPORTANT: still pass the detected header_y to parse_page",
       "file_type": "rationale",
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L1007",
-      "id": "digital_deterministic_parser_rationale_1007",
       "community": 8,
-      "norm_label": "# important: still pass the detected header_y to parse_page"
+      "norm_label": "# important: still pass the detected header_y to parse_page",
+      "id": "digital_deterministic_parser_rationale_1007"
     },
     {
       "label": "__init__.py",
@@ -18916,7 +18916,7 @@
       "label": "QuickStatsBar()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L94",
+      "source_location": "L105",
       "id": "profilepage_quickstatsbar",
       "community": 12,
       "norm_label": "quickstatsbar()"
@@ -18925,7 +18925,7 @@
       "label": "HealthScoreSection()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L132",
+      "source_location": "L143",
       "id": "profilepage_healthscoresection",
       "community": 12,
       "norm_label": "healthscoresection()"
@@ -18934,7 +18934,7 @@
       "label": "StatusDot()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L226",
+      "source_location": "L237",
       "id": "profilepage_statusdot",
       "community": 12,
       "norm_label": "statusdot()"
@@ -18943,7 +18943,7 @@
       "label": "ConnectionsHub()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L232",
+      "source_location": "L243",
       "id": "profilepage_connectionshub",
       "community": 12,
       "norm_label": "connectionshub()"
@@ -18952,7 +18952,7 @@
       "label": "PortfolioSnapshot()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L353",
+      "source_location": "L364",
       "id": "profilepage_portfoliosnapshot",
       "community": 12,
       "norm_label": "portfoliosnapshot()"
@@ -18961,7 +18961,7 @@
       "label": "NavShortcuts()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L426",
+      "source_location": "L437",
       "id": "profilepage_navshortcuts",
       "community": 12,
       "norm_label": "navshortcuts()"
@@ -18970,7 +18970,7 @@
       "label": "ToraActivity()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L471",
+      "source_location": "L482",
       "id": "profilepage_toraactivity",
       "community": 12,
       "norm_label": "toraactivity()"
@@ -18979,7 +18979,7 @@
       "label": "AccountCompleteness()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L528",
+      "source_location": "L539",
       "id": "profilepage_accountcompleteness",
       "community": 12,
       "norm_label": "accountcompleteness()"
@@ -18988,7 +18988,7 @@
       "label": "TierBanner()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L582",
+      "source_location": "L593",
       "id": "profilepage_tierbanner",
       "community": 12,
       "norm_label": "tierbanner()"
@@ -18997,7 +18997,7 @@
       "label": "ProfilePage()",
       "file_type": "code",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L612",
+      "source_location": "L623",
       "id": "profilepage_profilepage",
       "community": 12,
       "norm_label": "profilepage()"
@@ -57760,9 +57760,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_507",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_507",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57772,9 +57772,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_533",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_533",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57784,9 +57784,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_572",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_572",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57796,9 +57796,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_613",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_613",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57808,9 +57808,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_640",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_640",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57820,9 +57820,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_662",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_662",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57832,9 +57832,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_727",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_727",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57844,9 +57844,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_884",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_884",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57856,9 +57856,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_936",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_936",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57868,9 +57868,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_959",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_959",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57880,9 +57880,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_1100",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_1100",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "uses",
@@ -57892,9 +57892,9 @@
       "weight": 0.8,
       "_src": "digital_deterministic_parser_rationale_1007",
       "_tgt": "ocr_detector_ocrrequirederror",
+      "confidence_score": 0.5,
       "source": "digital_deterministic_parser_rationale_1007",
-      "target": "ocr_detector_ocrrequirederror",
-      "confidence_score": 0.5
+      "target": "ocr_detector_ocrrequirederror"
     },
     {
       "relation": "contains",
@@ -58298,8 +58298,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_505",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_505",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_505"
@@ -58310,8 +58310,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_531",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_531",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_531"
@@ -58322,8 +58322,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_570",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_570",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_570"
@@ -58334,8 +58334,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_596",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_596",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_596"
@@ -58346,8 +58346,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_614",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_614",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_614"
@@ -58358,8 +58358,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_673",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_673",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_673"
@@ -58370,8 +58370,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_823",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_823",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_823"
@@ -58382,8 +58382,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_868",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_868",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_868"
@@ -58394,8 +58394,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_891",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_891",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_891"
@@ -58406,8 +58406,8 @@
       "source_file": "backend\\finance-service\\app\\services\\parser\\digital_deterministic_parser.py",
       "source_location": "L39",
       "weight": 0.8,
-      "_src": "digital_deterministic_parser_rationale_1019",
-      "_tgt": "ocr_detector_ocrrequirederror",
+      "_src": "ocr_detector_ocrrequirederror",
+      "_tgt": "digital_deterministic_parser_rationale_1019",
       "confidence_score": 0.5,
       "source": "ocr_detector_ocrrequirederror",
       "target": "digital_deterministic_parser_rationale_1019"
@@ -88956,7 +88956,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L94",
+      "source_location": "L105",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_quickstatsbar",
@@ -88968,7 +88968,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L132",
+      "source_location": "L143",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_healthscoresection",
@@ -88980,7 +88980,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L226",
+      "source_location": "L237",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_statusdot",
@@ -88992,7 +88992,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L232",
+      "source_location": "L243",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_connectionshub",
@@ -89004,7 +89004,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L353",
+      "source_location": "L364",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_portfoliosnapshot",
@@ -89016,7 +89016,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L426",
+      "source_location": "L437",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_navshortcuts",
@@ -89028,7 +89028,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L471",
+      "source_location": "L482",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_toraactivity",
@@ -89040,7 +89040,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L528",
+      "source_location": "L539",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_accountcompleteness",
@@ -89052,7 +89052,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L582",
+      "source_location": "L593",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_tierbanner",
@@ -89064,7 +89064,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L612",
+      "source_location": "L623",
       "weight": 1.0,
       "_src": "frontend_src_pages_profilepage_jsx",
       "_tgt": "profilepage_profilepage",
@@ -89076,7 +89076,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L110",
+      "source_location": "L121",
       "weight": 1.0,
       "_src": "profilepage_quickstatsbar",
       "_tgt": "profilepage_fmt",
@@ -89088,7 +89088,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L373",
+      "source_location": "L384",
       "weight": 1.0,
       "_src": "profilepage_portfoliosnapshot",
       "_tgt": "profilepage_fmt",
@@ -89100,7 +89100,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "frontend\\src\\pages\\ProfilePage.jsx",
-      "source_location": "L431",
+      "source_location": "L442",
       "weight": 1.0,
       "_src": "profilepage_navshortcuts",
       "_tgt": "profilepage_fmt",

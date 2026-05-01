@@ -66,8 +66,11 @@ def monthly_spend(user_id: int, month: str) -> str:
     try:
         transactions = call_finance_internal("transactions", user_id, {"limit": 1000})
         total = sum(
-            t["amount"] for t in transactions 
-            if t["type"] == "expense" and t["date"].startswith(month)
+            t["amount"] for t in transactions
+            if t["type"] == "expense"
+            and t.get("date") not in (None, "")      # guard None AND empty string
+            and not t.get("date_inferred", False)    # exclude inferred dates — unreliable
+            and t["date"].startswith(month)
         )
         return json.dumps({"month": month, "total_spend": total}, indent=2)
     except Exception as e:
@@ -80,7 +83,9 @@ def spending_by_category(user_id: int) -> str:
         transactions = call_finance_internal("transactions", user_id, {"limit": 1000})
         categories = {}
         for t in transactions:
-            if t["type"] == "expense":
+            if (t["type"] == "expense"
+                    and t.get("date") not in (None, "")
+                    and not t.get("date_inferred", False)):
                 cat = t.get("category") or "Uncategorized"
                 categories[cat] = categories.get(cat, 0) + t["amount"]
         return json.dumps(categories, indent=2)
@@ -94,7 +99,9 @@ def top_merchants(user_id: int, limit: int = 5) -> str:
         transactions = call_finance_internal("transactions", user_id, {"limit": 1000})
         merchants = {}
         for t in transactions:
-            if t["type"] == "expense":
+            if (t["type"] == "expense"
+                    and t.get("date") not in (None, "")
+                    and not t.get("date_inferred", False)):
                 title = t.get("title") or "Unknown"
                 merchants[title] = merchants.get(title, 0) + t["amount"]
         
@@ -150,8 +157,10 @@ def detect_duplicate_transactions(user_id: int) -> str:
         duplicates = []
         
         for t in transactions:
+            if t.get("date") in (None, ""):
+                continue  # skip dateless rows — can't reliably fingerprint
             # sha256(user_id + date + amount + normalized_title)
-            raw = f"{user_id}|{t['date']}|{t['amount']}|{t['title'].lower().strip()}"
+            raw = f"{user_id}|{t['date']}|{t['amount']}|{(t.get('title') or '').lower().strip()}"
             fp = hashlib.sha256(raw.encode()).hexdigest()
             
             if fp in fingerprints:
@@ -180,18 +189,22 @@ def query_spending_data(user_id: int, query_type: str) -> str:
         if query_type == "monthly_category_totals":
             result = {}
             for t in transactions:
-                if t["type"] == "expense":
+                if (t["type"] == "expense"
+                        and t.get("date") not in (None, "")
+                        and not t.get("date_inferred", False)):
                     month = t["date"][:7]
                     cat = t.get("category") or "Uncategorized"
                     result[month] = result.get(month, {})
                     result[month][cat] = result[month].get(cat, 0) + t["amount"]
             return json.dumps(result, indent=2)
-            
+
         elif query_type == "merchant_statistics":
             stats = {}
             for t in transactions:
-                if t["type"] == "expense":
-                    m = t["title"]
+                if (t["type"] == "expense"
+                        and t.get("date") not in (None, "")
+                        and not t.get("date_inferred", False)):
+                    m = t.get("title") or "Unknown"
                     if m not in stats:
                         stats[m] = {"count": 0, "total": 0.0, "avg": 0.0}
                     stats[m]["count"] += 1
@@ -220,7 +233,9 @@ def spending_trend_analysis(user_id: int) -> str:
         transactions = call_finance_internal("transactions", user_id, {"limit": 1000})
         monthly = {}
         for t in transactions:
-            if t["type"] == "expense":
+            if (t["type"] == "expense"
+                    and t.get("date") not in (None, "")
+                    and not t.get("date_inferred", False)):
                 m = t["date"][:7]
                 monthly[m] = monthly.get(m, 0) + t["amount"]
                 

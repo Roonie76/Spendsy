@@ -1,7 +1,6 @@
 import logging
 import asyncio
-from mcp_connector import mcp_connector
-from tora.live_fetchers.browser_client import obscura_client
+from agents.tora.live_fetchers.browser_client import obscura_client
 
 logger = logging.getLogger(__name__)
 

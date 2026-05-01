@@ -46,7 +46,10 @@ def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 1
     analysis_items = transactions[:max_items * 2] 
     
     for tx in analysis_items:
-        amt = abs(float(tx.get("amount", 0)))
+        try:
+            amt = abs(float(tx.get("amount") or 0))
+        except (TypeError, ValueError):
+            amt = 0.0
         if amt > 0:
             all_amounts.append(amt)
 
@@ -63,7 +66,10 @@ def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 1
     # Pass 1: Find transactions relevant to the query or important keywords
     for tx in analysis_items:
         title = str(tx.get("title", "")).lower()
-        amt = abs(float(tx.get("amount", 0)))
+        try:
+            amt = abs(float(tx.get("amount") or 0))
+        except (TypeError, ValueError):
+            amt = 0.0
         
         # Is it relevant to what the user asked?
         is_query_relevant = any(term in title for term in query_terms if len(term) > 3)
@@ -78,7 +84,10 @@ def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 1
     # Pass 2: Add large outliers if we have space
     if len(notable_txs) < 8:
         for tx in analysis_items:
-            amt = abs(float(tx.get("amount", 0)))
+            try:
+                amt = abs(float(tx.get("amount") or 0))
+            except (TypeError, ValueError):
+                amt = 0.0
             if amt > threshold and tx.get("id") not in seen_ids:
                 notable_txs.append(tx)
                 seen_ids.add(tx.get("id"))
@@ -86,8 +95,11 @@ def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 1
 
     # Build category summary for the recent window
     for tx in transactions[:max_items]:
-        cat = tx.get("category", "other")
-        amt = float(tx.get("amount", 0))
+        cat = tx.get("category") or "other"
+        try:
+            amt = float(tx.get("amount") or 0)
+        except (TypeError, ValueError):
+            amt = 0.0
         cat_totals[cat] = cat_totals.get(cat, 0) + amt
         cat_counts[cat] = cat_counts.get(cat, 0) + 1
 
@@ -102,14 +114,20 @@ def compress_transactions(transactions: List[Dict[str, Any]], max_items: int = 1
 
     if notable_txs:
         # Sort notable by relevance (query matches first) then amount
+        def _safe_amt(tx: dict) -> float:
+            try:
+                return abs(float(tx.get("amount") or 0))
+            except (TypeError, ValueError):
+                return 0.0
+
         notable_txs.sort(key=lambda x: (
             any(term in str(x.get("title", "")).lower() for term in query_terms if len(term) > 3),
-            abs(float(x.get("amount", 0)))
+            _safe_amt(x)
         ), reverse=True)
-        
+
         result += "Notable: "
         result += ", ".join(
-            f"{tx.get('title', '?')} {'+' if tx.get('type')=='income' else '-'}₹{abs(float(tx.get('amount',0))):,.0f}"
+            f"{tx.get('title', '?')} {'+' if tx.get('type')=='income' else '-'}₹{_safe_amt(tx):,.0f}"
             for tx in notable_txs[:6] # Show up to 6 notable items
         )
         result += "\n"

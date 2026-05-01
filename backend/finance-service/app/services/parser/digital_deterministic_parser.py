@@ -902,13 +902,15 @@ def _infer_dates(all_rows: list[dict]) -> None:
         if dm is not None and last_good_ymd is not None:
             day, month = dm
             year = last_good_ymd[0]
-            # Year rollover: if parsed month is earlier than last known month,
-            # the statement crossed a year boundary (e.g. Dec→Jan going forward,
-            # or Jan→Dec going backward for reverse-chronological statements).
-            if month > last_good_ymd[1] + 1:
-                year -= 1  # statement going backward across a year
-            elif month < last_good_ymd[1] - 1:
-                year += 1  # statement going forward across a year
+            # Year rollover: handle statements that cross a Dec→Jan boundary.
+            # Most Indian bank statements are oldest-first (forward chronological).
+            # If the current month is January (1) and last seen was December (12) →
+            # year has ticked forward. The reverse (Dec after Jan) means backward stmt.
+            last_month = last_good_ymd[1]
+            if last_month == 12 and month == 1:
+                year += 1  # crossed Dec→Jan going forward
+            elif last_month == 1 and month == 12:
+                year -= 1  # crossed Jan→Dec going backward (reverse-chron stmt)
             # Clamp day to valid range (avoid day=00 from corrupted extractions)
             day = max(1, day)
             try:

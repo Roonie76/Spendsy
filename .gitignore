@@ -70,3 +70,7 @@ brain/
 graphify-out/cache/
 graphify-out/manifest.json
 graphify-out/cost.json
+
+# Local TORA state
+**/_chromadb/
+backend/spendsy-ai/vault/traces/

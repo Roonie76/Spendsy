@@ -45,29 +45,38 @@ async def trigger_reconciliation(
 def list_transactions(
     request: Request,
     user_id: int,
-    limit: int = 100,
+    limit: int = 500,   # raised: MCP needs full history for date-based queries
     offset: int = 0,
     db: Session = Depends(get_db),
     _: None = Depends(verify_internal_api_key),
 ):
     transactions = (
         db.query(Transaction)
-        .filter(Transaction.user_id == user_id)
+        .filter(
+            Transaction.user_id == user_id,
+            Transaction.is_transfer.is_(False),   # exclude inter-account transfers
+        )
         .order_by(Transaction.date.desc(), Transaction.id.desc())
         .limit(limit)
         .offset(offset)
         .all()
     )
-    
+
     data = [
         {
             "id": tx.id,
             "title": tx.title,
+            "raw_description": tx.raw_description or tx.title,
             "amount": float(tx.amount),
             "type": tx.type,
             "category": tx.category,
-            "date": tx.date.isoformat(),
+            # Guard against NULL dates from legacy rows
+            "date": tx.date.isoformat() if tx.date else None,
+            "date_inferred": bool(getattr(tx, "date_inferred", False)),
             "is_recurring": tx.is_recurring,
+            "account_type": tx.account_type,
+            "source": tx.source,
+            "balance": float(tx.balance) if tx.balance is not None else None,
         }
         for tx in transactions
     ]
@@ -261,14 +270,18 @@ def finance_context(
                 "amount": float(tx.amount),
                 "type": tx.type,
                 "category": tx.category,
-                "date": tx.date.isoformat(),
+                # Guard NULL dates — dateless rows are excluded from aggregations in TORA
+                "date": tx.date.isoformat() if tx.date else None,
+                "date_inferred": bool(getattr(tx, "date_inferred", False)),
                 "balance": float(tx.balance) if tx.balance is not None else None,
                 "source": tx.source,
                 "is_recurring": tx.is_recurring,
+                "is_transfer": bool(tx.is_transfer),
                 "reconciliation_flags": tx.reconciliation_flags or [],
                 "created_at": tx.created_at.isoformat() if tx.created_at else None,
             }
             for tx in recent_transactions
+            if not tx.is_transfer  # exclude inter-account transfers from TORA context
         ],
         "monthly_trends": monthly_trends,
         "generated_at": datetime.utcnow().isoformat() + "Z",

@@ -36,7 +36,7 @@ from .tora_personality import (
 )
 from .llm_router import call_llm
 from .tools.tool_registry import get_tool_registry
-from mcp_connector import fetch_context_via_mcp
+from mcp_connector import fetch_context_via_mcp, mcp_connector
 from vault.vault_sync import sync_vault_after_session, read_vault_context
 from .tora import (
     resolve_and_fetch,
@@ -101,16 +101,46 @@ except ImportError:
 async def fetch_financial_summary(user_id: int) -> Dict[str, Any]:
     """
     Fetch a complete financial snapshot of the user via the MCP data pipeline.
+
+    Two concurrent calls:
+      1. get_full_financial_context — profile, summary, loans, goals, plans,
+         wealth, trends, and a 50-row recent_transactions snapshot.
+      2. get_transactions (limit=500) — full transaction history for date-based
+         queries (monthly spend, category breakdown, trend analysis).
+
+    The full transaction list replaces the 50-row snapshot so TORA has enough
+    rows to answer "how much did I spend in March?" correctly.
     """
     logger.info(f"Fetching financial summary for user {user_id} via MCP")
-    context = await fetch_context_via_mcp(user_id)
-    if not context:
-        return {}
 
-    # Extract required fields mapping to the expected structure
+    # Fire both MCP calls concurrently to minimise latency.
+    context, full_txns_raw = await asyncio.gather(
+        fetch_context_via_mcp(user_id),
+        mcp_connector.call_tool("get_transactions", {"user_id": user_id, "limit": 500}),
+        return_exceptions=True,
+    )
+
+    # Treat exceptions as empty — the caller falls back gracefully.
+    if isinstance(context, Exception) or not context:
+        logger.warning("finance-context MCP call failed for user %s: %s", user_id, context)
+        context = {}
+    if isinstance(full_txns_raw, Exception):
+        logger.warning("get_transactions MCP call failed for user %s: %s", user_id, full_txns_raw)
+        full_txns_raw = []
+
+    # get_transactions returns a JSON string (the tool returns json.dumps(...))
+    if isinstance(full_txns_raw, str):
+        try:
+            full_txns_raw = json.loads(full_txns_raw)
+        except (json.JSONDecodeError, TypeError):
+            full_txns_raw = []
+
+    # Use full list if available, else fall back to the 50-row snapshot.
+    full_transactions: list = full_txns_raw if isinstance(full_txns_raw, list) and full_txns_raw else context.get("recent_transactions", [])
+
     summary = context.get("summary", {})
     profile = context.get("profile", {})
-    
+
     return {
         "monthly_income": profile.get("monthlyIncome", 0) or summary.get("income", 0),
         "monthly_budget": profile.get("monthlyBudget", 0),
@@ -121,7 +151,8 @@ async def fetch_financial_summary(user_id: int) -> Dict[str, Any]:
         "credit_cards": context.get("credit_cards", []),
         "goals": context.get("goals", []),
         "plans": context.get("plans", []),
-        "recent_transactions": context.get("recent_transactions", []),
+        # Full 500-row list — TORA uses this for all date/category aggregations.
+        "recent_transactions": full_transactions,
         "monthly_trends": context.get("monthly_trends", []),
     }
 
@@ -234,11 +265,19 @@ def sanitize_financial_data(summary: Dict[str, Any], user_tier: str = "free") ->
     # Clean transactions (handling based on tier)
     clean_txs = []
     for tx in clean_summary.get("recent_transactions", []):
+        # Always preserve date + date_inferred — TORA aggregation code needs
+        # them to filter out unreliable inferred dates and build monthly buckets.
+        try:
+            amount_val = float(tx.get("amount") or 0)
+        except (TypeError, ValueError):
+            amount_val = 0.0  # skip malformed amounts silently rather than crashing
         clean_tx = {
-            "amount": float(tx.get("amount", 0)),
+            "amount": amount_val,
             "type": tx.get("type", "unknown"),
             "category": tx.get("category", "unknown"),
-            "is_recurring": tx.get("is_recurring", False)
+            "date": tx.get("date"),                          # None for dateless rows
+            "date_inferred": bool(tx.get("date_inferred", False)),
+            "is_recurring": tx.get("is_recurring", False),
         }
         if expose_transaction_titles:
             clean_tx["title"] = tx.get("title", "")
@@ -435,16 +474,23 @@ def _summarize_trends(trends: List[Dict[str, Any]]) -> str:
 
     latest_cats = latest.get("by_category") or {}
     prior_cats = prior.get("by_category") or {}
-    top_cats = sorted(latest_cats.items(), key=lambda kv: float(kv[1] or 0), reverse=True)[:3]
+
+    def _safe_float(val: Any, default: float = 0.0) -> float:
+        try:
+            return float(val or 0)
+        except (TypeError, ValueError):
+            return default
+
+    top_cats = sorted(latest_cats.items(), key=lambda kv: _safe_float(kv[1]), reverse=True)[:3]
     if top_cats:
         lines.append("Top categories this month:")
         for cat, amt in top_cats:
-            lines.append(f"    • {cat}: ₹{float(amt or 0):,.0f}")
+            lines.append(f"    • {cat}: ₹{_safe_float(amt):,.0f}")
 
     anomalies = []
     for cat, now_amt in latest_cats.items():
-        now_f = float(now_amt or 0)
-        then_f = float(prior_cats.get(cat, 0) or 0)
+        now_f = _safe_float(now_amt)
+        then_f = _safe_float(prior_cats.get(cat, 0))
         if then_f <= 0:
             continue
         delta = (now_f - then_f) / then_f
@@ -482,11 +528,19 @@ def _months_to_payoff(principal: float, payment: float, monthly_rate: float) -> 
 
 
 def _aggregate_spending_by_category(transactions: List[Dict[str, Any]]) -> List[tuple]:
-    """Sum expense transactions by category and return top entries sorted desc."""
+    """Sum expense transactions by category and return top entries sorted desc.
+
+    Skips dateless rows and date_inferred rows — both are unreliable for
+    aggregation and would inflate category totals with ghost transactions.
+    """
     totals: Dict[str, float] = {}
     for tx in transactions or []:
         if tx.get("type") != "expense":
             continue
+        if tx.get("date") in (None, ""):
+            continue  # dateless — can't place in any time window
+        if tx.get("date_inferred", False):
+            continue  # inferred date — unreliable, exclude
         cat = str(tx.get("category") or "uncategorized").strip() or "uncategorized"
         try:
             totals[cat] = totals.get(cat, 0.0) + float(tx.get("amount", 0) or 0)
@@ -662,13 +716,21 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
 
     # 1. Fetch (Now async via MCP)
     try:
-        raw_summary = await asyncio.wait_for(fetch_financial_summary(user_id), timeout=4.0)
+        # Two concurrent MCP calls inside fetch_financial_summary — give it 8s.
+        raw_summary = await asyncio.wait_for(fetch_financial_summary(user_id), timeout=8.0)
     except asyncio.TimeoutError:
         logger.warning("fetch_financial_summary timed out for user %s", user_id)
         raw_summary = {}
     _timings["fetch"] = round(time.perf_counter() - _t0, 3)
     if not raw_summary:
-        return {"error": "Could not fetch user financial summary."}
+        # Don't hard-error — let TORA respond helpfully even with no data yet
+        logger.warning("No financial summary for user %s — proceeding with empty context", user_id)
+        raw_summary = {
+            "monthly_income": 0, "monthly_expenses": 0, "account_balance": 0,
+            "monthly_surplus": 0, "monthly_budget": 0,
+            "loans": [], "credit_cards": [], "goals": [], "plans": [],
+            "recent_transactions": [], "monthly_trends": [],
+        }
         
     # 2. Simulate (tier-aware)
     simulations = run_financial_simulations(raw_summary, user_tier)
@@ -1119,8 +1181,9 @@ async def handle_user_question(user_id: int, question: str, model: str = "tora",
     except Exception:
         has_prior_conversation = False
 
-    # Short follow-ups (<= 4 words) in an active chat always go to the LLM.
-    is_short_followup = has_prior_conversation and len(question.split()) <= 4
+    # Short follow-ups (<= 6 words) in an active chat always go to the LLM.
+    # 4 was too tight — "what about my loans?" (5 words) is a real follow-up.
+    is_short_followup = has_prior_conversation and len(question.split()) <= 6
 
     # Pure greetings and small-talk are ALWAYS handled by canned replies —
     # we never want a "hi" to trigger a financial data dump, even mid-chat.

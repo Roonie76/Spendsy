@@ -1605,36 +1605,46 @@ async def parse_digital_pdf_route(
     transactions = []
     for idx, tx in enumerate(tx_list):
         amount = tx.get("amount") or 0.0
+        tx_date  = tx.get("date") or ""       # may be "" if parser failed
+        tx_desc  = tx.get("description") or ""
+        tx_type  = tx.get("type") or "debit"
+
+        # Use idx as the primary uniqueness anchor so empty dates don't
+        # produce colliding hashes across rows in the same statement.
         row_hash = hashlib.sha256(
-            f"{file_hash}|{idx}|{tx['date']}|{tx['description']}|{amount}|{tx['type']}".encode("utf-8")
+            f"{file_hash}|{idx}|{tx_date}|{tx_desc}|{amount}|{tx_type}".encode("utf-8")
         ).hexdigest()
-        
-        tx_uuid = uuid.uuid5(
-            uuid.NAMESPACE_DNS,
-            f"{tx['date']}|{tx['description'].lower()}|{amount:.2f}|{tx['type']}",
-        )
-        
-        tx_type_safe = _safe_type(tx.get("type"))
+
+        # UUID stable key — fall back to idx when date is empty so
+        # uuid5 doesn't choke on an empty namespace string.
+        uuid_seed = f"{tx_date}|{tx_desc.lower()}|{amount:.2f}|{tx_type}" if tx_date else f"{file_hash}|{idx}"
+        tx_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, uuid_seed)
+
+        tx_type_safe = _safe_type(tx_type)
+        # Pass balance through from parser — was hardcoded None before.
+        raw_balance = tx.get("balance")
+        balance_val = float(raw_balance) if raw_balance not in (None, "") else None
+
         transactions.append(
             {
                 "id": tx_uuid.hex,
-                "date": tx.get("date"),
+                "date": tx_date or None,           # None → _persist skips with review
                 "date_inferred": bool(tx.get("date_inferred", False)),
-                "title": tx.get("description"),
-                "description": tx.get("description"),
+                "title": tx_desc,
+                "description": tx_desc,
                 "amount": amount,
                 "type": tx_type_safe,
-                "category": _infer_category(tx.get("description", ""), tx_type_safe),
+                "category": _infer_category(tx_desc, tx_type_safe),
                 "source": "statement",
                 "confidence": 100,
                 "reconciliation_flags": [],
-                "bank": "unknown",
-                "balance": None,
+                "bank": parsed_result.get("meta", {}).get("bank", "unknown"),
+                "balance": balance_val,
                 "is_valid": True,
                 "statement_hash": file_hash,
                 "statement_row_hash": row_hash,
                 "account_type": normalized_account_type,
-                "reference": None
+                "reference": None,
             }
         )
 

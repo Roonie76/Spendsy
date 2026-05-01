@@ -103,23 +103,11 @@ async def fetch_user_tier(user_id: int) -> str:
     """
     Fetch user tier from finance-service internal API.
     Falls back to 'free' if unavailable.
+
+    TODO: re-enable when tier/subscription is implemented in finance-service.
     """
-    try:
-        url = f"{settings.finance_service_url}/internal/user-profile/{user_id}"
-        headers = {"X-Internal-API-Key": settings.internal_api_key}
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            response = await client.get(url, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                tier = data.get("data", {}).get("tier", "free")
-                logger.info(f"Fetched tier '{tier}' for user {user_id}")
-                return tier
-    except httpx.TimeoutException:
-        logger.warning(f"Timeout fetching tier for user {user_id}, defaulting to 'free'")
-    except Exception as e:
-        logger.warning(f"Error fetching tier for user {user_id}: {e}, defaulting to 'free'")
-    
-    return "free"  # Safe default
+    # Tier system not yet implemented — skip the finance-service call entirely.
+    return "free"
 
 
 @app.post("/ask-tora")

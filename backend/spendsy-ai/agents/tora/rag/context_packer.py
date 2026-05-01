@@ -90,14 +90,16 @@ def pack_context(
     high_live = [c for c in retrieved_chunks
                  if c.get("source") == "live_chunk" and c.get("adjusted_score", 0) >= HIGH_CONF_SCORE]
     for chunk in high_live:
-        text = chunk["text"]
+        text = chunk.get("text") or ""   # guard missing text key
+        if not text:
+            continue
         url  = chunk.get("url", "")
         block = _section(
             f"Live Data ({url[:60] or 'web'})",
             text[:min(len(text), remaining // 2)],
         )
         if len(block) > remaining:
-            break
+            break   # guard is now BEFORE append — no overflow
         sections.append(block)
         used += len(block)
         remaining = budget - used
@@ -106,11 +108,13 @@ def pack_context(
     static_chunks = [c for c in retrieved_chunks
                      if c.get("source") == "static_kb" and c.get("adjusted_score", 0) >= MED_CONF_SCORE]
     for chunk in static_chunks:
-        text = chunk["text"]
+        text = chunk.get("text") or ""   # guard missing text key
+        if not text:
+            continue
         cat  = chunk.get("category", "rules")
         block = _section(f"Financial Rules ({cat})", text[:min(len(text), remaining // 2)])
         if len(block) > remaining:
-            break
+            break   # guard before append
         sections.append(block)
         used += len(block)
         remaining = budget - used
@@ -134,7 +138,9 @@ def pack_context(
         if chunk_id in used_ids:
             continue
         used_ids.add(chunk_id)
-        text = chunk["text"]
+        text = chunk.get("text") or ""
+        if not text:
+            continue
         block = _section("Additional Context", text[:min(len(text), remaining // 3)])
         if len(block) > remaining:
             break

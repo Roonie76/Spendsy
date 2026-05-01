@@ -1,7 +1,7 @@
 # Graph Report - Spendsy  (2026-05-01)
 
 ## Corpus Check
-- 273 files · ~183,905 words
+- 273 files · ~183,964 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
