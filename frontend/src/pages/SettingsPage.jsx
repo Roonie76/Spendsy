@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import { downloadCSV } from "@shared/utils/exportUtils";
-import { authApi } from "../api";
+import { authApi, financeApi } from "../api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Mail, Lock, Phone, Home as HomeIcon, Briefcase,
@@ -45,7 +45,7 @@ const fadeUp = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, 
 
 // ─── Shared Primitives ────────────────────────────────────────────────────────
 
-const inputCls = "w-full px-4 py-3 bg-black/20 border border-white/10 rounded-2xl text-white text-sm outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-colors placeholder:text-slate-600";
+const inputCls = "w-full px-4 py-3 bg-[#0f172a] border border-white/10 rounded-2xl text-white text-sm outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all placeholder:text-slate-600";
 const labelCls = "text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] pl-1";
 
 const Toggle = ({ enabled, onChange, disabled = false }) => (
@@ -139,7 +139,7 @@ const Spinner = ({ size = "sm" }) => (
 const OCCUPATIONS = ["Salaried", "Self-Employed / Freelancer", "Business Owner", "Student", "Retired", "Homemaker", "Government Employee", "NRI", "Other"];
 const INDIAN_STATES = ["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Delhi","Jammu & Kashmir","Ladakh","Puducherry","Chandigarh","Other"];
 
-const PersonalInfoPage = ({ user, onBack, showToast }) => {
+const PersonalInfoPage = ({ user, onBack, showToast, onRefreshUser }) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -159,11 +159,33 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await authApi.updateProfile({ first_name: form.first_name, last_name: form.last_name });
-      showToast?.("Profile updated!", "success");
+      // 1. Update Auth Profile
+      await authApi.updateProfile({ 
+        first_name: form.first_name, 
+        last_name: "" // No need for separate last name
+      });
+
+      // 2. Update Finance Profile
+      await financeApi.updateProfile(user.id, {
+        first_name: form.first_name,
+        last_name: "",
+        phone: form.phone,
+        pan: form.pan,
+        occupation: form.occupation,
+        state: form.state,
+        city: form.city,
+        dob: form.dob
+      });
+
+      showToast?.("Profile updated successfully!", "success");
       setEditing(false);
+      onRefreshUser?.();
+      
+      // Force refresh data in parent components if needed, 
+      // but usually the updated state here is enough until refresh
     } catch (err) {
-      showToast?.(err?.message || "Update failed", "error");
+      console.error("Profile Save Error:", err);
+      showToast?.(err?.message || "Update failed. Check your connection.", "error");
     } finally { setSaving(false); }
   };
 
@@ -174,17 +196,23 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { showToast?.("Image must be under 2 MB", "error"); return; }
     setAvatarUploading(true);
-    // Simulate upload — wire to real endpoint when ready
-    await new Promise(r => setTimeout(r, 1200));
-    setAvatarUploading(false);
-    showToast?.("Profile photo updated!", "success");
+    try {
+      await authApi.uploadAvatar(file);
+      showToast?.("Profile photo updated!", "success");
+      onRefreshUser?.();
+    } catch (err) {
+      showToast?.(err?.message || "Upload failed", "error");
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const copyUID = () => {
     navigator.clipboard.writeText(user?.id || "").then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
-  const initials = [user?.first_name, user?.last_name].filter(Boolean).map(n => n[0]).join("").toUpperCase() || (user?.username || "U")[0].toUpperCase();
+  const initials = (user?.first_name || user?.username || "U")[0].toUpperCase();
+  const displayName = user?.first_name || user?.username || "User";
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
@@ -193,11 +221,19 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
       {/* Avatar */}
       <div className="flex flex-col items-center gap-3 mb-8">
         <div className="relative group">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-3xl font-black text-white shadow-xl shadow-indigo-900/40 overflow-hidden">
-            {avatarUploading
-              ? <Spinner size="md" />
-              : <span>{initials}</span>
-            }
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-3xl font-black text-white shadow-xl shadow-indigo-900/40 overflow-hidden relative">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : avatarUploading ? (
+              <Spinner size="md" />
+            ) : (
+              <span>{initials}</span>
+            )}
+            {avatarUploading && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <Spinner size="sm" />
+              </div>
+            )}
           </div>
           <button
             onClick={handleAvatarClick}
@@ -208,7 +244,7 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
         </div>
         <div className="text-center">
-          <p className="text-base font-black text-white">{[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || "User"}</p>
+          <p className="text-base font-black text-white">{displayName}</p>
           <p className="text-xs text-slate-500">{user?.email}</p>
         </div>
         {user?.id && (
@@ -245,7 +281,7 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
           {!editing ? (
             <>
               {[
-                { icon: User, iconBg: "bg-indigo-500/10", iconColor: "text-indigo-400", label: "Full Name", val: [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "—" },
+                { icon: User, iconBg: "bg-indigo-500/10", iconColor: "text-indigo-400", label: "Full Name", val: user?.first_name || "—" },
                 { icon: Phone, iconBg: "bg-sky-500/10", iconColor: "text-sky-400", label: "Phone Number", val: form.phone || "Not set" },
                 { icon: Calendar, iconBg: "bg-violet-500/10", iconColor: "text-violet-400", label: "Date of Birth", val: form.dob || "Not set" },
                 { icon: Briefcase, iconBg: "bg-amber-500/10", iconColor: "text-amber-400", label: "Occupation", val: form.occupation || "Not set" },
@@ -270,19 +306,17 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
             </>
           ) : (
             <motion.div {...fadeUp} className="space-y-4 p-5 rounded-2xl bg-white/[0.03] border border-white/10">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className={labelCls}>First Name</label>
-                  <input className={inputCls} value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder="First name" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className={labelCls}>Last Name</label>
-                  <input className={inputCls} value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Last name" />
-                </div>
+              <div className="space-y-1.5">
+                <label className={labelCls}>Full Name</label>
+                <input className={inputCls} value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Your full name" />
               </div>
               <div className="space-y-1.5">
                 <label className={labelCls}>Phone Number</label>
                 <input className={inputCls} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" type="tel" />
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelCls}>PAN Number</label>
+                <input className={inputCls} value={form.pan} onChange={e => setForm(f => ({ ...f, pan: e.target.value?.toUpperCase() }))} placeholder="ABCDE1234F" maxLength={10} />
               </div>
               <div className="space-y-1.5">
                 <label className={labelCls}>Date of Birth</label>
@@ -290,9 +324,9 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
               </div>
               <div className="space-y-1.5">
                 <label className={labelCls}>Occupation</label>
-                <select className={inputCls} value={form.occupation} onChange={e => setForm(f => ({ ...f, occupation: e.target.value }))}>
-                  <option value="">Select occupation</option>
-                  {OCCUPATIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                <select className={`${inputCls} [&>option]:bg-slate-900`} value={form.occupation} onChange={e => setForm(f => ({ ...f, occupation: e.target.value }))}>
+                  <option value="" className="bg-slate-900">Select occupation</option>
+                  {OCCUPATIONS.map(o => <option key={o} value={o} className="bg-slate-900">{o}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -302,9 +336,9 @@ const PersonalInfoPage = ({ user, onBack, showToast }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className={labelCls}>State</label>
-                  <select className={inputCls} value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}>
-                    <option value="">Select state</option>
-                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  <select className={`${inputCls} [&>option]:bg-slate-900`} value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}>
+                    <option value="" className="bg-slate-900">Select state</option>
+                    {INDIAN_STATES.map(s => <option key={s} value={s} className="bg-slate-900">{s}</option>)}
                   </select>
                 </div>
               </div>
@@ -602,7 +636,11 @@ const FinancialSettingsPage = ({ onBack, showToast }) => {
   const [regime, setRegime] = useState(prefs.tax_regime || "new");
   const [compactAmounts, setCompactAmounts] = useState(prefs.compact_amounts !== false);
 
-  const save = (key, val) => { savePref(key, val); showToast?.("Preference saved", "success"); };
+  const save = (key, val) => { 
+    savePref(key, val); 
+    onUpdateSettings?.({ [key]: val });
+    showToast?.("Preference synced!", "success"); 
+  };
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
@@ -695,7 +733,11 @@ const NotificationsPage = ({ onBack }) => {
   const prefs = loadPrefs();
   const mk = (key, def) => {
     const [val, set] = useState(prefs[key] !== undefined ? prefs[key] : def);
-    const toggle = v => { set(v); savePref(key, v); };
+    const toggle = v => { 
+      set(v); 
+      savePref(key, v); 
+      onUpdateSettings?.({ [key]: v });
+    };
     return [val, toggle];
   };
 
@@ -814,7 +856,11 @@ const AppearancePage = ({ onBack, currentTheme, onThemeChange }) => {
         <SettingSection title="Accent Color">
           <div className="grid grid-cols-4 gap-3 px-2 py-3">
             {accents.map(a => (
-              <button key={a.name} onClick={() => { setAccent(a.name); savePref("accent", a.name); }} className="flex flex-col items-center gap-1.5 group">
+              <button key={a.name} onClick={() => { 
+                setAccent(a.name); 
+                savePref("accent", a.name); 
+                onUpdateSettings?.({ accent: a.name });
+              }} className="flex flex-col items-center gap-1.5 group">
                 <div className="relative w-10 h-10 rounded-2xl transition-transform group-hover:scale-110" style={{ backgroundColor: a.hex }}>
                   {accent === a.name && (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -831,7 +877,7 @@ const AppearancePage = ({ onBack, currentTheme, onThemeChange }) => {
         <SettingSection title="Layout Density">
           <div className="flex bg-black/30 p-1.5 rounded-2xl border border-white/5 gap-1.5">
             {["compact", "comfortable", "spacious"].map(d => (
-              <button key={d} onClick={() => { setDensity(d); savePref("density", d); }} className={`flex-1 py-2.5 rounded-xl text-xs font-bold capitalize transition-all ${density === d ? "bg-white/10 text-white shadow" : "text-slate-500 hover:text-slate-300"}`}>
+              <button key={d} onClick={() => { setDensity(d); savePref("density", d); onUpdateSettings?.({ density: d }); }} className={`flex-1 py-2.5 rounded-xl text-xs font-bold capitalize transition-all ${density === d ? "bg-white/10 text-white shadow" : "text-slate-500 hover:text-slate-300"}`}>
                 {d}
               </button>
             ))}
@@ -841,7 +887,7 @@ const AppearancePage = ({ onBack, currentTheme, onThemeChange }) => {
         <SettingSection title="Charts & Visualizations">
           <div className="flex bg-black/30 p-1.5 rounded-2xl border border-white/5 gap-1.5">
             {[["gradient", "Gradient"], ["flat", "Flat"], ["minimal", "Minimal"]].map(([v, l]) => (
-              <button key={v} onClick={() => { setChartStyle(v); savePref("chart_style", v); }} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${chartStyle === v ? "bg-white/10 text-white shadow" : "text-slate-500 hover:text-slate-300"}`}>
+              <button key={v} onClick={() => { setChartStyle(v); savePref("chart_style", v); onUpdateSettings?.({ chart_style: v }); }} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${chartStyle === v ? "bg-white/10 text-white shadow" : "text-slate-500 hover:text-slate-300"}`}>
                 {l}
               </button>
             ))}
@@ -849,14 +895,14 @@ const AppearancePage = ({ onBack, currentTheme, onThemeChange }) => {
         </SettingSection>
 
         <SettingSection title="Accessibility">
-          <SettingRow icon={Zap} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Animations & Transitions" description="Disable to reduce motion" trailing={<Toggle enabled={animEnabled} onChange={v => { setAnimEnabled(v); savePref("animations", v); }} />} />
+          <SettingRow icon={Zap} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="Animations & Transitions" description="Disable to reduce motion" trailing={<Toggle enabled={animEnabled} onChange={v => { setAnimEnabled(v); savePref("animations", v); onUpdateSettings?.({ animations: v }); }} />} />
           <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-white/5" style={{ background: "rgba(255,255,255,0.03)" }}>
             <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl shrink-0"><Languages className="w-5 h-5" /></div>
             <div className="flex-1">
               <p className="text-sm font-bold text-white">Font Size</p>
               <p className="text-[11px] text-slate-500">Adjust text size across the app</p>
             </div>
-            <select value={fontScale} onChange={e => { setFontScale(e.target.value); savePref("font_scale", e.target.value); }} className="bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl px-3 py-2 outline-none">
+            <select value={fontScale} onChange={e => { setFontScale(e.target.value); savePref("font_scale", e.target.value); onUpdateSettings?.({ font_scale: e.target.value }); }} className="bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl px-3 py-2 outline-none">
               {["small", "normal", "large", "x-large"].map(s => <option key={s} value={s} className="capitalize">{s.replace("-", " ")}</option>)}
             </select>
           </div>
@@ -868,11 +914,15 @@ const AppearancePage = ({ onBack, currentTheme, onThemeChange }) => {
 
 // ─── 6. AI / TORA FEATURES ────────────────────────────────────────────────────
 
-const AIFeaturesPage = ({ onBack, user }) => {
+const AIFeaturesPage = ({ onBack, user, onUpdateSettings }) => {
   const prefs = loadPrefs();
   const mk = (key, def) => {
     const [val, set] = useState(prefs[key] !== undefined ? prefs[key] : def);
-    return [val, v => { set(v); savePref(key, v); }];
+    return [val, v => { 
+      set(v); 
+      savePref(key, v);
+      onUpdateSettings?.({ [key]: v });
+    }];
   };
 
   const [autoCat, toggleAutoCat] = mk("ai_autocat", true);
@@ -927,7 +977,11 @@ const AIFeaturesPage = ({ onBack, user }) => {
             {[["concise", "Concise", "Short, direct answers"], ["balanced", "Balanced", "Mix of detail and brevity (default)"], ["detailed", "Detailed", "Full explanations and context"]].map(([v, l, d]) => (
               <button
                 key={v}
-                onClick={() => { setToraPersonality(v); savePref("tora_personality", v); }}
+                onClick={() => { 
+                  setToraPersonality(v); 
+                  savePref("tora_personality", v);
+                  onUpdateSettings?.({ tora_personality: v });
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-left ${toraPersonality === v ? "bg-violet-500/15 border-violet-500/30" : "bg-white/[0.02] border-white/5 hover:bg-white/5"}`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${toraPersonality === v ? "border-violet-500 bg-violet-500" : "border-slate-600"}`}>
@@ -1216,9 +1270,20 @@ const SECTIONS = [
 
 const GROUPS = ["Account", "Finance", "App"];
 
-const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm, theme: currentTheme, onThemeChange, transactions, onDeleteAll, showToast, onNavigateImport }) => {
-  const [currentSection, setCurrentSection] = useState(null);
+const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm, theme: currentTheme, onThemeChange, transactions, onDeleteAll, showToast, onNavigateImport, initialSection, onClearSection, onRefreshUser }) => {
+  const [currentSection, setCurrentSection] = useState(initialSection || null);
   const [search, setSearch] = useState("");
+
+  React.useEffect(() => {
+    if (initialSection) {
+      setCurrentSection(initialSection);
+    }
+  }, [initialSection]);
+
+  const goBack = () => {
+    setCurrentSection(null);
+    onClearSection?.();
+  };
 
   const filteredSections = useMemo(() => {
     const q = search.toLowerCase();
@@ -1228,16 +1293,14 @@ const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut
 
   const grouped = useMemo(() => GROUPS.map(g => ({ group: g, items: SECTIONS.filter(s => s.group === g) })), []);
 
-  const goBack = () => setCurrentSection(null);
-
   const renderSection = () => {
     switch (currentSection) {
-      case "personal":      return <PersonalInfoPage user={user} onBack={goBack} showToast={showToast} />;
+      case "personal":      return <PersonalInfoPage user={user} onBack={goBack} showToast={showToast} onRefreshUser={onRefreshUser} />;
       case "security":      return <SecurityPage onBack={goBack} showToast={showToast} triggerConfirm={triggerConfirm} />;
-      case "financial":     return <FinancialSettingsPage onBack={goBack} showToast={showToast} />;
-      case "notifications": return <NotificationsPage onBack={goBack} />;
-      case "appearance":    return <AppearancePage onBack={goBack} currentTheme={currentTheme} onThemeChange={onThemeChange} />;
-      case "ai":            return <AIFeaturesPage onBack={goBack} user={user} />;
+      case "financial":     return <FinancialSettingsPage onBack={goBack} showToast={showToast} onUpdateSettings={onUpdateSettings} />;
+      case "notifications": return <NotificationsPage onBack={goBack} onUpdateSettings={onUpdateSettings} />;
+      case "appearance":    return <AppearancePage onBack={goBack} currentTheme={currentTheme} onThemeChange={onThemeChange} onUpdateSettings={onUpdateSettings} />;
+      case "ai":            return <AIFeaturesPage onBack={goBack} user={user} onUpdateSettings={onUpdateSettings} />;
       case "data":          return <DataManagementPage onBack={goBack} triggerConfirm={triggerConfirm} transactions={transactions} onDeleteAll={onDeleteAll} showToast={showToast} onNavigateImport={onNavigateImport} />;
       case "subscription":  return <SubscriptionPage onBack={goBack} tier={user?.tier || "free"} />;
       case "help":          return <HelpSupportPage onBack={goBack} />;

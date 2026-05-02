@@ -151,6 +151,7 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
         id: user.id || payload.user_id,
         username: user.username || payload.username || trimmedUsername,
         email: user.email || payload.email || trimmedEmail,
+        created_at: user.created_at || user.createdAt || payload.created_at || payload.date_joined,
         token: accessToken,
       });
       showToast(

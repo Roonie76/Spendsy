@@ -75,6 +75,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("active_tab") || TABS.HOME;
   });
+  const [settingsSection, setSettingsSection] = useState(null);
 
   const navigateToTab = useCallback((tab) => {
     setActiveTab((prev) => {
@@ -602,6 +603,7 @@ export default function App() {
               id: payload.id ?? prev.id,
               username: payload.username ?? prev.username,
               email: payload.email ?? prev.email,
+              created_at: payload.created_at ?? payload.createdAt ?? payload.date_joined ?? prev.created_at,
             }
             : prev
         ));
@@ -628,28 +630,33 @@ export default function App() {
   }, [currentUser?.id, handleUnauthorized]);
 
   // Inside your App() function, add this useEffect or update your existing one
+  const refreshUser = useCallback(async () => {
+    if (!currentUser?.id) return;
+    try {
+      // Fetch from Finance microservice
+      const finData = await financeApi.profile(currentUser.id);
+      const finPayload = finData?.data || finData;
+      
+      // Fetch from Auth microservice
+      const authData = await authApi.me();
+      const authPayload = authData?.data || authData;
+
+      setCurrentUser((prev) => ({
+        ...prev,
+        ...finPayload,
+        ...authPayload,
+        email: authPayload.email || finPayload.email || prev.email,
+      }));
+    } catch (err) {
+      console.error("Refresh user error:", err);
+    }
+  }, [currentUser?.id]);
+
   useEffect(() => {
     if (currentUser?.id && sessionReady && !currentUser.email) {
-      // If we have an ID but no email, fetch the full profile from Django
-      const fetchFullProfile = async () => {
-        try {
-          const data = await apiFetch(`${API_BASE_URL}/profile/${currentUser.id}`);
-          const payload = data?.data || data;
-          setCurrentUser((prev) => ({
-            ...prev,
-            email: payload.email || payload.user_email,
-          }));
-        } catch (err) {
-          if (err.status === 401) {
-            handleUnauthorized();
-            return;
-          }
-          console.error("Could not fetch full user profile:", err);
-        }
-      };
-      fetchFullProfile();
+      refreshUser();
     }
-  }, [API_BASE_URL, currentUser?.email, currentUser?.id, handleUnauthorized, sessionReady]);
+  }, [currentUser?.id, sessionReady, refreshUser]);
 
   const deleteTransaction = async (txId) => {
     try {
@@ -1039,6 +1046,12 @@ export default function App() {
                   onUpdateSettings={saveSettings}
                   showToast={showToast}
                   theme={theme}
+                  onBack={() => navigateToTab(TABS.HOME)}
+                  triggerConfirm={triggerConfirm}
+                  initialSection={settingsSection}
+                  onClearSection={() => setSettingsSection(null)}
+                  transactions={transactions}
+                  onRefreshUser={refreshUser}
                 />
               )}
               {activeTab === TABS.PROFILE && (
@@ -1046,10 +1059,16 @@ export default function App() {
                   user={currentUser}
                   transactions={transactions}
                   settings={settings}
+                  wealthItems={wealthItems}
                   showToast={showToast}
                   apiBaseUrl={API_BASE_URL}
                   authToken={authToken}
                   onLogout={handleLogout}
+                  setActiveTab={navigateToTab}
+                  openSettingsSection={(section) => {
+                    setSettingsSection(section);
+                    navigateToTab(TABS.SETTINGS);
+                  }}
                 />
               )}
               {activeTab === TABS.DEBIT_CARDS && (

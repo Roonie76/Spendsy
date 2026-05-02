@@ -90,7 +90,7 @@ const HeroSection = ({ user, setActiveTab, onLogout }) => {
       <div className="relative z-10 mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] text-slate-600">
           <Calendar className="w-3.5 h-3.5" />
-          <span>Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "2024"}</span>
+          <span>Member since {user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear()}</span>
         </div>
         <button onClick={() => setActiveTab(TABS.SETTINGS)} className="text-[11px] text-indigo-400 font-bold hover:text-indigo-300 transition-colors flex items-center gap-1">
           Edit Profile <ChevronRight className="w-3 h-3" />
