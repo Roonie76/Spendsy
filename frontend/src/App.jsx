@@ -11,6 +11,7 @@ import {
   Moon,
   ArrowDown,
   ArrowUp,
+  ChevronLeft,
   Layout as LayoutIcon,
 } from "lucide-react";
 import spendsyLogo from "./assets/spendsy_logo.png";
@@ -74,6 +75,31 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("active_tab") || TABS.HOME;
   });
+
+  const navigateToTab = useCallback((tab) => {
+    setActiveTab((prev) => {
+      if (prev !== tab) {
+        window.history.pushState({ tab }, "", "");
+      }
+      return tab;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (event.state?.tab) {
+        setActiveTab(event.state.tab);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    
+    // Set initial state if none exists
+    if (!window.history.state) {
+      window.history.replaceState({ tab: activeTab }, "", "");
+    }
+    
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [activeTab]);
   const [toast, setToast] = useState({ show: false, msg: "", type: "info" });
   const [theme, setTheme] = useState(
     () => localStorage.getItem("app_theme") || "dark",
@@ -338,6 +364,7 @@ export default function App() {
     setTaxProfile(initialDefaultProfile);
     setShowWizard(false);
     setActiveTab(TABS.HOME);
+    window.history.pushState({ tab: TABS.HOME }, "", "");
     localStorage.removeItem("tax_profile");
     localStorage.removeItem("auth_user");
     localStorage.removeItem("active_tab");
@@ -362,6 +389,7 @@ export default function App() {
     unauthorizedHandledRef.current = false;
     setCurrentUser(user);
     setActiveTab(TABS.HOME);
+    window.history.pushState({ tab: TABS.HOME }, "", "");
     localStorage.setItem("active_tab", TABS.HOME);
   }, []);
 
@@ -781,7 +809,7 @@ export default function App() {
       />
       <Navigation
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={navigateToTab}
         onSignOut={() => triggerConfirm("Are you sure you want to sign out?", clearClientSession)}
       />
       <WelcomeWizard isOpen={showWizard} onComplete={handleWizardComplete} />
@@ -795,6 +823,15 @@ export default function App() {
         <header className="pt-6 md:pt-10 mb-6 md:mb-8 flex justify-between items-center md:items-end gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2">
+              {activeTab !== TABS.HOME && (
+                <button
+                  onClick={() => window.history.back()}
+                  className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-200 mr-1"
+                  aria-label="Go back"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              )}
               <img src={spendsyLogo} alt="Spendsy Logo" className="w-5 h-5 object-contain" />
               <span className="text-[10px] font-bold tracking-[0.3em] uppercase opacity-60">
                 Spendsy
@@ -953,7 +990,7 @@ export default function App() {
                 <HomePage
                   transactions={transactions}
                   wealthItems={wealthItems}
-                  setActiveTab={setActiveTab}
+                  setActiveTab={navigateToTab}
                   onDelete={requestDeleteTransaction}
                   onUpdate={updateTransaction}
                   settings={settings}
@@ -967,7 +1004,7 @@ export default function App() {
                 <HistoryPage
                   transactions={transactions}
                   isLoading={historyLoading}
-                  setActiveTab={setActiveTab}
+                  setActiveTab={navigateToTab}
                   onDelete={requestDeleteTransaction}
                   onBulkDelete={bulkDeleteTransactions}
                   onUpdate={updateTransaction}
@@ -982,7 +1019,7 @@ export default function App() {
                   authToken={authToken}
                   apiBaseUrl={API_BASE_URL}
                   appId={settings?.appId}
-                  setActiveTab={setActiveTab}
+                  setActiveTab={navigateToTab}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
                   theme={theme}
@@ -1066,7 +1103,7 @@ export default function App() {
                   onUpdateProfile={updateTaxProfile}
                   showToast={showToast}
                   settings={settings}
-                  setActiveTab={setActiveTab}
+                  setActiveTab={navigateToTab}
                   refreshProfile={fetchTaxProfile}
                   user={currentUser}
                   apiBaseUrl={API_BASE_URL}
@@ -1083,7 +1120,7 @@ export default function App() {
                   authToken={authToken}
                   apiBaseUrl={API_BASE_URL}
                   transactions={transactions}
-                  setActiveTab={setActiveTab}
+                  setActiveTab={navigateToTab}
                   showToast={showToast}
                   refreshProfile={fetchTaxProfile}
                 />
