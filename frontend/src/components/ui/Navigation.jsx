@@ -1,8 +1,9 @@
 //No database needed
 import React, { useState } from 'react';
 import { 
-  Home, ListFilter, Plus, ClipboardCheck, PieChart, Landmark, User, Wallet, LogOut, Menu, X, Calendar
+  Home, ListFilter, Plus, ClipboardCheck, PieChart, Landmark, User, LogOut, Menu, X, Calendar
 } from 'lucide-react';
+import spendsyLogo from '../../assets/spendsy_logo.png';
 import { TABS } from '@shared/config/constants';
 
 export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
@@ -34,9 +35,8 @@ export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
              <div className="flex items-center p-2 xl:p-3 rounded-xl xl:rounded-2xl transition-all duration-300 shrink-0 overflow-hidden">
                
                {/* Icon Container - Matching Nav Item Size (w-6/w-8) */}
-               <div className="w-6 h-6 xl:w-8 xl:h-8 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-lg xl:rounded-xl flex items-center justify-center shadow-lg shrink-0 mx-auto group-hover:mx-0 transition-all duration-500">
-                  {/* Icon size adjusted to fit inside the smaller box */}
-                  <Wallet className="w-3.5 h-3.5 xl:w-4.5 xl:h-4.5 text-white" />
+               <div className="w-6 h-6 xl:w-8 xl:h-8 rounded-lg xl:rounded-xl flex items-center justify-center shadow-lg shrink-0 mx-auto group-hover:mx-0 transition-all duration-500 overflow-hidden">
+                  <img src={spendsyLogo} alt="Spendsy Logo" className="w-full h-full object-contain" />
                </div>
 
                {/* App Name */}

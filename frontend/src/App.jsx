@@ -7,13 +7,13 @@ import {
 import { cn } from "@shared/utils/cn";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap,
   Sun,
   Moon,
   ArrowDown,
   ArrowUp,
   Layout as LayoutIcon,
 } from "lucide-react";
+import spendsyLogo from "./assets/spendsy_logo.png";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import { formatIndianCompact, normalizeDate } from "@shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
@@ -795,7 +795,7 @@ export default function App() {
         <header className="pt-6 md:pt-10 mb-6 md:mb-8 flex justify-between items-center md:items-end gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-blue-500 fill-blue-500" />
+              <img src={spendsyLogo} alt="Spendsy Logo" className="w-5 h-5 object-contain" />
               <span className="text-[10px] font-bold tracking-[0.3em] uppercase opacity-60">
                 Spendsy
               </span>
