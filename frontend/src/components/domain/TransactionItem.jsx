@@ -1,6 +1,6 @@
 // Database needed
 import React from "react";
-import { Trash2, AlertTriangle, Edit2, ShieldCheck, User } from "lucide-react"; // Import ShieldCheck
+import { Trash2, AlertTriangle, Edit2, ShieldCheck, User, Zap ,RefreshCw} from "lucide-react"; // Import ShieldCheck
 import { CATEGORIES } from "@shared/config/constants";
 import { normalizeDate } from "@shared/utils/helpers";
 
@@ -24,6 +24,7 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
 
   const isFlagged = item.status === "flagged" || (item.reconciliation_flags && item.reconciliation_flags.length > 0);
   const isTransfer = !!item.is_transfer;
+  const isRecurring = !!item.is_recurring;
 
   return (
     <div
@@ -91,7 +92,19 @@ const TransactionItem = ({ item, onDelete, onEdit }) => {
                 title="Inter-account transfer — excluded from spend and income totals"
                 className="uppercase tracking-tighter text-[9px] font-bold px-1.5 py-0.5 rounded border bg-cyan-500/20 text-cyan-300 border-cyan-500/20"
               >
-                TXFR
+                Transfer
+              </span>
+            </>
+          )}
+
+          {isRecurring && (
+            <>
+              <span className="mx-1.5 opacity-50">•</span>
+              <span
+                title="Recurring monthly transaction"
+                className="uppercase tracking-tighter text-[9px] font-bold px-1.5 py-0.5 rounded border bg-blue-500/20 text-blue-300 border-blue-500/20 flex items-center gap-1"
+              >
+                <RefreshCw className="w-3 h-3 animate-spin-slow" /> Repeat Monthly
               </span>
             </>
           )}

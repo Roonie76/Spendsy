@@ -678,6 +678,7 @@ export default function App() {
           type: (updatedTx.type || "expense").toLowerCase(),
           category: (updatedTx.category || "other").toLowerCase(),
           date: updatedTx.date,
+          is_recurring: updatedTx.is_recurring,
         }),
       });
       showToast("Transaction updated!", "success");

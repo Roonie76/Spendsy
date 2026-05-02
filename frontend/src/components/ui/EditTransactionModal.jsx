@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, IndianRupee, Type, ShieldAlert, ArrowLeftRight } from 'lucide-react';
+import { X, Calendar, IndianRupee, Type, ShieldAlert, ArrowLeftRight, Zap } from 'lucide-react';
 import { CATEGORIES } from '@shared/config/constants';
 import { normalizeDate, formatLocalDate } from '@shared/utils/helpers';
 import { apiFetch } from '../../api';
@@ -11,7 +11,8 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl
         description: '',
         category: '',
         type: 'expense',
-        date: formatLocalDate(new Date())
+        date: formatLocalDate(new Date()),
+        is_recurring: false
     });
     
     const isOriginalVerified = transaction?.confidence > 0;
@@ -29,7 +30,8 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl
                 description: transaction.description || transaction.title || '',
                 category: transaction.category || 'other',
                 type: transaction.type || 'expense',
-                date: formatLocalDate(transaction.date)
+                date: formatLocalDate(transaction.date),
+                is_recurring: !!transaction.is_recurring
             });
             setShowWarning(false);
             setIsTransfer(!!transaction.is_transfer);
@@ -197,6 +199,20 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl
                             </span>
                         </button>
                     )}
+
+                    <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, is_recurring: !prev.is_recurring }))}
+                        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors ${formData.is_recurring ? 'bg-blue-500/15 border-blue-500/30 text-blue-200' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}`}
+                    >
+                        <span className="flex items-center gap-2 text-sm font-semibold">
+                            <Zap className="w-4 h-4" />
+                            {formData.is_recurring ? 'Recurring — repeats monthly' : 'Mark as recurring monthly'}
+                        </span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${formData.is_recurring ? 'text-blue-300' : 'text-slate-500'}`}>
+                            {formData.is_recurring ? 'ON' : 'OFF'}
+                        </span>
+                    </button>
 
                     <button
                         type="submit"
