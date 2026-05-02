@@ -80,6 +80,22 @@ export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
           </div>
         </div>
 
+        {/* --- SECTION 2: SIGN OUT (Pinned to bottom) --- */}
+        <div className="shrink-0 w-full px-2 xl:px-4 pb-2">
+          <div className="border-t border-white/10 pt-2 xl:pt-3">
+            <button
+              onClick={onSignOut}
+              className="group/btn relative flex items-center w-full p-2 xl:p-3 rounded-xl xl:rounded-2xl transition-all duration-300 shrink-0 overflow-hidden text-rose-400 hover:text-rose-300 hover:bg-rose-500/15"
+            >
+              <div className="w-6 h-6 xl:w-8 xl:h-8 flex items-center justify-center shrink-0 mx-auto group-hover:mx-0 transition-all duration-500">
+                <LogOut className="w-5 h-5 xl:w-6 xl:h-6" />
+              </div>
+              <span className="text-xs xl:text-sm font-semibold tracking-wide whitespace-nowrap opacity-0 w-0 group-hover:w-auto group-hover:opacity-100 group-hover:ml-3 transition-all duration-500 delay-75">
+                Sign Out
+              </span>
+            </button>
+          </div>
+        </div>
 
       </nav>
 
@@ -118,6 +134,16 @@ export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
                 </button>
               ))}
             </div>
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onSignOut();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="text-sm font-bold">Sign Out</span>
+            </button>
           </div>
         </div>
         <div className="fixed bottom-6 right-6 z-50">
