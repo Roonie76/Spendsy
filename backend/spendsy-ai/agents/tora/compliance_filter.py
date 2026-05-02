@@ -35,16 +35,24 @@ _EQUITY_FROM_EMERGENCY_RE = re.compile(
     r"\s+.{0,30}?(equity|sip|stock|market)",
     re.IGNORECASE | re.DOTALL,
 )
-_STOCK_PICK_RE = re.compile(
-    r"\b(buy|invest\s+in|pick|recommend)\s+(?:shares?\s+of\s+)?([A-Z]{2,6}(?:\.NS|\.BSE)?)\b"
-    r"|\b(bitcoin|btc|ethereum|eth|dogecoin|crypto|options?\s+contract|nifty.call|put.option)\b",
-    re.IGNORECASE,
+# Tickers (2-6 uppercase letters) often used for stocks.
+# We remove re.IGNORECASE from the ticker part to avoid matching "gold", "car", etc.
+_TICKER_RE = re.compile(r"\b(buy|invest\s+in|pick|recommend)\s+(?:shares?\s+of\s+)?([A-Z]{2,6}(?:\.NS|\.BSE)?)\b")
+
+# Assets that are always blocked regardless of case
+_CRYPTO_DERIV_RE = re.compile(
+    r"\b(bitcoin|btc|ethereum|eth|dogecoin|crypto|options?\s+contract|nifty.call|put.option|futures.contract)\b",
+    re.IGNORECASE
 )
+
 _SPECIFIC_STOCK_RE = re.compile(
     r"\b(reliance|tcs|infosys|hdfc\s+bank|icici\s+bank|wipro|hcl|bajaj|adani|tata\s+motors)\b"
     r"\s+(?:shares?|stock|equity|call|put)",
     re.IGNORECASE,
 )
+
+# List of common purchase goals that should NEVER trigger a compliance block
+_SAFE_GOALS_RE = re.compile(r"\b(gold|silver|macbook|iphone|laptop|car|house|home|education|marriage|wedding|travel|vacation|holiday)\b", re.I)
 _DISTRESS_RE = re.compile(
     r"\b(can.t\s+pay|cannot\s+pay|missed\s+emi|defaulted|bankruptcy|insolvent|"
     r"debt.trap|drowning.in.debt|no\s+money\s+left|can.t\s+afford|unable\s+to\s+pay|"
@@ -160,15 +168,19 @@ class ComplianceFilter:
             combined  = full_text.lower()
 
             # TIER 1: Hard blocks
+            # 1. Emergency fund protection
             if (_EMERGENCY_LIQUIDATE_RE.search(full_text) or
                     _EQUITY_FROM_EMERGENCY_RE.search(full_text)):
                 logger.warning("HARD BLOCK: emergency_fund_equity | q=%r", query[:80])
                 return SAFE_RESPONSES["emergency_fund_equity"]
 
-            if _STOCK_PICK_RE.search(full_text) or _SPECIFIC_STOCK_RE.search(full_text):
-                logger.warning("HARD BLOCK: stock_pick | q=%r", query[:80])
-                return SAFE_RESPONSES["stock_pick"]
+            # 2. Stock/Crypto blocking (with safe goal exception)
+            if not _SAFE_GOALS_RE.search(full_text):
+                if _TICKER_RE.search(full_text) or _CRYPTO_DERIV_RE.search(full_text) or _SPECIFIC_STOCK_RE.search(full_text):
+                    logger.warning("HARD BLOCK: stock_pick | q=%r", query[:80])
+                    return SAFE_RESPONSES["stock_pick"]
 
+            # 3. Financial distress
             if _DISTRESS_RE.search(full_text):
                 logger.warning("HARD BLOCK: financial_distress | q=%r", query[:80])
                 return SAFE_RESPONSES["financial_distress"]

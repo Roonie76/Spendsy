@@ -74,3 +74,6 @@ graphify-out/cost.json
 # Local TORA state
 **/_chromadb/
 backend/spendsy-ai/vault/traces/
+
+# Docker persistent data
+infra/docker/data/

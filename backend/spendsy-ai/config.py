@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     finance_service_url: str = "http://localhost:8002"
     internal_api_key: str = "internal-dev-key"
+    google_api_key: str | None = None
     e2b_api_key: str | None = None
     obscura_cdp_url: str = "ws://obscura:9222"
     
