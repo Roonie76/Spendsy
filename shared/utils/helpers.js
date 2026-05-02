@@ -83,7 +83,7 @@ export const getCurrentFinancialYear = () => {
 // --- SMART AUTO-CATEGORIZER ---
 // This aligns with the new ParserService to detect categories automatically
 export const categorizeTransaction = (desc) => {
-    if (!desc) return 'others';
+    if (!desc) return 'other';
     const d = desc.toLowerCase();
 
     // 1. Food

@@ -62,7 +62,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Return structured JSON for Pydantic validation failures."""
     errors = []
     for e in exc.errors():
-        errors.append({"field": ".".join(str(x) for x in e["loc"]), "message": e["msg"]})
+        error_msg = {"field": ".".join(str(x) for x in e["loc"]), "message": e["msg"]}
+        errors.append(error_msg)
+    
+    logger.warning(f"Validation Error on {request.url.path}: {errors}")
     return JSONResponse(
         status_code=422,
         content={

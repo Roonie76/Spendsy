@@ -193,12 +193,14 @@ const LoginScreen = ({ onAuthSuccess, showToast }) => {
   return (
     <div className="min-h-screen w-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900 via-slate-900 to-black text-white flex flex-col items-center justify-center p-6">
       <div className="z-10 w-full max-w-sm text-center">
-        <div className="w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center transform rotate-6 border border-white/10 shadow-2xl overflow-hidden bg-white/10 backdrop-blur-sm">
-          <img src={spendsyLogo} alt="Spendsy Logo" className="w-14 h-14 object-contain drop-shadow-lg" />
+        <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center filter drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+          <img src={spendsyLogo} alt="Spendsy Logo" className="w-full h-full object-contain" />
         </div>
 
-        <h1 className="text-4xl font-black text-white mb-2">Spendsy</h1>
-        <p className="text-blue-200/70 mb-8 text-sm italic">
+        <h1 className="text-4xl font-black tracking-[0.1em] bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 animate-gradient-x mb-2">
+          Spendsy
+        </h1>
+        <p className="text-blue-200/50 mb-8 text-sm font-medium tracking-wide uppercase">
           Financial clarity for the modern era.
         </p>
 

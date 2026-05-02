@@ -153,8 +153,27 @@ export default function App() {
     );
   }, [transactions]);
 
-  const totals = useMemo(
-    () => ({
+  const totals = useMemo(() => {
+    // 1. Calculate local monthly totals first
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const localMonthly = transactions.reduce(
+      (acc, t) => {
+        if (t.is_transfer) return acc;
+        const d = normalizeDate(t.date);
+        if (!d || d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return acc;
+
+        const amt = parseFloat(t.amount || 0);
+        if (t.type === "income") acc.income += amt;
+        else if (t.type === "expense") acc.expenses += amt;
+        return acc;
+      },
+      { income: 0, expenses: 0 },
+    );
+
+    return {
       income:
         serverSummary?.income !== undefined
           ? Number(serverSummary.income)
@@ -166,14 +185,13 @@ export default function App() {
       monthIncome:
         serverSummary?.month_income !== undefined
           ? Number(serverSummary.month_income)
-          : 0,
+          : localMonthly.income,
       monthExpense:
         serverSummary?.month_expense !== undefined
           ? Number(serverSummary.month_expense)
-          : 0,
-    }),
-    [serverSummary, localTotals],
-  );
+          : localMonthly.expenses,
+    };
+  }, [serverSummary, localTotals, transactions]);
 
   const balance =
     serverSummary?.balance !== undefined
@@ -488,7 +506,8 @@ export default function App() {
     if (!currentUser?.id) return;
     const period = periodOverride || balanceRange;
     try {
-      const data = await apiFetch(`${API_BASE_URL}/summary?period=${period}`);
+      const today = formatLocalDate(new Date());
+      const data = await apiFetch(`${API_BASE_URL}/summary?period=${period}&today=${today}`);
       setServerSummary(data?.data || null);
     } catch (err) {
       if (err.status === 401) {

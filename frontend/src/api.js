@@ -255,7 +255,12 @@ export const authApi = {
 // ─── Finance ──────────────────────────────────────────────────────────────
 
 export const financeApi = {
-  summary: () => apiFetch(`${API_BASE}/summary`),
+  summary: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.today) qs.set("today", params.today);
+    return apiFetch(`${API_BASE}/summary?${qs.toString()}`);
+  },
 
   profile: (userId) => apiFetch(`${API_BASE}/profile/${userId}`),
   updateProfile: (userId, body) =>

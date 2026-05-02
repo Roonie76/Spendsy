@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date as dt_date, date, datetime
+from datetime import date as dt_date, date, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
@@ -84,7 +84,7 @@ class TransactionPayload(BaseModel):
     @field_validator("date")
     @classmethod
     def validate_date(cls, v: dt_date | None) -> dt_date | None:
-        if v is not None and v > date.today():
+        if v is not None and v > date.today() + timedelta(days=1):
             raise ValueError("Transaction date cannot be in the future")
         return v
 

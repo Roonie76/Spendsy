@@ -1,0 +1,32 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logo_gradient" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b82f6" /> <stop offset="1" stop-color="#22d3ee" /> </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <rect 
+    x="14" 
+    y="14" 
+    width="100" 
+    height="100" 
+    rx="30" 
+    transform="rotate(6, 64, 64)" 
+    fill="url(#logo_gradient)" 
+    filter="url(#shadow)"
+  />
+  
+  <g transform="rotate(6, 64, 64) translate(34, 34)">
+    <path 
+      d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14v4M3 7v13a2 2 0 0 0 2 2h16v-5M18 12a2 2 0 0 0 0 4h4v-4h-4z" 
+      stroke="white" 
+      stroke-width="4" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+      fill="none"
+      transform="scale(2.5)"
+    />
+  </g>
+</svg>

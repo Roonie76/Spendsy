@@ -49,7 +49,12 @@ function Stop-PortProcesses($Ports) {
                 Write-Status "Stopping processes on port $port : $connections" -Color Yellow
                 foreach ($owningPid in $connections) {
                     if ($owningPid -gt 0 -and $owningPid -ne $currentPid) {
-                        Stop-Process -Id $owningPid -Force -ErrorAction SilentlyContinue
+                        $proc = Get-Process -Id $owningPid -ErrorAction SilentlyContinue
+                        if ($proc -and $proc.ProcessName -notmatch "com.docker|Docker") {
+                            Stop-Process -Id $owningPid -Force -ErrorAction SilentlyContinue
+                        } else {
+                            Write-Status "Skipping Docker infrastructure process (PID $owningPid) on port $port" -Color Gray
+                        }
                     }
                 }
             }
@@ -115,11 +120,15 @@ foreach ($svc in $healthChecks) {
     Write-Status "Waiting for $($svc.Name)..." -Color Gray
     $healthy = $false
     for ($i = 0; $i -lt 30; $i++) {
-        $status = docker inspect --format '{{.State.Health.Status}}' $svc.Container 2>$null
-        if ($status -eq "healthy") {
-            Write-Status "$($svc.Name) is healthy" -Color Green
-            $healthy = $true
-            break
+        try {
+            $status = docker inspect --format '{{.State.Health.Status}}' $svc.Container 2>$null
+            if ($status -eq "healthy") {
+                Write-Status "$($svc.Name) is healthy" -Color Green
+                $healthy = $true
+                break
+            }
+        } catch {
+            Write-Status "Waiting for Docker API to respond..." -Color Gray
         }
         Start-Sleep -Seconds 1
     }

@@ -221,7 +221,7 @@ def _infer_category(description: str, tx_type: str) -> str:
     return "other"
 
 
-def _build_financial_summary(db: Session, user_id: int, period: str = "LIFE") -> dict:
+def _build_financial_summary(db: Session, user_id: int, period: str = "LIFE", today: date | None = None) -> dict:
     # All aggregations exclude transfers so inter-account moves (e.g. a
     # credit-card bill payment from a debit account) don't double-count.
     not_transfer = Transaction.is_transfer.is_(False)
@@ -234,7 +234,7 @@ def _build_financial_summary(db: Session, user_id: int, period: str = "LIFE") ->
         Transaction.user_id == user_id, Transaction.type == "expense", not_transfer
     )
     # Apply Period Filtering
-    now = date.today()
+    now = today or date.today()
     if period == "1D":
         income_q = income_q.filter(Transaction.date == now)
         expense_q = expense_q.filter(Transaction.date == now)
@@ -260,21 +260,23 @@ def _build_financial_summary(db: Session, user_id: int, period: str = "LIFE") ->
     count = db.query(func.count(Transaction.id)).filter(Transaction.user_id == user_id).scalar()
 
     # Current Month Totals
-    now = date.today()
+    # Range-based calculation is more reliable across different DB types (SQLite/Postgres)
+    first_of_month = now.replace(day=1)
+    
     month_income = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
         Transaction.user_id == user_id,
         Transaction.type == "income",
         not_transfer,
-        extract('month', Transaction.date) == now.month,
-        extract('year', Transaction.date) == now.year
+        Transaction.date >= first_of_month,
+        Transaction.date <= now  # Up to the current local day
     ).scalar()
 
     month_expense = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
         Transaction.user_id == user_id,
         Transaction.type == "expense",
         not_transfer,
-        extract('month', Transaction.date) == now.month,
-        extract('year', Transaction.date) == now.year
+        Transaction.date >= first_of_month,
+        Transaction.date <= now
     ).scalar()
 
     income_val = Decimal(str(income or 0))
@@ -484,8 +486,15 @@ def readiness(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/summary")
-def financial_summary(request: Request, period: str = "LIFE", user: UserContext = Depends(get_current_user), db: Session = Depends(get_db)):
-    summary = _build_financial_summary(db, user.id, period=period)
+def financial_summary(
+    request: Request, 
+    period: str = "LIFE", 
+    today: str | None = None,
+    user: UserContext = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    target_date = _safe_date(today) or date.today()
+    summary = _build_financial_summary(db, user.id, period=period, today=target_date)
     return success_response(request, summary, message=f"Financial summary for {period}")
 
 
