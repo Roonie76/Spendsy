@@ -31,6 +31,7 @@ import { CATEGORIES } from "@shared/config/constants";
 import {
   normalizeDate,
   formatIndianCompact,
+  formatLocalDate,
 } from "@shared/utils/helpers";
 import { AIService } from "@shared/services/aiService";
 import { downloadCSV } from "@shared/utils/exportUtils";
@@ -328,7 +329,7 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
     const baseHistory = [...netWorthHistory];
 
     // 3. If the last history point isn't today, add a 'virtual' point for today
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatLocalDate(new Date());
     const hasToday = baseHistory.some(s => s.date === today);
 
     if (!hasToday && (currentAssets > 0 || currentLiabilities > 0)) {

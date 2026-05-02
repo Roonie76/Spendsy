@@ -36,6 +36,20 @@ export const normalizeDate = (d) => {
   return isNaN(parsed.getTime()) ? null : parsed;
 };
 
+/**
+ * --- LOCAL DATE FORMATTER ---
+ * Converts a Date object (or Date string) to YYYY-MM-DD string in LOCAL time.
+ * This avoids the common bug where .toISOString() shifts the date to UTC,
+ * causing 12am-5am transactions to appear as the previous day.
+ */
+export const formatLocalDate = (d) => {
+  const date = normalizeDate(d) || new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // --- SCRIPT LOADER (For PDF.js / Tesseract) ---
 export const loadScript = (src) => new Promise((resolve, reject) => {
   if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }

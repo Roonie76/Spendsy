@@ -12,6 +12,7 @@ import UnitSelector from "../components/domain/UnitSelector";
 import StatementHub from "../components/ui/StatementHub";
 import { apiFetch } from "../api";
 import { cn } from "@shared/utils/cn";
+import { formatLocalDate } from "@shared/utils/helpers";
 
 // Maximum single transaction amount (₹100 Cr)
 const MAX_AMOUNT = 1_000_000_000;
@@ -34,6 +35,7 @@ const AddPage = ({
   const [cat, setCat] = useState("food");
   const [type, setType] = useState("");
   const [transUnit, setTransUnit] = useState(1);
+  const [date, setDate] = useState(formatLocalDate(new Date()));
   const [isRecurring, setIsRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,6 +69,7 @@ const AddPage = ({
     setCat("food");
     setType("");
     setTransUnit(1);
+    setDate(formatLocalDate(new Date()));
     setIsRecurring(false);
     setTouched({});
     // Refocus the amount input for next entry
@@ -113,6 +116,7 @@ const AddPage = ({
         amount: String(finalAmount),
         type: normalizedType,
         category: cat,
+        date: date,
         is_recurring: isRecurring,
       };
 
@@ -380,6 +384,29 @@ const AddPage = ({
                 ))}
               </div>
             </fieldset>
+
+            {/* Date Input */}
+            <div>
+              <label htmlFor="date-input" className={cn(
+                "text-xs font-bold uppercase tracking-widest mb-3 block",
+                theme === "dark" ? "text-slate-500" : "text-slate-400",
+              )}>
+                Transaction Date
+              </label>
+              <input
+                id="date-input"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className={cn(
+                  "w-full p-4 border rounded-xl outline-none transition-all",
+                  theme === "dark"
+                    ? "bg-white/5 border-white/5 text-white focus:bg-white/10 focus:border-white/20"
+                    : "bg-white border-slate-200 text-slate-900 focus:bg-white focus:border-blue-300",
+                )}
+                required
+              />
+            </div>
 
             {/* Description Input */}
             <div>

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { AreaChart, Area, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { formatIndianCompact, buildAuthHeader } from "@shared/utils/helpers";
+import { formatIndianCompact, buildAuthHeader, formatLocalDate } from "@shared/utils/helpers";
 import { BANKS, CURRENCY_SYMBOL } from "@shared/config/constants";
 import UnitSelector from "../components/domain/UnitSelector";
 import WealthItem from "../components/domain/WealthItem";
@@ -57,7 +57,7 @@ const WealthPage = ({
       await apiFetch(`${apiBaseUrl}/net-worth/snapshot`, {
         method: "POST",
         body: JSON.stringify({
-          date: new Date().toISOString().split('T')[0],
+          date: formatLocalDate(new Date()),
           total_assets: totalAssets,
           total_liabilities: totalLiabilities,
           net_worth: netWorth,

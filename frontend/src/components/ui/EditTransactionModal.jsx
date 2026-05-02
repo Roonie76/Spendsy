@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, IndianRupee, Type, ShieldAlert, ArrowLeftRight } from 'lucide-react';
 import { CATEGORIES } from '@shared/config/constants';
-import { normalizeDate } from '@shared/utils/helpers';
+import { normalizeDate, formatLocalDate } from '@shared/utils/helpers';
 import { apiFetch } from '../../api';
 
 const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl, onTransferFlagChanged }) => {
@@ -11,7 +11,7 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl
         description: '',
         category: '',
         type: 'expense',
-        date: ''
+        date: formatLocalDate(new Date())
     });
     
     const isOriginalVerified = transaction?.confidence > 0;
@@ -21,13 +21,6 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl
 
     useEffect(() => {
         if (transaction && isOpen) {
-            let dateStr = '';
-            const d = normalizeDate(transaction.date);
-            if (d) {
-                // Formats to YYYY-MM-DD which <input type="date"> requires
-                dateStr = d.toISOString().split('T')[0];
-            }
-
             setFormData({
                 id: transaction.id,
                 uid: transaction.uid,
@@ -36,7 +29,7 @@ const EditTransactionModal = ({ isOpen, onClose, transaction, onSave, apiBaseUrl
                 description: transaction.description || transaction.title || '',
                 category: transaction.category || 'other',
                 type: transaction.type || 'expense',
-                date: dateStr
+                date: formatLocalDate(transaction.date)
             });
             setShowWarning(false);
             setIsTransfer(!!transaction.is_transfer);
