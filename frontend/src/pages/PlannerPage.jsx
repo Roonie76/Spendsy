@@ -33,10 +33,17 @@ export default function PlannerPage({ user, theme, showToast }) {
     fetchPlans();
   }, [fetchPlans]);
 
-  const filteredPlans = plans.filter(p => {
+  const activePlans = plans.filter(p => {
+    const isActive = p.status !== 'completed' && p.status !== 'cancelled';
     const matchesFilter = filterType === 'all' || p.source === filterType;
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
+    return isActive && matchesFilter && matchesSearch;
+  });
+
+  const archivedPlans = plans.filter(p => {
+    const isArchived = p.status === 'completed' || p.status === 'cancelled';
+    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
+    return isArchived && matchesSearch;
   });
 
   const handleCreatePlan = async (newPlan) => {
@@ -61,20 +68,29 @@ export default function PlannerPage({ user, theme, showToast }) {
 
   const handleDeletePlan = async (uid) => {
     try {
-      await financeApi.deletePlan(uid);
+      // Instead of permanent deletion, we "Cancel" it so it moves to archive
+      await financeApi.updatePlan(uid, { status: 'cancelled' });
+      showToast("Plan archived", "success");
       fetchPlans();
       setSelectedPlan(null);
     } catch (err) {
-      showToast("Failed to delete plan", "error");
+      // Fallback to delete if update fails or if it's a legacy plan
+      try {
+        await financeApi.deletePlan(uid);
+        fetchPlans();
+        setSelectedPlan(null);
+      } catch (e) {
+        showToast("Failed to process request", "error");
+      }
     }
   };
 
   const recommendations = useMemo(() => {
     const recs = [];
-    const activePlans = plans.filter(p => p.status !== "completed" && p.status !== "cancelled");
+    const activeOnly = plans.filter(p => p.status !== "completed" && p.status !== "cancelled");
 
     // Suggest increasing savings for plans behind schedule
-    for (const p of activePlans) {
+    for (const p of activeOnly) {
       if (p.deadline && p.target_amount && p.current_saved != null) {
         const remaining = Number(p.target_amount) - Number(p.current_saved || 0);
         const daysLeft = Math.max(1, Math.ceil((new Date(p.deadline) - new Date()) / 86400000));
@@ -82,13 +98,13 @@ export default function PlannerPage({ user, theme, showToast }) {
         const currentDaily = Number(p.daily_saving || 0);
         if (neededDaily > currentDaily * 1.2 && remaining > 0) {
           const extra = Math.ceil(neededDaily - currentDaily);
-          recs.push({ text: `Increase daily saving on "${p.title}" by ₹${extra} to stay on track.`, planUid: p.uid });
+          recs.push({ text: `Increase daily saving on "${p.title}" by ₹${extra} to stay on track.`, planUid: p.uid || p.id });
         }
       }
     }
 
     // Suggest a new plan if fewer than 2 active
-    if (activePlans.length < 2) {
+    if (activeOnly.length < 2) {
       recs.push({ text: "You have capacity for a new savings plan. Consider starting an investment or emergency fund goal." });
     }
 
@@ -100,7 +116,7 @@ export default function PlannerPage({ user, theme, showToast }) {
       <div className="mx-auto max-w-7xl">
         <PlannerHeader 
           totalPlans={plans.length} 
-          monthlyCommitment={plans.reduce((acc, p) => acc + Number(p.monthly_saving), 0)}
+          monthlyCommitment={plans.reduce((acc, p) => p.status !== 'completed' && p.status !== 'cancelled' ? acc + Number(p.monthly_saving) : acc, 0)}
           successRate={plans.length > 0 ? Math.round((plans.filter(p => p.status === 'completed').length / plans.length) * 100) : 0}
           aiInfluenceScore={plans.length > 0 ? Math.round((plans.filter(p => p.source === 'ai').length / plans.length) * 100) : 0}
           onCreateClick={() => setIsModalOpen(true)}
@@ -142,14 +158,14 @@ export default function PlannerPage({ user, theme, showToast }) {
             ) : (
               <>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  {filteredPlans.map(plan => (
-                    <PlanCard key={plan.id} plan={plan} onClick={setSelectedPlan} />
+                  {activePlans.map(plan => (
+                    <PlanCard key={plan.id || plan.uid} plan={plan} onClick={setSelectedPlan} />
                   ))}
                 </div>
                 
-                {filteredPlans.length === 0 && (
+                {activePlans.length === 0 && (
                   <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/[0.01]">
-                    <p className="text-slate-500 font-medium">No plans found matching your criteria</p>
+                    <p className="text-slate-500 font-medium">No active plans found</p>
                   </div>
                 )}
 
@@ -158,9 +174,18 @@ export default function PlannerPage({ user, theme, showToast }) {
                     <Archive className="h-5 w-5" />
                     <h3 className="font-bold uppercase tracking-widest text-sm">Archived Plans</h3>
                   </div>
-                  <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 sm:p-12 text-center backdrop-blur-sm">
-                    <p className="text-sm text-slate-600 font-medium">Your completed and cancelled plans will be safely stored here.</p>
-                  </div>
+                  
+                  {archivedPlans.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 opacity-60">
+                      {archivedPlans.map(plan => (
+                        <PlanCard key={plan.id || plan.uid} plan={plan} onClick={setSelectedPlan} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 sm:p-12 text-center backdrop-blur-sm">
+                      <p className="text-sm text-slate-600 font-medium">Your completed and cancelled plans will be safely stored here.</p>
+                    </div>
+                  )}
                 </div>
               </>
             )}
