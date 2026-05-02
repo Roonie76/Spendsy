@@ -23,6 +23,7 @@ import {
   FileCheck,
   ArrowRight,
   RefreshCw,
+  User,
 } from "lucide-react";
 import { TaxService } from "@shared/services/taxService";
 import { AIService } from "@shared/services/aiService";
@@ -143,11 +144,25 @@ const ProfileWizard = ({
       icon: GraduationCap,
       detected: 0,
     },
+    {
+      label: "Your Age",
+      key: "age",
+      icon: User,
+      detected: 30,
+    },
+  ];
+
+  const toggles = [
+    { label: "I have Business Income", key: "isBusiness", sub: "Select if you earn apart from Salary" },
+    { label: "I live in a Metro City", key: "isMetro", sub: "HRA is higher for Metro cities" },
+    { label: "Parents are Senior Citizens", key: "parentsAreSenior", sub: "80D deduction limit increases to ₹50k" },
+    { label: "I am an NRI", key: "isNRI", sub: "Non-Resident Indian status" },
+    { label: "I have Foreign Assets", key: "foreignAssets", sub: "Required for Schedule FA" },
   ];
 
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 print:hidden">
-      <div className="bg-[#0f0c29] w-full max-w-sm p-6 rounded-[2rem] border border-white/10 shadow-2xl relative">
+      <div className="bg-[#0f0c29] w-full max-w-xl p-6 rounded-[2rem] border border-white/10 shadow-2xl relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"
@@ -157,70 +172,84 @@ const ProfileWizard = ({
         <h3 className="text-xl font-bold text-white mb-6">
           Update Tax Profile
         </h3>
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-          <div
-            className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
-            onClick={() =>
-              setLocalProfile({
-                ...localProfile,
-                isBusiness: !localProfile.isBusiness,
-              })
-            }
-          >
-            <div
-              className={`w-5 h-5 rounded-md border flex items-center justify-center ${localProfile.isBusiness ? "bg-blue-500 border-blue-500" : "border-slate-500"}`}
-            >
-              {localProfile.isBusiness && (
-                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-white">
-                I have Business Income
-              </span>
-              <span className="text-[10px] text-slate-400">
-                Select if you earn apart from Salary
-              </span>
-            </div>
-          </div>
-          {fields.map((field) => (
-            <div key={field.key} className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <field.icon className="w-3 h-3" /> {field.label}
-                </label>
-                {field.detected > 0 && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setLocalProfile({
-                        ...localProfile,
-                        [field.key]: Math.round(Number(field.detected) || 0),
-                      })
-                    }
-                    className="text-[9px] font-bold text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded flex items-center gap-1 hover:bg-cyan-500/20 active:scale-95 transition-transform"
-                  >
-                    <ArrowDownCircle className="w-3 h-3" /> Use Detected ₹
-                    {formatIndianCompact(field.detected)}
-                  </button>
-                )}
-              </div>
-              <input
-                type="number"
-                value={localProfile[field.key]}
-                onChange={(e) =>
+        <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {toggles.map((t) => (
+              <div
+                key={t.key}
+                className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
+                onClick={() =>
                   setLocalProfile({
                     ...localProfile,
-                    [field.key]: Math.max(0, parseFloat(e.target.value) || 0),
+                    [t.key]: !localProfile[t.key],
                   })
                 }
-                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-blue-500/50 transition-colors placeholder:text-slate-600"
-                placeholder={
-                  field.detected > 0 ? `Detected: ${field.detected}` : "0"
-                }
-              />
-            </div>
-          ))}
+              >
+                <div
+                  className={`shrink-0 w-5 h-5 rounded-md border flex items-center justify-center ${localProfile[t.key] ? "bg-blue-500 border-blue-500" : "border-slate-500"}`}
+                >
+                  {localProfile[t.key] && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                  )}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-white truncate">
+                    {t.label}
+                  </span>
+                  <span className="text-[9px] text-slate-400 line-clamp-1">
+                    {t.sub}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
+            {fields.map((field) => (
+              <div key={field.key} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <field.icon className="w-3 h-3" /> {field.label}
+                  </label>
+                  {field.detected > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLocalProfile({
+                          ...localProfile,
+                          [field.key]: Math.round(Number(field.detected) || 0),
+                        })
+                      }
+                      className="text-[9px] font-bold text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded flex items-center gap-1 hover:bg-cyan-500/20 active:scale-95 transition-transform"
+                    >
+                      <ArrowDownCircle className="w-3 h-3" /> Use Detected ₹
+                      {formatIndianCompact(field.detected)}
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  value={
+                    !localProfile[field.key] || 
+                    Number(localProfile[field.key]) === 0 
+                      ? "" 
+                      : localProfile[field.key]
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                    setLocalProfile({
+                      ...localProfile,
+                      [field.key]: isNaN(val) ? 0 : Math.max(0, val),
+                    });
+                  }}
+                  className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-blue-500/50 transition-colors placeholder:text-slate-600"
+                  placeholder={
+                    field.detected > 0 ? `Detected: ${field.detected}` : "Enter amount..."
+                  }
+                />
+              </div>
+            ))}
+          </div>
         </div>
         <div className="pt-6 mt-2 border-t border-white/5">
           <button

@@ -130,7 +130,7 @@ const InfoTooltip = ({ text }) => (
   </div>
 );
 
-const CurrencyInput = ({ value, onChange, placeholder = "0", label, help, compact, disabled }) => (
+const CurrencyInput = ({ value, onChange, placeholder = "Enter amount...", label, help, compact, disabled }) => (
   <div className={`group transition-all ${compact ? "" : "space-y-1.5"}`}>
     {label && (
       <div className="flex items-center gap-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1 group-focus-within:text-blue-400">
@@ -140,7 +140,9 @@ const CurrencyInput = ({ value, onChange, placeholder = "0", label, help, compac
     <div className="relative">
       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">₹</span>
       <input
-        type="text" inputMode="decimal" value={value || ""} disabled={disabled}
+        type="text" inputMode="decimal" 
+        value={(!value || Number(value) === 0) ? "" : value} 
+        disabled={disabled}
         onChange={(e) => {
           const val = e.target.value;
           if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) onChange(val);
@@ -223,16 +225,29 @@ function computeFullTax(incomeData, deductionsData, regime = "new") {
   const capitalGains = parseFloat(incomeData.capitalGains || 0);
   const other = parseFloat(incomeData.otherIncome || 0) + parseFloat(incomeData.interestIncome || 0);
 
+  // Sync capital gains from details if available
+  const cgDetail = incomeData.capital_gains_detail || {};
+  const cgSum = Object.values(cgDetail).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+  const actualCG = cgSum > 0 ? cgSum : capitalGains;
+
   // Salary components
   const salaryComponents = incomeData.salary_components || {};
-  let grossSalary = salary;
+  let totalGrossSalary = salary; // Total for display (GTI)
+  let taxableSalary = salary;     // Total for tax base
+
   if (Object.keys(salaryComponents).length > 0) {
-    grossSalary = Object.entries(salaryComponents).reduce((sum, [key, val]) => {
+    const componentEntries = Object.entries(salaryComponents);
+    
+    totalGrossSalary = componentEntries.reduce((sum, [_, val]) => sum + (parseFloat(val) || 0), 0);
+    
+    taxableSalary = componentEntries.reduce((sum, [key, val]) => {
       const comp = SALARY_COMPONENTS.find(c => c.key === key);
       if (comp && comp.taxable) return sum + (parseFloat(val) || 0);
       return sum;
     }, 0);
-    if (grossSalary === 0) grossSalary = salary;
+
+    if (totalGrossSalary === 0) totalGrossSalary = salary;
+    if (taxableSalary === 0) taxableSalary = salary;
   }
 
   // House property income computation
@@ -255,10 +270,21 @@ function computeFullTax(incomeData, deductionsData, regime = "new") {
     totalHP = Math.max(totalHP, -200000); // Loss capped at ₹2L
   }
 
-  const grossTotalIncome = grossSalary + totalHP + business + other;
+  const displayGrossTotalIncome = totalGrossSalary + totalHP + business + other;
+  
+  // New regime: Loss from house property cannot be set off against other heads
+  const taxableGrossTotalIncome = regime === "new" 
+    ? taxableSalary + Math.max(0, totalHP) + business + other
+    : taxableSalary + totalHP + business + other;
+
   const stdDeduction = regime === "new" ? 75000 : 50000;
 
   let totalDeductions = stdDeduction;
+  if (regime === "new") {
+    // New regime allows 80CCD(2) employer contribution
+    totalDeductions += parseFloat(deductionsData.employer_nps || 0);
+  }
+
   if (regime === "old") {
     const limits = TAX_CONSTANTS.LIMITS;
     totalDeductions += Math.min(parseFloat(deductionsData.section80C || 0), limits.SECTION_80C);
@@ -276,7 +302,7 @@ function computeFullTax(incomeData, deductionsData, regime = "new") {
     totalDeductions += parseFloat(deductionsData.hra || 0);
   }
 
-  const taxableIncome = Math.max(0, grossTotalIncome - totalDeductions);
+  const taxableIncome = Math.max(0, taxableGrossTotalIncome - totalDeductions);
 
   // Slab computation
   const slabs = regime === "new" ? TAX_CONSTANTS.NEW_REGIME.SLABS : TAX_CONSTANTS.OLD_REGIME.SLABS;
@@ -356,8 +382,8 @@ function computeFullTax(incomeData, deductionsData, regime = "new") {
   const totalTax = baseTax + effectiveSurcharge + cess + totalCGTax;
 
   return {
-    grossSalary,
-    grossTotalIncome: grossTotalIncome + capitalGains,
+    grossSalary: totalGrossSalary,
+    grossTotalIncome: displayGrossTotalIncome + actualCG,
     totalDeductions,
     taxableIncome,
     baseTax,
@@ -439,6 +465,8 @@ function runAuditChecks(incomeData, deductionsData, filingDetails) {
 
   // Crypto loss warning
   const cgDetail = incomeData.capital_gains_detail || {};
+  const cgSum = Object.values(cgDetail).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+  
   if (parseFloat(cgDetail.crypto_vda || 0) < 0) {
     warnings.push({ id: "crypto_loss", msg: "Crypto losses cannot be set off against any other income or carried forward", section: "Capital Gains" });
   }
@@ -452,6 +480,16 @@ function runAuditChecks(incomeData, deductionsData, filingDetails) {
   const grossIncome = parseFloat(incomeData.salary || 0) + parseFloat(incomeData.businessIncome || 0) + parseFloat(incomeData.otherIncome || 0);
   if (grossIncome > 1000000 && !filingDetails.advanceTaxPaid) {
     warnings.push({ id: "advance_tax", msg: "With income above ₹10L, advance tax may be applicable. Check Section 234B/234C interest.", section: "Compliance" });
+  }
+
+  // Capital Gains consistency check
+  const declaredCG = parseFloat(incomeData.capitalGains || 0);
+  if (cgSum > 0 && Math.abs(cgSum - declaredCG) > 10) {
+    errors.push({ 
+      id: "cg_mismatch", 
+      msg: `Capital Gains mismatch: Schedule shows ${fmt(cgSum)} but Income head shows ${fmt(declaredCG)}. Please sync them.`, 
+      section: "Capital Gains" 
+    });
   }
 
   // Missing income declaration
@@ -1046,7 +1084,11 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
                                       <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">{field.label}</label>
                                       <input
                                         type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
-                                        value={prop[field.key] || ""}
+                                        value={
+                                          (field.type === "number" && (!prop[field.key] || Number(prop[field.key]) === 0))
+                                            ? ""
+                                            : prop[field.key] || ""
+                                        }
                                         onChange={(e) => updatePropertyDetail(idx, field.key, e.target.value)}
                                         className="w-full bg-black/20 border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:border-blue-500/50 outline-none transition-all"
                                       />
@@ -1368,7 +1410,7 @@ export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transacti
                   <SectionHeader icon={Calendar} title="Advance Tax Schedule" subtitle="Section 208-211 • Tax > ₹10,000 after TDS" />
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {(backendResult ? backendResult.advance_tax_schedule : ADVANCE_TAX_SCHEDULE).map((inst, i) => {
-                      const amount = backendResult ? inst.amount : Math.round(selectedResult.totalTax * inst.cumPct / 100);
+                      const amount = Math.round(selectedResult.totalTax * (inst.cumulative_pct || inst.cumPct) / 100);
                       const isPast = new Date() > new Date(ADV_YR, [5, 8, 11, 2][i], 15);
                       return (
                         <div key={i} className={`p-4 rounded-xl border text-center ${isPast ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/10 bg-white/[0.02]"}`}>

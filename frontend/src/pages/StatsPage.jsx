@@ -421,22 +421,25 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
   const exportAnalytics = () => {
     setExportStatus("loading");
     try {
-      downloadCSV([
-        ...pieChartData.data.map((row) => ({
-          chart: "category_breakdown",
-          label: row.name,
-          value: row.value,
-          type: viewMode,
-        })),
-        ...trendChartData.map((row) => ({
-          chart: "trend",
-          label: row.name,
-          income: row.income,
-          expense: row.expense,
-        })),
-      ]);
+      // Filter transactions based on the same logic used for charts
+      const now = new Date();
+      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let threshold = new Date(0);
+      if (range === "1D") threshold = todayMidnight;
+      else if (range === "1W") threshold = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+      else if (range === "1M") threshold = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      else if (range === "6M") threshold = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+      else if (range === "1Y") threshold = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+
+      const filteredTransactions = transactions.filter(t => {
+        const tDate = normalizeDate(t.date);
+        return tDate && tDate >= threshold;
+      });
+
+      downloadCSV(filteredTransactions);
       setExportStatus("success");
-    } catch {
+    } catch (error) {
+      console.error("Export failed:", error);
       setExportStatus("error");
     } finally {
       window.setTimeout(() => setExportStatus("idle"), 1800);
@@ -739,13 +742,35 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
       </div>
 
       {/* Net Worth History Tracker */}
-      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
-        <div className="flex justify-between items-start mb-6 gap-4">
+      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden group">
+        <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/10 transition-colors"></div>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 relative z-10">
           <div>
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-1">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2">
               <TrendingUp className="w-4 h-4 text-indigo-400" /> Net Worth History
             </h3>
-            <p className="text-xs text-slate-500">Assets vs Liabilities over time</p>
+            <div className="flex items-baseline gap-3">
+              <p className="text-3xl font-black text-white tracking-tight">
+                {formatIndianCompact(augmentedNetWorthHistory.at(-1)?.net_worth || 0)}
+              </p>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <TrendingUp className="w-3 h-3 text-emerald-400" />
+                <span className="text-[10px] font-bold text-emerald-400">Stable</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Assets vs Liabilities over time</p>
+          </div>
+          <div className="hidden sm:flex flex-col items-end">
+            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest">
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                Assets
+              </div>
+              <div className="flex items-center gap-1.5 text-rose-400">
+                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></div>
+                Liabilities
+              </div>
+            </div>
           </div>
         </div>
 
@@ -755,36 +780,53 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
               <AreaChart data={augmentedNetWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="50%" stopColor="#10b981" stopOpacity={0.1} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorLiabilities" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
+                    <stop offset="50%" stopColor="#f43f5e" stopOpacity={0.1} />
                     <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} dy={10}
+                  axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }} dy={10}
                   tickFormatter={(val) => {
                     const d = new Date(val);
                     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
                   }}
                 />
                 <YAxis
-                  axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }}
+                  axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }}
                   tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                  labelStyle={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', marginBottom: '8px' }}
-                  formatter={(value) => [`₹${value.toLocaleString("en-IN")}`, '']}
-                  labelFormatter={(label) => new Date(label).toDateString()}
+                  cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                  content={<CustomTooltip />}
                 />
-                <Area type="monotone" dataKey="total_assets" name="Assets" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAssets)" />
-                <Area type="monotone" dataKey="total_liabilities" name="Liabilities" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorLiabilities)" />
+                <Area 
+                  type="monotone" 
+                  dataKey="total_assets" 
+                  name="Assets" 
+                  stroke="#10b981" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorAssets)"
+                  activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#10b981' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="total_liabilities" 
+                  name="Liabilities" 
+                  stroke="#f43f5e" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorLiabilities)"
+                  activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#f43f5e' }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           ) : (

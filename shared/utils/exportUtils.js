@@ -8,13 +8,19 @@ export const downloadCSV = (transactions) => {
 
     // 2. Convert Data to CSV Rows
     const rows = transactions.map(t => {
+        // Use formatLocalDate for consistent YYYY-MM-DD or custom formatting
         const d = normalizeDate(t.date);
-        const date = d ? d.toLocaleDateString('en-IN') : 'Unknown';
-        const rawDesc = String(t.description ?? t.title ?? '');
+        const date = d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Unknown';
+        
+        const rawDesc = String(t.description ?? t.title ?? t.label ?? '');
         const desc = `"${rawDesc.replace(/"/g, '""')}"`; // Escape quotes
         const cat = t.category || 'other';
         const type = t.type || '';
-        const amt = Number.isFinite(parseFloat(t.amount)) ? t.amount : 0;
+        
+        // Ensure amount is a number and fallback to 0 only if truly invalid
+        const rawAmt = t.amount ?? t.value ?? 0;
+        const amt = Number.isFinite(parseFloat(rawAmt)) ? rawAmt : 0;
+        
         const bank = t.bank || "N/A";
         const verified = (t.confidence != null && t.confidence > 0) ? "Yes" : "No";
 

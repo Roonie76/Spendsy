@@ -312,16 +312,15 @@ export const UNITS = [
 export const TAX_CONSTANTS = {
   NEW_REGIME: {
     SLABS: [
-      { limit: 400000, rate: 0.0 },
-      { limit: 800000, rate: 0.05 },
-      { limit: 1200000, rate: 0.1 },
-      { limit: 1600000, rate: 0.15 },
-      { limit: 2000000, rate: 0.2 },
-      { limit: 2400000, rate: 0.25 },
-      { limit: null, rate: 0.3 },
+      { limit: 300000, rate: 0.0 },
+      { limit: 700000, rate: 0.05 },
+      { limit: 1000000, rate: 0.10 },
+      { limit: 1200000, rate: 0.15 },
+      { limit: 1500000, rate: 0.20 },
+      { limit: null, rate: 0.30 },
     ],
-    REBATE_LIMIT: 1200000,
-    REBATE_MAX: 60000,
+    REBATE_LIMIT: 700000,
+    REBATE_MAX: 25000,
     STANDARD_DEDUCTION: 75000,
     CESS: 0.04,
     MAX_SURCHARGE_RATE: 0.25, // Capped at 25% in new regime

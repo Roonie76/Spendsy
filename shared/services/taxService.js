@@ -205,8 +205,10 @@ export const TaxService = {
     const stdDedOld = salaryIncome > 0 ? 50000 : 0;
     const stdDedNew = salaryIncome > 0 ? 75000 : 0;
 
-    const grossTotalIncome =
+    const grossTotalOld =
       salaryIncome + incomeFromHP + taxableBusinessIncome + otherSourcesIncome;
+    const grossTotalNew =
+      salaryIncome + Math.max(0, incomeFromHP) + taxableBusinessIncome + otherSourcesIncome;
 
     // Age-aware deduction limits
     const age = parseInt(userProfile.age || 0);
@@ -231,9 +233,9 @@ export const TaxService = {
     const used80EE = Math.min(parseFloat(itr?.deductions_data?.section80EE || 0), limits.SECTION_80EE);
     const used80EEB = Math.min(parseFloat(itr?.deductions_data?.section80EEB || 0), limits.SECTION_80EEB);
 
-    const totalOldDeductions = stdDedOld + used80C + used80D + usedNPS + used80E + used80TTA + used80G + used80GG + used80EE + used80EEB;
-    const taxableOld = Math.max(0, grossTotalIncome - totalOldDeductions);
-    const taxableNew = Math.max(0, grossTotalIncome - stdDedNew);
+    const totalOldDeductions = stdDedOld + used80C + used80D + usedNPS + used80E + used80TTA + used80G + used80GG + used80EE + used80EEB + (parseFloat(itr?.deductions_data?.employer_nps) || 0);
+    const taxableOld = Math.max(0, grossTotalOld - totalOldDeductions);
+    const taxableNew = Math.max(0, grossTotalNew - stdDedNew - (parseFloat(itr?.deductions_data?.employer_nps) || 0));
 
     const slabTax = (income, slabs) => {
       let tax = 0;
@@ -333,9 +335,16 @@ export const TaxService = {
       const ltcg = parseFloat(cgData.ltcg_112a || 0);
       const crypto = parseFloat(cgData.crypto_vda || 0);
 
+      // New: Detailed assets from ITR data
+      const otherLtcg = parseFloat(cgData.property_ltcg || 0) + 
+                       parseFloat(cgData.gold_ltcg || 0) + 
+                       parseFloat(cgData.debt_mf_ltcg || 0) +
+                       parseFloat(cgData.unlisted_ltcg || 0);
+
       if (stcg > 0) cgTax += stcg * cg.STCG_111A;
       if (ltcg > cg.LTCG_112A_EXEMPT) cgTax += (ltcg - cg.LTCG_112A_EXEMPT) * cg.LTCG_112A;
       if (crypto > 0) cgTax += crypto * cg.CRYPTO_VDA;
+      if (otherLtcg > 0) cgTax += otherLtcg * cg.LTCG_112; // 12.5% flat
 
       return cgTax * (1 + TAX_CONSTANTS.NEW_REGIME.CESS); // cess applies to CG tax too
     };
@@ -349,7 +358,7 @@ export const TaxService = {
       .reduce((acc, t) => acc + (parseFloat(t?.amount) || 0), 0);
 
     const incomeMismatch =
-      Math.abs(totalBankCredits - grossTotalIncome) > 50000;
+      Math.abs(totalBankCredits - grossTotalOld) > 50000;
     const monthsElapsed =
       new Date().getMonth() >= 3
         ? new Date().getMonth() - 2
@@ -374,7 +383,7 @@ export const TaxService = {
         salary: salaryIncome,
         interest: savingsInterest,
         other: otherSourcesIncome,
-        total: grossTotalIncome,
+        total: grossTotalOld,
       },
       heads: {
         salary: salaryIncome,

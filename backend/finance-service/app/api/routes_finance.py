@@ -522,6 +522,12 @@ def profile_settings(
             profile.daily_budget = updates["daily_budget"]
         if "is_business" in updates:
             profile.is_business = updates["is_business"]
+        if "risk_tolerance" in updates:
+            profile.risk_tolerance = updates["risk_tolerance"]
+        if "dependents" in updates:
+            profile.dependents = updates["dependents"]
+        if "life_stage" in updates:
+            profile.life_stage = updates["life_stage"]
         try:
             db.commit()
         except SQLAlchemyError:
@@ -536,6 +542,9 @@ def profile_settings(
         "monthlyBudget": str(profile.monthly_budget or Decimal("0")),
         "dailyBudget": str(profile.daily_budget or Decimal("0")),
         "is_business": bool(profile.is_business),
+        "riskTolerance": profile.risk_tolerance,
+        "dependents": int(profile.dependents),
+        "lifeStage": profile.life_stage,
     }
     return success_response(request, payload_out)
 
@@ -1173,6 +1182,12 @@ def manage_tax_profile(
         "healthInsuranceParents": str(profile.health_insurance_parents),
         "homeLoanInterest": str(profile.home_loan_interest),
         "educationLoanInterest": str(profile.education_loan_interest),
+        "parentsAreSenior": bool(profile.parents_are_senior),
+        "age": int(profile.age),
+        "isMetro": bool(profile.is_metro),
+        "isPresumptive": bool(profile.is_presumptive),
+        "isNRI": bool(profile.is_nri),
+        "foreignAssets": bool(profile.foreign_assets),
     }
     return success_response(request, payload_out, message="Tax profile" if request.method == "GET" else "Tax profile updated")
 

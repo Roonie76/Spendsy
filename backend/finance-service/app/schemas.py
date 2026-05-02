@@ -45,6 +45,9 @@ class UserProfilePayload(BaseModel):
     monthly_budget: Decimal | None = Field(default=None, alias="monthlyBudget", ge=0)
     daily_budget: Decimal | None = Field(default=None, alias="dailyBudget", ge=0)
     is_business: bool | None = Field(default=None, alias="is_business")
+    risk_tolerance: str | None = Field(default=None, alias="riskTolerance")
+    dependents: int | None = Field(default=None, alias="dependents")
+    life_stage: str | None = Field(default=None, alias="lifeStage")
     email: str | None = None
 
 
