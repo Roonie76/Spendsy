@@ -30,17 +30,93 @@ const WealthItem = ({ item, onDelete, onUpdate }) => {
             </div>
 
             {/* Details or Edit Input */}
-            <div className={`flex-1 min-w-0 relative z-10 ${isEditing ? 'w-full mb-2 sm:mb-0' : ''}`}>
+            <div className={`flex-1 min-w-0 relative z-10 ${isEditing ? 'w-full mb-4 sm:mb-0' : ''}`}>
                 {isEditing ? (
-                    <div className="space-y-2">
-                        {!item.is_loan && (
-                            <input 
-                                className="bg-black/20 border border-white/20 rounded-xl px-4 py-2 text-white w-full outline-none focus:border-blue-500 font-medium transition-all"
-                                value={tempName}
-                                onChange={(e) => setTempName(e.target.value)}
-                                placeholder="Name"
-                            />
+                    <div className="space-y-4 w-full">
+                        {item.is_loan ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Bank Name</label>
+                                        <select
+                                            value={tempName}
+                                            onChange={(e) => setTempName(e.target.value)}
+                                            className="w-full bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm outline-none focus:border-blue-500 transition-all appearance-none"
+                                        >
+                                            {BANKS.map(bank => (
+                                                <option key={bank} value={bank} className="bg-slate-900">{bank}</option>
+                                            ))}
+                                            <option value="Other" className="bg-slate-900">Other</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Remaining Balance (₹)</label>
+                                        <input 
+                                            type="number"
+                                            className="bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm w-full outline-none focus:border-blue-500 transition-all"
+                                            value={tempValue}
+                                            onChange={(e) => setTempValue(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Interest Rate (%)</label>
+                                        <input 
+                                            type="number"
+                                            step="0.1"
+                                            className="bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm w-full outline-none focus:border-blue-500 transition-all"
+                                            value={tempROI}
+                                            onChange={(e) => setTempROI(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Tenure (Months)</label>
+                                        <input 
+                                            type="number"
+                                            className="bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm w-full outline-none focus:border-blue-500 transition-all"
+                                            value={tempTenure}
+                                            onChange={(e) => setTempTenure(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Name</label>
+                                    <input 
+                                        className="bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-white w-full outline-none focus:border-blue-500 font-medium transition-all"
+                                        value={tempName}
+                                        onChange={(e) => setTempName(e.target.value)}
+                                        placeholder="Name"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Amount (₹)</label>
+                                    <input 
+                                        type="number"
+                                        inputMode="decimal"
+                                        className="bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-white w-full text-left outline-none focus:border-blue-500 transition-all"
+                                        value={tempValue}
+                                        placeholder="Amount"
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
+                                                setTempValue(val);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         )}
+                        <div className="flex gap-2 justify-end pt-2">
+                            <button onClick={() => setIsEditing(false)} className="flex items-center gap-2 bg-white/5 text-slate-400 px-5 py-2.5 rounded-xl hover:bg-white/10 transition-all font-bold text-xs"><X className="w-4 h-4" /> Cancel</button>
+                            <button onClick={handleSave} className="flex items-center gap-2 bg-blue-600/20 text-blue-400 border border-blue-500/20 px-6 py-2.5 rounded-xl hover:bg-blue-600/30 transition-all font-bold text-xs"><Check className="w-4 h-4" /> Save Changes</button>
+                        </div>
                     </div>
                 ) : (
                     <>
@@ -60,112 +136,29 @@ const WealthItem = ({ item, onDelete, onUpdate }) => {
             </div>
 
             {/* Actions & Amount */}
-            <div className={`shrink-0 flex flex-col items-end relative z-10 ${isEditing ? 'w-full' : 'text-right pl-4'}`}>
-                {isEditing ? (
-                    <div className="flex flex-col gap-3 w-full animate-in slide-in-from-top-1 duration-300">
-                        {item.is_loan ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                            <div className="space-y-3">
-                              <select
-                                  value={tempName}
-                                  onChange={(e) => setTempName(e.target.value)}
-                                  className="w-full bg-black/20 border border-white/20 rounded-xl px-4 py-2 text-white text-xs outline-none focus:border-blue-500 transition-all appearance-none"
-                              >
-                                {BANKS.map(bank => (
-                                  <option key={bank} value={bank}>{bank}</option>
-                                ))}
-                                <option value="Other">Other</option>
-                              </select>
-
-                              <div className="space-y-1">
-                                <div className="flex justify-between px-1">
-                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Balance</label>
-                                  <span className="text-[10px] font-bold text-rose-300">₹{formatIndianCompact(tempValue)}</span>
-                                </div>
-                                <input 
-                                    type="range"
-                                    min="0"
-                                    max="10000000"
-                                    step="1000"
-                                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-rose-500"
-                                    value={tempValue}
-                                    onChange={(e) => setTempValue(e.target.value)}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="space-y-3">
-                              <div className="space-y-1">
-                                <div className="flex justify-between px-1">
-                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Interest Rate (%)</label>
-                                  <span className="text-[10px] font-bold text-rose-300">{tempROI}%</span>
-                                </div>
-                                <input 
-                                    type="range"
-                                    min="1"
-                                    max="30"
-                                    step="0.1"
-                                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-rose-500"
-                                    value={tempROI}
-                                    onChange={(e) => setTempROI(e.target.value)}
-                                />
-                              </div>
-
-                              <input 
-                                  type="number"
-                                  className="bg-black/20 border border-white/20 rounded-xl px-4 py-2 text-white text-xs w-full outline-none focus:border-blue-500 transition-all"
-                                  value={tempTenure}
-                                  placeholder="Tenure (Months)"
-                                  onChange={(e) => setTempTenure(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-full">
-                            <input 
-                                type="number"
-                                inputMode="decimal"
-                                className="bg-black/20 border border-white/20 rounded-xl px-4 py-2 text-white w-full text-left outline-none focus:border-blue-500 transition-all"
-                                value={tempValue}
-                                placeholder="Amount"
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) {
-                                    setTempValue(val);
-                                  }
-                                }}
-                            />
-                          </div>
-                        )}
-                        <div className="flex gap-2 justify-end w-full">
-                            <button onClick={handleSave} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl hover:bg-emerald-500/30 transition-all font-bold text-xs"><Check className="w-4 h-4" /> Save</button>
-                            <button onClick={() => setIsEditing(false)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500/20 text-rose-400 px-4 py-2 rounded-xl hover:bg-rose-500/30 transition-all font-bold text-xs"><X className="w-4 h-4" /> Cancel</button>
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <p className={`font-bold text-lg md:text-xl tracking-tight ${isAsset ? 'text-emerald-300' : 'text-rose-300'}`}>
-                            {formatIndianCompact(item.amount)}
-                        </p>
-                        <div className="flex gap-1 justify-end">
+            {!isEditing && (
+                <div className="shrink-0 flex flex-col items-end text-right pl-4 relative z-10">
+                    <p className={`font-bold text-lg md:text-xl tracking-tight ${isAsset ? 'text-emerald-300' : 'text-rose-300'}`}>
+                        {formatIndianCompact(item.amount)}
+                    </p>
+                    <div className="flex gap-1 justify-end">
+                        <button 
+                            onClick={() => setIsEditing(true)} 
+                            className="mt-1 p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-all"
+                        >
+                            <Pencil className="w-4 h-4" />
+                        </button>
+                        {onDelete && (
                             <button 
-                                onClick={() => setIsEditing(true)} 
-                                className="mt-1 p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-all"
+                                onClick={() => onDelete(item)} 
+                                className="mt-1 p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-all active:scale-90"
                             >
-                                <Pencil className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4" />
                             </button>
-                            {onDelete && (
-                                <button 
-                                    onClick={() => onDelete(item)} 
-                                    className="mt-1 p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-all active:scale-90"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
