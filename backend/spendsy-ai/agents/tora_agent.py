@@ -120,11 +120,15 @@ async def fetch_financial_summary(user_id: int) -> Dict[str, Any]:
         return_exceptions=True,
     )
 
-    # Treat exceptions as empty — the caller falls back gracefully.
-    if isinstance(context, Exception) or not context:
-        logger.warning("finance-context MCP call failed for user %s: %s", user_id, context)
+    # Treat exceptions or error strings as empty — the caller falls back gracefully.
+    if isinstance(context, (Exception, str)) or not context:
+        if isinstance(context, str) and not context.startswith("{"):
+            logger.warning("finance-context MCP call returned error string for user %s: %s", user_id, context)
+        elif isinstance(context, Exception):
+            logger.warning("finance-context MCP call failed for user %s: %s", user_id, context)
         context = {}
-    if isinstance(full_txns_raw, Exception):
+        
+    if isinstance(full_txns_raw, (Exception, str)) and not (isinstance(full_txns_raw, str) and full_txns_raw.startswith("[")):
         logger.warning("get_transactions MCP call failed for user %s: %s", user_id, full_txns_raw)
         full_txns_raw = []
 

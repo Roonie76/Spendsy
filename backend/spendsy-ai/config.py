@@ -16,9 +16,9 @@ class Settings(BaseSettings):
     
     # Ollama Configuration (Local Inference)
     ollama_base_url: str = "http://host.docker.internal:11434"
-    ollama_keep_alive: int = 0  # 0 unloads model immediately for memory safety (24GB RAM constraint)
-    model_gemma: str = "gemma4:e2b"       # Primary (TORA) — Gemma 4 E2B (reliable numeric reasoning)
-    model_llama: str = "gemma4:e2b"       # Using E2B as fallback too since 2B was removed
+    ollama_keep_alive: int = 300  # Default to 5m to avoid constant reloading
+    model_gemma: str = "gemma4:e2b"
+    model_llama: str = "gemma4:e2b"
     # TORA+ models — will be configured after fine-tuning
     model_tora_plus: str = ""             # Disabled until fine-tuning is complete
     

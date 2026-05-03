@@ -7,13 +7,15 @@ import {
   BarChart2, Zap, Bot, Brain, Sparkles, Crown,
   IndianRupee, PiggyBank, Activity, FileBarChart,
   Calendar, Receipt, Shield, Star, ExternalLink,
-  RefreshCw, BadgeCheck, CircleDashed, Info
+  RefreshCw, BadgeCheck, CircleDashed, Info,
+  ListFilter, PieChart as PieChartIcon, SlidersHorizontal, Check, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { TABS } from "@shared/config/constants";
 import { TierBadge } from "../components/ui/TierBadge";
 import { formatIndianCompact } from "@shared/utils/helpers";
+import { ProfileSkeleton } from "../components/ui/Skeletons";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -272,9 +274,6 @@ const ConnectionsHub = ({ setActiveTab, showToast }) => {
             </div>
             <p className="text-xs text-slate-500">Automatic transaction sync</p>
           </div>
-          <button onClick={() => setActiveTab(TABS.BANK_ACCOUNTS)} className="p-2 bg-white/5 rounded-xl border border-white/8 text-slate-500 hover:text-white transition-colors">
-            <SettingsIcon className="w-4 h-4" />
-          </button>
         </div>
         {/* AA Banner */}
         <div className="p-3 rounded-2xl bg-gradient-to-r from-violet-500/10 to-indigo-500/8 border border-violet-500/20 flex items-center gap-3">
@@ -434,39 +433,147 @@ const PortfolioSnapshot = ({ wealthItems, setActiveTab }) => {
 
 // ─── 6. NAV SHORTCUTS ─────────────────────────────────────────────────────────
 
-const NavShortcuts = ({ setActiveTab, settings, wealthItems }) => {
-  const loanCount = wealthItems.filter(i => i.type === "liability" || i.is_loan).length;
-  const hasBudget = parseFloat(settings?.monthlyBudget || 0) > 0;
+const ALL_SHORTCUTS = [
+  { id: TABS.BUDGET, label: "Budget", icon: Target, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", sub: "Monthly targets" },
+  { id: TABS.GOALS, label: "Goals", icon: Star, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", sub: "Track milestones" },
+  { id: TABS.LOANS, label: "Loans", icon: Briefcase, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20", sub: "Liabilities" },
+  { id: TABS.PLANNER, label: "Planner", icon: TrendingUp, color: "text-indigo-400", bg: "bg-indigo-500/10", border: "border-indigo-500/20", sub: "AI-driven plans" },
+  { id: TABS.ITR, label: "ITR Filing", icon: FileBarChart, color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", sub: "File your return" },
+  { id: TABS.AUDIT, label: "Tax Audit", icon: Receipt, color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20", sub: "Deductions score" },
+  { id: TABS.HISTORY, label: "History", icon: ListFilter, color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/20", sub: "All transactions" },
+  { id: TABS.WEALTH, label: "Wealth", icon: Landmark, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", sub: "Net valuation" },
+  { id: TABS.ADD, label: "Add New", icon: Plus, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", sub: "Manual entry" },
+  { id: TABS.STATS, label: "Stats", icon: PieChartIcon, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", sub: "Spending analysis" },
+];
 
-  const shortcuts = [
-    { label: "Budget",    sub: hasBudget ? `₹${fmt(settings.monthlyBudget)}/mo` : "Not set", icon: Target,      color: "text-amber-400",  bg: "bg-amber-500/10",  border: "border-amber-500/20",  tab: TABS.BUDGET,  alert: !hasBudget },
-    { label: "Goals",     sub: "Track milestones",                                             icon: Star,        color: "text-emerald-400",bg: "bg-emerald-500/10",border: "border-emerald-500/20",tab: TABS.GOALS },
-    { label: "Loans",     sub: loanCount > 0 ? `${loanCount} active` : "None",                icon: Briefcase,   color: "text-rose-400",   bg: "bg-rose-500/10",   border: "border-rose-500/20",   tab: TABS.LOANS },
-    { label: "Planner",   sub: "AI-driven plans",                                              icon: TrendingUp,  color: "text-indigo-400", bg: "bg-indigo-500/10", border: "border-indigo-500/20", tab: TABS.PLANNER },
-    { label: "ITR Filing",sub: "File your return",                                             icon: FileBarChart,color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", tab: TABS.ITR },
-    { label: "Tax Audit", sub: "Deductions & score",                                           icon: Receipt,     color: "text-sky-400",    bg: "bg-sky-500/10",    border: "border-sky-500/20",    tab: TABS.AUDIT },
-  ];
+const QuickActionsModal = ({ isOpen, onClose, currentActions, onSave }) => {
+  const [selected, setSelected] = useState(currentActions || []);
+  
+  const toggle = (id) => {
+    if (selected.includes(id)) {
+      setSelected(selected.filter(i => i !== id));
+    } else {
+      if (selected.length < 6) setSelected([...selected, id]);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden"
+          >
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-white">Configure Actions</h3>
+                <p className="text-xs text-slate-500 mt-1">Select up to 6 shortcuts for your profile</p>
+              </div>
+              <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+              {ALL_SHORTCUTS.map(s => {
+                const isSelected = selected.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => toggle(s.id)}
+                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${isSelected ? "bg-indigo-500/10 border-indigo-500/40" : "bg-white/[0.02] border-white/5 hover:border-white/10"}`}
+                  >
+                    <div className={`p-2 rounded-xl bg-white/5 ${s.color}`}>
+                      <s.icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{s.label}</p>
+                      <p className="text-[10px] text-slate-600 truncate">{s.sub}</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${isSelected ? "bg-indigo-500 border-indigo-500" : "border-white/10"}`}>
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-6 bg-white/[0.02] border-t border-white/5 flex gap-3">
+              <button 
+                onClick={onClose}
+                className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => { onSave(selected); onClose(); }}
+                className="flex-[2] py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-900/20 transition-all"
+              >
+                Save Changes
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+const NavShortcuts = ({ setActiveTab, settings, user, onUpdateActions }) => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const preferences = user?.preferences || {};
+  const selectedIds = preferences.quick_actions || [TABS.BUDGET, TABS.GOALS, TABS.LOANS, TABS.PLANNER, TABS.ITR, TABS.AUDIT];
+  
+  const shortcuts = ALL_SHORTCUTS.filter(s => selectedIds.includes(s.id));
+  const hasBudget = parseFloat(settings?.monthlyBudget || 0) > 0;
 
   return (
     <div>
-      <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] px-1 mb-3">Quick Actions</p>
+      <div className="flex items-center justify-between px-1 mb-3">
+        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em]">Quick Actions</p>
+        <button 
+          onClick={() => setModalOpen(true)}
+          className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-300 transition-colors flex items-center gap-1"
+        >
+          <SlidersHorizontal className="w-3 h-3" />
+          Configure
+        </button>
+      </div>
+      
       <div className="grid grid-cols-3 gap-2.5">
         {shortcuts.map(s => (
-          <motion.button key={s.label} whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
-            onClick={() => setActiveTab(s.tab)}
+          <motion.button key={s.id} whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
+            onClick={() => setActiveTab(s.id)}
             className={`relative flex flex-col items-center gap-2.5 py-4 px-2 rounded-3xl border transition-all text-center ${s.border || "border-white/5"} bg-white/[0.02] hover:bg-white/5`}
           >
-            {s.alert && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500" />}
+            {s.id === TABS.BUDGET && !hasBudget && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500" />}
             <div className={`p-2.5 rounded-2xl bg-white/5 ${s.color}`}>
               <s.icon className="w-5 h-5" />
             </div>
             <div>
               <p className="text-xs font-black text-white leading-tight">{s.label}</p>
-              <p className="text-[9px] text-slate-600 mt-0.5 leading-tight">{s.sub}</p>
+              <p className="text-[9px] text-slate-600 mt-0.5 leading-tight">
+                {s.id === TABS.BUDGET && hasBudget ? `₹${fmt(settings.monthlyBudget)}/mo` : s.sub}
+              </p>
             </div>
           </motion.button>
         ))}
       </div>
+
+      <QuickActionsModal 
+        isOpen={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        currentActions={selectedIds}
+        onSave={onUpdateActions}
+      />
     </div>
   );
 };
@@ -630,13 +737,17 @@ const ProfilePage = ({
   setActiveTab,
   showToast,
   onLogout,
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-    className="space-y-4 pb-32"
-  >
+  isLoading,
+}) => {
+  if (isLoading) return <ProfileSkeleton />;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="space-y-4 pb-32"
+    >
     <HeroSection user={user} setActiveTab={setActiveTab} onLogout={onLogout} />
     <QuickStatsBar wealthItems={wealthItems} transactions={transactions} settings={settings} />
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -644,11 +755,20 @@ const ProfilePage = ({
       <ConnectionsHub setActiveTab={setActiveTab} showToast={showToast} />
     </div>
     <PortfolioSnapshot wealthItems={wealthItems} setActiveTab={setActiveTab} />
-    <NavShortcuts setActiveTab={setActiveTab} settings={settings} wealthItems={wealthItems} />
+    <NavShortcuts 
+      setActiveTab={setActiveTab} 
+      settings={settings} 
+      user={user} 
+      onUpdateActions={(ids) => {
+        const newPrefs = { ...(user?.preferences || {}), quick_actions: ids };
+        onUpdateSettings({ preferences: newPrefs });
+      }}
+    />
     <ToraActivity user={user} setActiveTab={setActiveTab} />
     <AccountCompleteness user={user} wealthItems={wealthItems} settings={settings} setActiveTab={setActiveTab} />
     <TierBanner user={user} setActiveTab={setActiveTab} />
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 export default ProfilePage;

@@ -35,6 +35,7 @@ import {
 } from "@shared/utils/helpers";
 import { AIService } from "@shared/services/aiService";
 import { downloadCSV } from "@shared/utils/exportUtils";
+import { StatsSkeleton } from "../components/ui/Skeletons";
 
 // --- CONFIG ---
 const COLORS = [
@@ -84,7 +85,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 // --- SUB-COMPONENT: INSIGHT CARD ---
 const InsightCard = ({ type, title, message, impact }) => {
   let styles = "bg-slate-800 border-slate-700 text-slate-300";
-  let Icon = Bot;
+  let Icon = Sparkles;
 
   switch (type) {
     case "alert":
@@ -131,23 +132,13 @@ const InsightCard = ({ type, title, message, impact }) => {
 
 // --- MAIN PAGE COMPONENT ---
 const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], isLoading = false, error = null, showToast }) => {
-  const [aiInsights, setAiInsights] = useState([]);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState(null);
   const [viewMode, setViewMode] = useState("expense");
   const [range, setRange] = useState("6M");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [exportStatus, setExportStatus] = useState("idle");
 
-  // Load cached insights on mount
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem("watchdog_insights");
-      if (cached) setAiInsights(JSON.parse(cached));
-    } catch {
-      setAiInsights([]);
-    }
-  }, []);
+
+
 
   const pieChartData = useMemo(() => {
     const categoryMap = {};
@@ -343,81 +334,62 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
 
     return baseHistory;
   }, [netWorthHistory, wealthItems]);
-
-  // --- 4. THE WATCHDOG ENGINE ---
-  const generateAIInsights = async () => {
-    if (transactions.length === 0) {
-      setAiError("Add some transactions first to see AI insights!");
-      return;
-    }
-
-    setAiLoading(true);
-    setAiError(null);
-
-    try {
-      // Create a snapshot of financial health for the AI
-      const topCategories = pieChartData.data
-        .slice(0, 3)
-        .map((c) => `${c.name}: ₹${c.value}`)
-        .join(", ");
-      const totalIn = transactions
-        .filter((t) => t.type === "income")
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      const totalOut = transactions
-        .filter((t) => t.type === "expense")
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-      const contextData = JSON.stringify({
-        summary: {
-          income: totalIn,
-          expense: totalOut,
-          balance: totalIn - totalOut,
-        },
-        topExpenses: topCategories,
-        transactionCount: transactions.length,
-        recentTrend: trendChartData.slice(-3), // Send the last 3 data points
+  const suggestions = useMemo(() => {
+    const list = [];
+    if (comparison.momExpense > 10) {
+      list.push({
+        type: "alert",
+        title: "Spending Surge",
+        message: `Your expenses increased by ${comparison.momExpense.toFixed(1)}% compared to last month. Consider reviewing your top categories.`,
+        impact: "high"
       });
-
-      const systemPrompt = `Act as "The Watchdog", a sharp financial surveillance AI. Analyze the user's spending. 
-      Output exactly 3 insights in a JSON array. 
-      Types allowed: "alert" (danger), "tip" (advice), "praise" (good habit), "trend" (patterns).
-      Impact: "high" or "normal".
-      Format: [{ "type": "...", "title": "...", "message": "...", "impact": "..." }]`;
-
-      const jsonInsights = await AIService.askForJSON(
-        systemPrompt,
-        contextData,
-      );
-
-      if (Array.isArray(jsonInsights)) {
-        setAiInsights(jsonInsights);
-        try {
-          localStorage.setItem("watchdog_insights", JSON.stringify(jsonInsights));
-        } catch {
-          // Cache is opportunistic; the live insight still renders.
-        }
-      }
-    } catch (error) {
-      console.error("Watchdog Error:", error);
-      if (error.message?.includes("429")) {
-        setAiError("Watchdog is resting (Rate Limit). Try again in a minute.");
-      } else {
-        setAiError("Failed to wake up the Watchdog. Check connection.");
-      }
-    } finally {
-      setAiLoading(false);
+    } else if (comparison.momExpense < -5) {
+      list.push({
+        type: "praise",
+        title: "Great Savings",
+        message: "You've spent significantly less than last month! Keep up the disciplined budgeting.",
+        impact: "normal"
+      });
     }
-  };
 
-  const clearInsights = () => {
-    try {
-      localStorage.removeItem("watchdog_insights");
-    } catch {
-      // Ignore storage failures in restricted browsing modes.
+    if (pieChartData.data.length > 0) {
+      const top = pieChartData.data[0];
+      const pct = ((top.value / pieChartData.total) * 100).toFixed(0);
+      if (pct > 40) {
+        list.push({
+          type: "tip",
+          title: "Category Heavy",
+          message: `${top.name} accounts for ${pct}% of your spending. Diversifying your budget could reduce risk.`,
+          impact: "normal"
+        });
+      }
     }
-    setAiInsights([]);
-  };
 
+    if (augmentedNetWorthHistory.length > 1) {
+      const last = augmentedNetWorthHistory.at(-1)?.net_worth || 0;
+      const prev = augmentedNetWorthHistory.at(-2)?.net_worth || 0;
+      if (last > prev) {
+        list.push({
+          type: "trend",
+          title: "Wealth Growth",
+          message: "Your net worth is trending upwards. This is a great sign for your long-term financial health.",
+          impact: "normal"
+        });
+      }
+    }
+
+    // Default suggestions if list is small
+    if (list.length < 2) {
+      list.push({
+        type: "tip",
+        title: "Smart Budgeting",
+        message: "Try the 50/30/20 rule: 50% for needs, 30% for wants, and 20% for savings or debt repayment.",
+        impact: "normal"
+      });
+    }
+
+    return list;
+  }, [comparison, pieChartData, augmentedNetWorthHistory]);
   const exportAnalytics = () => {
     setExportStatus("loading");
     try {
@@ -447,14 +419,7 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-4 sm:space-y-6 pb-4 animate-pulse">
-        <div className="h-8 w-36 rounded-xl bg-white/10" />
-        <div className="h-32 rounded-2xl bg-white/10" />
-        <div className="h-80 rounded-2xl bg-white/10" />
-        <div className="h-80 rounded-2xl bg-white/10" />
-      </div>
-    );
+    return <StatsSkeleton />;
   }
 
   return (
@@ -488,354 +453,338 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
         </div>
       )}
 
-      {/* Watchdog Section */}
-      <div className="bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none"></div>
-        <div className="flex justify-between items-start mb-6 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Bot className="w-5 h-5 text-indigo-400" />
-              <h3 className="font-bold text-white text-lg tracking-tight">
-                The Watchdog
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Charts */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Category Breakdown */}
+          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <PieChart className="w-4 h-4" /> Category Breakdown
               </h3>
-            </div>
-            <p className="text-xs text-slate-400">
-              AI-powered financial surveillance
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {aiInsights.length > 0 && !aiLoading && (
-              <button
-                onClick={clearInsights}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors"
-                aria-label="Clear Watchdog insights"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            )}
-            <button
-              onClick={generateAIInsights}
-              disabled={aiLoading}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2"
-            >
-              {aiLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4 text-yellow-300" />
-              )}
-              {aiLoading
-                ? "Analyzing..."
-                : aiInsights.length > 0
-                  ? "Re-Scan"
-                  : "Run Scan"}
-            </button>
-          </div>
-        </div>
-        <div className="relative z-10 min-h-[50px]">
-          {aiError && (
-            <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-xs text-rose-200 text-center">
-              {aiError}
-            </div>
-          )}
-          {!aiLoading && !aiError && aiInsights.length === 0 && (
-            <div className="text-center py-6 text-slate-500 text-xs border border-dashed border-slate-700 rounded-xl">
-              Tap 'Run Scan' to detect anomalies and patterns.
-            </div>
-          )}
-          {aiInsights.length > 0 && (
-            <div className="space-y-3 animate-in slide-in-from-bottom-4">
-              {aiInsights.map((insight, idx) => (
-                <InsightCard key={idx} {...insight} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">This Month Expense</p>
-          <p className="mt-2 text-xl font-black text-white">{formatIndianCompact(comparison.current.expense)}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">MoM Expense</p>
-          <p className={`mt-2 text-xl font-black ${comparison.momExpense && comparison.momExpense > 0 ? "text-rose-300" : "text-emerald-300"}`}>
-            {comparison.momExpense === null ? "N/A" : `${comparison.momExpense.toFixed(1)}%`}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">YoY Expense</p>
-          <p className={`mt-2 text-xl font-black ${comparison.yoyExpense && comparison.yoyExpense > 0 ? "text-rose-300" : "text-emerald-300"}`}>
-            {comparison.yoyExpense === null ? "N/A" : `${comparison.yoyExpense.toFixed(1)}%`}
-          </p>
-        </div>
-      </div>
-
-      {/* Category Breakdown */}
-      <div className="bg-white/5 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10 relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-            <PieChart className="w-4 h-4" /> Category Breakdown
-          </h3>
-          <div className="sm:ml-auto flex bg-white/5 rounded-lg p-1 border border-white/10 self-start sm:self-auto">
-            <button
-              onClick={() => setViewMode("expense")}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === "expense" ? "bg-rose-500/20 text-rose-300" : "text-slate-400"}`}
-            >
-              Expense
-            </button>
-            <button
-              onClick={() => setViewMode("income")}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === "income" ? "bg-emerald-500/20 text-emerald-300" : "text-slate-400"}`}
-            >
-              Income
-            </button>
-          </div>
-        </div>
-        <div className="h-64 relative">
-          {pieChartData.data.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <RePieChart>
-                <Pie
-                  data={pieChartData.data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
+              <div className="sm:ml-auto flex bg-white/5 rounded-lg p-1 border border-white/10 self-start sm:self-auto">
+                <button
+                  onClick={() => setViewMode("expense")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === "expense" ? "bg-rose-500/20 text-rose-300" : "text-slate-400"}`}
                 >
-                  {pieChartData.data.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </RePieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
-              No data available
-            </div>
-          )}
-          {pieChartData.data.length > 0 && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-xs text-slate-400 font-bold uppercase">
-                Total
-              </span>
-              <span className="text-xl font-bold text-white">
-                {formatIndianCompact(pieChartData.total)}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-          {pieChartData.data.map((entry, index) => (
-            <button
-              key={index}
-              onClick={() => setSelectedCategory((current) => current === entry.name ? null : entry.name)}
-              className={`flex justify-between items-center text-xs bg-white/5 p-2 rounded-lg text-left transition-colors hover:bg-white/10 ${selectedCategory === entry.name ? "ring-1 ring-blue-400/60" : ""}`}
-            >
-              <div className="flex items-center gap-2 truncate">
-                <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                ></div>
-                <span className="text-slate-300 truncate">{entry.name}</span>
+                  Expense
+                </button>
+                <button
+                  onClick={() => setViewMode("income")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === "income" ? "bg-emerald-500/20 text-emerald-300" : "text-slate-400"}`}
+                >
+                  Income
+                </button>
               </div>
-              <span className="font-bold text-slate-200 shrink-0 ml-2">
-                {((entry.value / pieChartData.total) * 100).toFixed(0)}%
-              </span>
-            </button>
-          ))}
-        </div>
-        {selectedCategory && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">{selectedCategory}</h4>
-              <button onClick={() => setSelectedCategory(null)} className="text-[10px] font-bold text-slate-500 hover:text-white">Clear</button>
             </div>
-            <div className="max-h-40 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-              {selectedCategoryTransactions.slice(0, 8).map((transaction) => (
-                <div key={transaction.id || `${transaction.title}-${transaction.date}`} className="flex justify-between gap-3 rounded-lg bg-white/5 px-3 py-2 text-xs">
-                  <span className="truncate text-slate-300">{transaction.title || transaction.description || "Transaction"}</span>
-                  <span className="font-bold text-white">{formatIndianCompact(Number.parseFloat(transaction.amount) || 0)}</span>
+            <div className="h-64 relative">
+              {pieChartData.data.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <RePieChart>
+                    <Pie
+                      data={pieChartData.data}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {pieChartData.data.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </RePieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
+                  No data available
                 </div>
+              )}
+              {pieChartData.data.length > 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xs text-slate-400 font-bold uppercase">
+                    Total
+                  </span>
+                  <span className="text-xl font-bold text-white">
+                    {formatIndianCompact(pieChartData.total)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+              {pieChartData.data.map((entry, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedCategory((current) => current === entry.name ? null : entry.name)}
+                  className={`flex justify-between items-center text-xs bg-white/5 p-3 rounded-xl text-left transition-colors hover:bg-white/10 ${selectedCategory === entry.name ? "ring-1 ring-blue-400/60" : ""}`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    ></div>
+                    <span className="text-slate-300 truncate">{entry.name}</span>
+                  </div>
+                  <span className="font-bold text-slate-200 shrink-0 ml-2">
+                    {((entry.value / pieChartData.total) * 100).toFixed(0)}%
+                  </span>
+                </button>
+              ))}
+            </div>
+            {selectedCategory && (
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">{selectedCategory}</h4>
+                  <button onClick={() => setSelectedCategory(null)} className="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-tighter">Clear Selection</button>
+                </div>
+                <div className="max-h-40 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+                  {selectedCategoryTransactions.slice(0, 8).map((transaction) => (
+                    <div key={transaction.id || `${transaction.title}-${transaction.date}`} className="flex justify-between gap-3 rounded-lg bg-white/5 px-3 py-2 text-xs">
+                      <span className="truncate text-slate-300">{transaction.title || transaction.description || "Transaction"}</span>
+                      <span className="font-bold text-white">{formatIndianCompact(Number.parseFloat(transaction.amount) || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Trend Analysis */}
+          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" /> Trend Analysis
+              </h3>
+              <div className="flex bg-black/20 p-1 rounded-xl border border-white/5 overflow-x-auto max-w-full">
+                {["1D", "1W", "1M", "6M", "1Y"].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap ${range === r ? "bg-blue-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="h-[300px] w-full">
+              {hasTrendData ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <BarChart data={trendChartData} barGap={4}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.05)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#64748b", fontSize: 10 }}
+                      dy={10}
+                      interval={range === "1M" ? 2 : 0}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#64748b", fontSize: 10 }}
+                      tickFormatter={(val) =>
+                        `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`
+                      }
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(255,255,255,0.05)", radius: 4 }}
+                      content={<CustomTooltip />}
+                    />
+                    <Bar
+                      dataKey="income"
+                      name="Income"
+                      fill="#10b981"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={20}
+                    />
+                    <Bar
+                      dataKey="expense"
+                      name="Expense"
+                      fill="#f43f5e"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={20}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700/50 text-xs text-slate-500">
+                  No trend data for this range
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Net Worth History Tracker */}
+          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden group">
+            <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/10 transition-colors"></div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 relative z-10">
+              <div>
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-indigo-400" /> Net Worth History
+                </h3>
+                <div className="flex items-baseline gap-3">
+                  <p className="text-3xl font-black text-white tracking-tight">
+                    {formatIndianCompact(augmentedNetWorthHistory.at(-1)?.net_worth || 0)}
+                  </p>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <TrendingUp className="w-3 h-3 text-emerald-400" />
+                    <span className="text-[10px] font-bold text-emerald-400">Stable</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Assets vs Liabilities over time</p>
+              </div>
+              <div className="hidden sm:flex flex-col items-end">
+                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest">
+                  <div className="flex items-center gap-1.5 text-emerald-400">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                    Assets
+                  </div>
+                  <div className="flex items-center gap-1.5 text-rose-400">
+                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></div>
+                    Liabilities
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-[300px] w-full relative">
+              {augmentedNetWorthHistory && augmentedNetWorthHistory.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <AreaChart data={augmentedNetWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                        <stop offset="50%" stopColor="#10b981" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorLiabilities" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
+                        <stop offset="50%" stopColor="#f43f5e" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }} dy={10}
+                      tickFormatter={(val) => {
+                        const d = new Date(val);
+                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                      }}
+                    />
+                    <YAxis
+                      axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }}
+                      tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
+                    />
+                    <Tooltip
+                      cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                      content={<CustomTooltip />}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="total_assets" 
+                      name="Assets" 
+                      stroke="#10b981" 
+                      strokeWidth={4} 
+                      fillOpacity={1} 
+                      fill="url(#colorAssets)"
+                      activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#10b981' }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="total_liabilities" 
+                      name="Liabilities" 
+                      stroke="#f43f5e" 
+                      strokeWidth={4} 
+                      fillOpacity={1} 
+                      fill="url(#colorLiabilities)"
+                      activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#f43f5e' }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700/50 rounded-xl">
+                  <TrendingUp className="w-8 h-8 mb-2 opacity-50 text-indigo-500" />
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No History Available</p>
+                  <p className="text-[10px] mt-1 text-slate-500 max-w-[250px] text-center">Take a snapshot on the Wealth tab to start tracking your net worth journey.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Suggestions & Quick Stats */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Smart Suggestions */}
+          <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-[40px] rounded-full"></div>
+            <div className="flex items-center gap-2 mb-4 relative z-10">
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              <h3 className="font-bold text-white text-lg tracking-tight">Smart Suggestions</h3>
+            </div>
+            <div className="space-y-3 relative z-10">
+              {suggestions.map((suggestion, idx) => (
+                <InsightCard key={idx} {...suggestion} />
               ))}
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Trend Analysis */}
-      <div className="bg-white/5 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-white/10">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" /> Trend Analysis
-          </h3>
-          <div className="flex bg-black/20 p-1 rounded-xl border border-white/5 overflow-x-auto max-w-full">
-            {["1D", "1W", "1M", "6M", "1Y"].map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap ${range === r ? "bg-blue-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="h-[300px] w-full">
-          {hasTrendData ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart data={trendChartData} barGap={4}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="rgba(255,255,255,0.05)"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#64748b", fontSize: 10 }}
-                dy={10}
-                interval={range === "1M" ? 2 : 0}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#64748b", fontSize: 10 }}
-                tickFormatter={(val) =>
-                  `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`
-                }
-              />
-              <Tooltip
-                cursor={{ fill: "rgba(255,255,255,0.05)", radius: 4 }}
-                content={<CustomTooltip />}
-              />
-              <Bar
-                dataKey="income"
-                name="Income"
-                fill="#10b981"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={20}
-              />
-              <Bar
-                dataKey="expense"
-                name="Expense"
-                fill="#f43f5e"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={20}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-          ) : (
-            <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700/50 text-xs text-slate-500">
-              No trend data for this range
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-1 gap-4">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <TrendingUp className="w-4 h-4 text-blue-400" />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">This Month Expense</p>
+              </div>
+              <p className="text-3xl font-black text-white">{formatIndianCompact(comparison.current.expense)}</p>
+              <div className="mt-4 flex items-center gap-2">
+                 <span className={`text-xs font-bold ${comparison.momExpense && comparison.momExpense > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                   {comparison.momExpense === null ? "N/A" : `${comparison.momExpense > 0 ? "+" : ""}${comparison.momExpense.toFixed(1)}%`}
+                 </span>
+                 <span className="text-[10px] text-slate-500 font-bold uppercase">vs Prev Month</span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Net Worth History Tracker */}
-      <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden group">
-        <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/10 transition-colors"></div>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 relative z-10">
-          <div>
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-indigo-400" /> Net Worth History
-            </h3>
-            <div className="flex items-baseline gap-3">
-              <p className="text-3xl font-black text-white tracking-tight">
-                {formatIndianCompact(augmentedNetWorthHistory.at(-1)?.net_worth || 0)}
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                  <Zap className="w-4 h-4 text-purple-400" />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">MoM Growth</p>
+              </div>
+              <p className={`text-3xl font-black ${comparison.momExpense && comparison.momExpense > 0 ? "text-rose-300" : "text-emerald-300"}`}>
+                {comparison.momExpense === null ? "N/A" : `${comparison.momExpense.toFixed(1)}%`}
               </p>
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                <TrendingUp className="w-3 h-3 text-emerald-400" />
-                <span className="text-[10px] font-bold text-emerald-400">Stable</span>
-              </div>
+              <p className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Monthly momentum</p>
             </div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Assets vs Liabilities over time</p>
-          </div>
-          <div className="hidden sm:flex flex-col items-end">
-            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest">
-              <div className="flex items-center gap-1.5 text-emerald-400">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                Assets
-              </div>
-              <div className="flex items-center gap-1.5 text-rose-400">
-                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></div>
-                Liabilities
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="h-[300px] w-full relative">
-          {augmentedNetWorthHistory && augmentedNetWorthHistory.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <AreaChart data={augmentedNetWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="50%" stopColor="#10b981" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorLiabilities" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
-                    <stop offset="50%" stopColor="#f43f5e" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }} dy={10}
-                  tickFormatter={(val) => {
-                    const d = new Date(val);
-                    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  }}
-                />
-                <YAxis
-                  axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }}
-                  tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
-                />
-                <Tooltip
-                  cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
-                  content={<CustomTooltip />}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="total_assets" 
-                  name="Assets" 
-                  stroke="#10b981" 
-                  strokeWidth={4} 
-                  fillOpacity={1} 
-                  fill="url(#colorAssets)"
-                  activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#10b981' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="total_liabilities" 
-                  name="Liabilities" 
-                  stroke="#f43f5e" 
-                  strokeWidth={4} 
-                  fillOpacity={1} 
-                  fill="url(#colorLiabilities)"
-                  activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#f43f5e' }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700/50 rounded-xl">
-              <TrendingUp className="w-8 h-8 mb-2 opacity-50 text-indigo-500" />
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No History Available</p>
-              <p className="text-[10px] mt-1 text-slate-500 max-w-[250px] text-center">Take a snapshot on the Wealth tab to start tracking your net worth journey.</p>
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                  <BarChart3 className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">YoY Trend</p>
+              </div>
+              <p className={`text-3xl font-black ${comparison.yoyExpense && comparison.yoyExpense > 0 ? "text-rose-300" : "text-emerald-300"}`}>
+                {comparison.yoyExpense === null ? "N/A" : `${comparison.yoyExpense.toFixed(1)}%`}
+              </p>
+              <p className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Yearly Performance</p>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

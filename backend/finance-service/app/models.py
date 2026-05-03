@@ -28,6 +28,7 @@ class UserProfile(Base):
     risk_tolerance = Column(String(20), nullable=True)  # 'conservative' | 'balanced' | 'aggressive'
     dependents = Column(Integer, default=0, nullable=False)
     life_stage = Column(String(20), nullable=True)  # 'student' | 'early_career' | 'married' | 'parent' | 'pre_retirement' | 'retired'
+    preferences = Column(JSONB, default=dict)
 
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -221,6 +222,7 @@ class NetWorthSnapshot(Base):
     __tablename__ = "finance_networthsnapshot"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    uid = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, index=True)
     user_id = Column(BigInteger, index=True, nullable=False)
     date = Column(Date, default=date.today, nullable=False)
     total_assets = Column(Numeric(15, 2), nullable=False, default=0)

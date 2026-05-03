@@ -30,6 +30,7 @@ import { AIService } from "@shared/services/aiService";
 import { formatIndianCompact } from "@shared/utils/helpers";
 import { TABS } from "@shared/config/constants";
 import { apiFetch } from "../api";
+import { GenericPageSkeleton } from "../components/ui/Skeletons";
 
 // --- Sub-components ---
 const DeductionBar = ({
@@ -278,7 +279,9 @@ const AuditPage = ({
   setActiveTab,
   user,
   apiBaseUrl,
+  isLoading,
 }) => {
+  if (isLoading) return <GenericPageSkeleton />;
   const [adviceCards, setAdviceCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showWizard, setShowWizard] = useState(false);

@@ -12,6 +12,7 @@ import {
 import { TAX_CONSTANTS } from "@shared/config/constants";
 import { TaxService, getITRFormType } from "@shared/services/taxService";
 import { apiFetch } from "../api";
+import { GenericPageSkeleton } from "../components/ui/Skeletons";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -611,7 +612,8 @@ const SECTIONS = [
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transactions = [], showToast }) => {
+export const ITRPage = ({ user, authToken, apiBaseUrl, refreshProfile, transactions = [], showToast, isLoading }) => {
+  if (isLoading) return <GenericPageSkeleton />;
   const [activeSection, setActiveSection] = useState("dashboard");
   const [taxRegime, setTaxRegime] = useState("new");
   const [isSaving, setIsSaving] = useState(false);

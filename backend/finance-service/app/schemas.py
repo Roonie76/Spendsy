@@ -48,6 +48,7 @@ class UserProfilePayload(BaseModel):
     risk_tolerance: str | None = Field(default=None, alias="riskTolerance")
     dependents: int | None = Field(default=None, alias="dependents")
     life_stage: str | None = Field(default=None, alias="lifeStage")
+    preferences: dict | None = Field(default=None, alias="preferences")
     email: str | None = None
 
 

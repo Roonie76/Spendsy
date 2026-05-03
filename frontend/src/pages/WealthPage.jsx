@@ -1,5 +1,23 @@
 import React, { useState } from "react";
-import { AreaChart, Area, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { 
+  AreaChart, 
+  Area, 
+  Tooltip, 
+  ResponsiveContainer, 
+  PieChart as RePieChart, 
+  Pie, 
+  Cell 
+} from "recharts";
+import { 
+  TrendingUp, 
+  Plus, 
+  PieChart as PieIcon, 
+  Wallet, 
+  Camera, 
+  PlusCircle,
+  LayoutGrid,
+  RefreshCw
+} from "lucide-react";
 import { formatIndianCompact, buildAuthHeader, formatLocalDate } from "@shared/utils/helpers";
 import { BANKS, CURRENCY_SYMBOL } from "@shared/config/constants";
 import UnitSelector from "../components/domain/UnitSelector";
@@ -191,349 +209,344 @@ const WealthPage = ({
   if (isLoading) return <WealthSkeleton />;
 
   return (
-    <div className="space-y-6 pb-28 animate-in slide-in-from-bottom-8">
-      {/* NEW: Net Worth Graph Card */}
-      <div className="bg-gradient-to-br from-emerald-900/40 to-teal-900/40 border border-white/10 p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none"></div>
-
-        <div className="relative z-10 mb-4 flex justify-between items-end">
-          <div>
-            <p className="text-[10px] sm:text-xs text-emerald-200 font-bold uppercase tracking-wider mb-1">
-              Total Net Worth
-            </p>
-            {/* Responsive Font Size */}
-            <h3 className="text-2xl sm:text-3xl font-bold text-white">
-              {formatIndianCompact(netWorth)}
-            </h3>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] text-emerald-200/60 font-bold">
-              vs last month
-            </p>
-            <p className="text-xs sm:text-sm font-bold text-emerald-300">
-              {netWorthHistory.length >= 2 ? (() => {
-                const latest = parseFloat(netWorthHistory[netWorthHistory.length - 1].net_worth);
-                const previous = parseFloat(netWorthHistory[netWorthHistory.length - 2].net_worth);
-                if (previous === 0) return '0.0%';
-                const change = ((latest - previous) / previous) * 100;
-                return `${change > 0 ? '+' : ''}${change.toFixed(1)}%`;
-              })() : '0.0%'} 
-            </p>
-          </div>
-        </div>
-
-        <div className="h-32 w-full -ml-2">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <AreaChart data={historyData}>
-              <defs>
-                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  border: "1px solid #334155",
-                  borderRadius: "8px",
-                }}
-                itemStyle={{ color: "#fff", fontSize: "12px" }}
-                formatter={(value) => [
-                  `₹${formatIndianCompact(value)}`,
-                  "Net Worth",
-                ]}
-                labelStyle={{ display: "none" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#10b981"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorValue)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+    <div className="space-y-6 pb-28 animate-in fade-in duration-500">
+      {/* Header with Title and Snapshot */}
+      <div className="flex justify-between items-center px-1">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">Wealth</h2>
+        <button
+          onClick={executeTakeSnapshot}
+          className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-xs font-bold text-emerald-300 transition-all hover:bg-emerald-500/20 border border-emerald-500/20 active:scale-95"
+        >
+          <Camera className="h-4 w-4" />
+          Take Snapshot
+        </button>
       </div>
-      
-      {/* Add New Item Form */}
-      <div className="bg-white/5 backdrop-blur-xl p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10">
-        <h3 className="text-base sm:text-lg font-bold text-white mb-4 sm:mb-6">
-          Add {wealthType === 'liability' && isLoan ? 'Loan Details' : 'Asset / Liability'}
-        </h3>
 
-        <form onSubmit={requestAddWealth} className="flex flex-col gap-3 sm:gap-4">
-          <div className="flex bg-black/30 p-1 rounded-xl border border-white/5">
-            <button
-              type="button"
-              onClick={() => { setWealthType("asset"); setIsLoan(false); }}
-              className={`flex-1 py-2 sm:py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${wealthType === "asset" ? "bg-emerald-500/20 text-emerald-300" : "text-slate-500"}`}
-            >
-              Asset
-            </button>
-            <button
-              type="button"
-              onClick={() => setWealthType("liability")}
-              className={`flex-1 py-2 sm:py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${wealthType === "liability" ? "bg-rose-500/20 text-rose-300" : "text-slate-500"}`}
-            >
-              Liability
-            </button>
-          </div>
-
-          {wealthType === "liability" && (
-            <button
-              type="button"
-              onClick={() => setIsLoan(v => !v)}
-              className={`relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 ${
-                isLoan
-                  ? "bg-rose-500/10 border-rose-500/30 shadow-lg shadow-rose-900/20"
-                  : "bg-white/5 border-white/10 hover:border-white/20"
-              }`}
-            >
-              {/* pill track */}
-              <div className={`relative w-10 h-5 rounded-full transition-all duration-300 shrink-0 ${isLoan ? "bg-rose-500" : "bg-white/10"}`}>
-                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-300 ${isLoan ? "translate-x-5" : "translate-x-0"}`} />
-              </div>
-              <div className="text-left">
-                <p className={`text-xs font-bold transition-colors ${isLoan ? "text-rose-300" : "text-slate-400"}`}>
-                  Structured Loan
-                </p>
-                <p className="text-[10px] text-slate-500">Bank · Tenure · Interest rate</p>
-              </div>
-              {isLoan && (
-                <span className="ml-auto text-[10px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full">
-                  ACTIVE
-                </span>
-              )}
-            </button>
-          )}
-
-          {wealthType === "liability" && isLoan ? (
-            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-              {/* Row 1: Bank + Loan Type */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Bank</label>
-                  <div className="relative">
-                    <select
-                      value={loanData.bankName}
-                      onChange={e => setLoanData({...loanData, bankName: e.target.value})}
-                      className="w-full px-3 pr-8 py-3 bg-[#1e293b] border border-white/10 rounded-2xl text-xs text-white outline-none focus:border-rose-500/50 appearance-none"
-                      required
-                    >
-                      <option value="" disabled className="bg-[#1e293b] text-white">Select Bank</option>
-                      {BANKS.map(bank => (
-                        <option key={bank} value={bank} className="bg-[#1e293b] text-white">{bank}</option>
-                      ))}
-                      <option value="Other" className="bg-[#1e293b] text-white">Other</option>
-                    </select>
-                    <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Visualizations & List */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Net Worth Graph Card */}
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] relative overflow-hidden shadow-2xl group">
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/15 transition-colors"></div>
+            
+            <div className="relative z-10 mb-8 flex justify-between items-start">
+              <div>
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" /> Net Worth History
+                </h3>
+                <div className="flex items-baseline gap-3">
+                  <h3 className="text-3xl font-black text-white tracking-tight">
+                    {formatIndianCompact(netWorth)}
+                  </h3>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <TrendingUp className="w-3 h-3 text-emerald-400" />
+                    <span className="text-[10px] font-bold text-emerald-400">
+                      {netWorthHistory.length >= 2 ? (() => {
+                        const latest = parseFloat(netWorthHistory[netWorthHistory.length - 1].net_worth);
+                        const previous = parseFloat(netWorthHistory[netWorthHistory.length - 2].net_worth);
+                        if (previous === 0) return '0.0%';
+                        const change = ((latest - previous) / previous) * 100;
+                        return `${change > 0 ? '+' : ''}${change.toFixed(1)}%`;
+                      })() : '0.0%'} 
+                    </span>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Loan Type</label>
-                  <div className="relative">
-                    <select
-                      value={loanData.loanType}
-                      onChange={e => setLoanData({...loanData, loanType: e.target.value})}
-                      className="w-full px-3 pr-8 py-3 bg-[#1e293b] border border-white/10 rounded-2xl text-xs text-white outline-none focus:border-rose-500/50 appearance-none"
-                    >
-                      <option value="personal" className="bg-[#1e293b] text-white">Personal</option>
-                      <option value="home" className="bg-[#1e293b] text-white">Home</option>
-                      <option value="car" className="bg-[#1e293b] text-white">Car</option>
-                      <option value="student" className="bg-[#1e293b] text-white">Student</option>
-                    </select>
-                    <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: Principal · Rate · Tenure */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Principal ₹</label>
-                  <input
-                    type="number"
-                    value={loanData.principal}
-                    onChange={e => setLoanData({...loanData, principal: e.target.value})}
-                    className="w-full px-3 py-3 bg-[#1e293b] border border-white/10 rounded-2xl text-xs text-white outline-none placeholder:text-slate-600 focus:border-rose-500/50 transition-colors"
-                    placeholder="e.g. 500000"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Rate %</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={loanData.roi}
-                    onChange={e => setLoanData({...loanData, roi: e.target.value})}
-                    className="w-full px-3 py-3 bg-[#1e293b] border border-white/10 rounded-2xl text-xs text-white outline-none placeholder:text-slate-600 focus:border-rose-500/50 transition-colors"
-                    placeholder="e.g. 8.5"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Tenure Mo.</label>
-                  <input
-                    type="number"
-                    value={loanData.tenure}
-                    onChange={e => setLoanData({...loanData, tenure: e.target.value})}
-                    className="w-full px-3 py-3 bg-[#1e293b] border border-white/10 rounded-2xl text-xs text-white outline-none placeholder:text-slate-600 focus:border-rose-500/50 transition-colors"
-                    placeholder="e.g. 60"
-                    required
-                  />
-                </div>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Growth vs last month</p>
               </div>
             </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={wealthAmount}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) setWealthAmount(val);
-                  }}
-                  className="w-full flex-1 px-4 py-3 sm:py-4 bg-black/20 border border-white/10 rounded-2xl text-base text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50 transition-colors"
-                  placeholder="Amount (e.g. 1.5)"
-                  required
-                />
-                <div className="shrink-0">
-                  <UnitSelector currentUnit={wealthUnit} onSelect={setWealthUnit} />
-                </div>
-              </div>
 
-              <input
-                type="text"
-                value={wealthName}
-                onChange={(e) => setWealthName(e.target.value)}
-                className="w-full px-4 py-3 sm:py-4 bg-black/20 border border-white/10 rounded-2xl text-base text-white outline-none placeholder:text-slate-600 focus:border-blue-500/50 transition-colors"
-                placeholder={wealthType === 'asset' ? "Name (e.g. House, Gold)" : "Name (e.g. Credit Card, Friend)"}
-                required
-              />
-            </>
-          )}
-
-          <button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 sm:py-4 rounded-2xl font-bold shadow-lg shadow-blue-900/20 active:scale-95 transition-all mt-2"
-          >
-            Add {isLoan ? `${loanData.loanType.charAt(0).toUpperCase() + loanData.loanType.slice(1)} Loan` : 'Item'}
-          </button>
-        </form>
-      </div>
-
-
-      {/* Portfolio Allocation Pie Chart */}
-      {wealthItems.filter(i => i.type === 'asset').length > 0 && (
-        <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] relative overflow-hidden">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6 px-2">
-            Asset Allocation
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div className="h-48 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={(() => {
-                      const assets = wealthItems.filter(i => i.type === 'asset');
-                      const groups = assets.reduce((acc, item) => {
-                        const title = (item.title || 'Other').split(' ')[0];
-                        acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
-                        return acc;
-                      }, {});
-                      const data = Object.entries(groups).map(([name, value]) => ({ name, value }));
-                      return data;
-                    })()}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <AreaChart data={historyData}>
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #334155",
+                      borderRadius: "12px",
+                      padding: "12px"
+                    }}
+                    itemStyle={{ color: "#fff", fontSize: "12px", fontWeight: "bold" }}
+                    formatter={(value) => [`₹${formatIndianCompact(value)}`, "Net Worth"]}
+                    labelStyle={{ display: "none" }}
+                  />
+                  <Area
+                    type="monotone"
                     dataKey="value"
-                  >
-                    {/* Map cells based on grouped data length, not raw items */}
-                    {(() => {
-                      const assets = wealthItems.filter(i => i.type === 'asset');
-                      const groups = assets.reduce((acc, item) => {
-                        const title = (item.title || 'Other').split(' ')[0];
-                        acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
-                        return acc;
-                      }, {});
-                      return Object.entries(groups).map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
-                      ));
-                    })()}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '12px' }}
-                    itemStyle={{ color: '#fff', fontSize: '12px' }}
-                    formatter={(value) => formatIndianCompact(value)}
+                    stroke="#10b981"
+                    strokeWidth={4}
+                    fillOpacity={1}
+                    fill="url(#colorValue)"
                   />
-                </PieChart>
+                </AreaChart>
               </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Total Assets</p>
-                <p className="text-lg font-black text-white">{formatIndianCompact(totalAssets)}</p>
+            </div>
+          </div>
+
+          {/* Portfolio List */}
+          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-6">
+              <Wallet className="w-4 h-4 text-blue-400" /> Your Portfolio
+            </h3>
+            {wealthItems.length === 0 ? (
+              <div className="text-center py-12 border border-dashed border-white/10 rounded-2xl">
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                  No assets or liabilities added.
+                </p>
+                <p className="text-[10px] text-slate-600 mt-1">Add items using the form to start tracking.</p>
               </div>
-            </div>
-            <div className="space-y-2">
-              {(() => {
-                const assets = wealthItems.filter(i => i.type === 'asset');
-                const groups = assets.reduce((acc, item) => {
-                  const title = (item.title || 'Other').split(' ')[0];
-                  acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
-                  return acc;
-                }, {});
-                return Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([name, value], idx) => {
-                  const pct = ((value / totalAssets) * 100).toFixed(1);
-                  const color = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-rose-500', 'bg-violet-500'][idx % 5];
-                  return (
-                    <div key={name} className="flex items-center justify-between group/row">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${color}`} />
-                        <span className="text-xs font-bold text-slate-400 group-hover/row:text-white transition-colors">{name}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-black text-white">{pct}%</p>
-                        <p className="text-[10px] text-slate-600 font-bold">{formatIndianCompact(value)}</p>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
+            ) : (
+              <div className="space-y-4 pr-1 max-h-[600px] overflow-y-auto custom-scrollbar">
+                {wealthItems.map((item) => (
+                  <WealthItem
+                    key={item.id}
+                    item={item}
+                    onDelete={() => requestDeleteWealth(item)}
+                    onUpdate={executeUpdateWealth}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* List */}
-      <div>
-        <h3 className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">
-          Your Portfolio
-        </h3>
-        {wealthItems.length === 0 ? (
-          <p className="text-center text-slate-500 text-xs sm:text-sm py-8">
-            No assets or liabilities added.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {wealthItems.map((item) => (
-              <WealthItem
-                key={item.id}
-                item={item}
-                onDelete={() => requestDeleteWealth(item)}
-                onUpdate={executeUpdateWealth} // <--- ADD THIS LINE
-              />
-            ))}
+        {/* Right Column: Actions & Stats */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Add New Item Form */}
+          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 shadow-xl">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-6">
+              <PlusCircle className="w-4 h-4 text-indigo-400" /> Quick Add
+            </h3>
+
+            <form onSubmit={requestAddWealth} className="flex flex-col gap-4">
+              <div className="flex bg-black/30 p-1 rounded-xl border border-white/5">
+                <button
+                  type="button"
+                  onClick={() => { setWealthType("asset"); setIsLoan(false); }}
+                  className={`flex-1 py-2.5 rounded-lg text-[10px] font-bold transition-all ${wealthType === "asset" ? "bg-emerald-500/20 text-emerald-300" : "text-slate-500"}`}
+                >
+                  Asset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWealthType("liability")}
+                  className={`flex-1 py-2.5 rounded-lg text-[10px] font-bold transition-all ${wealthType === "liability" ? "bg-rose-500/20 text-rose-300" : "text-slate-500"}`}
+                >
+                  Liability
+                </button>
+              </div>
+
+              {wealthType === "liability" && (
+                <button
+                  type="button"
+                  onClick={() => setIsLoan(v => !v)}
+                  className={`relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 ${
+                    isLoan
+                      ? "bg-rose-500/10 border-rose-500/30 shadow-lg shadow-rose-900/20"
+                      : "bg-white/5 border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className={`relative w-8 h-4 rounded-full transition-all duration-300 shrink-0 ${isLoan ? "bg-rose-500" : "bg-white/10"}`}>
+                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-all duration-300 ${isLoan ? "translate-x-4" : "translate-x-0"}`} />
+                  </div>
+                  <div className="text-left">
+                    <p className={`text-[11px] font-bold transition-colors ${isLoan ? "text-rose-300" : "text-slate-400"}`}>
+                      Structured Loan
+                    </p>
+                  </div>
+                  {isLoan && (
+                    <span className="ml-auto text-[8px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full">
+                      ACTIVE
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {wealthType === "liability" && isLoan ? (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Bank</label>
+                    <div className="relative">
+                      <select
+                        value={loanData.bankName}
+                        onChange={e => setLoanData({...loanData, bankName: e.target.value})}
+                        className="w-full px-3 pr-8 py-3 bg-black/20 border border-white/10 rounded-2xl text-xs text-white outline-none focus:border-rose-500/50 appearance-none"
+                        required
+                      >
+                        <option value="" disabled className="bg-[#0f172a] text-white">Select Bank</option>
+                        {BANKS.map(bank => (
+                          <option key={bank} value={bank} className="bg-[#0f172a] text-white">{bank}</option>
+                        ))}
+                        <option value="Other" className="bg-[#0f172a] text-white">Other</option>
+                      </select>
+                      <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Principal ₹</label>
+                    <input
+                      type="number"
+                      value={loanData.principal}
+                      onChange={e => setLoanData({...loanData, principal: e.target.value})}
+                      className="w-full px-3 py-3 bg-black/20 border border-white/10 rounded-2xl text-xs text-white outline-none placeholder:text-slate-700 focus:border-rose-500/50 transition-colors"
+                      placeholder="Principal amount"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Rate %</label>
+                      <input
+                        type="number" step="0.1"
+                        value={loanData.roi}
+                        onChange={e => setLoanData({...loanData, roi: e.target.value})}
+                        className="w-full px-3 py-3 bg-black/20 border border-white/10 rounded-2xl text-xs text-white outline-none placeholder:text-slate-700 focus:border-rose-500/50"
+                        placeholder="ROI" required
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">Tenure Mo.</label>
+                      <input
+                        type="number"
+                        value={loanData.tenure}
+                        onChange={e => setLoanData({...loanData, tenure: e.target.value})}
+                        className="w-full px-3 py-3 bg-black/20 border border-white/10 rounded-2xl text-xs text-white outline-none placeholder:text-slate-700 focus:border-rose-500/50"
+                        placeholder="Months" required
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={wealthAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || /^\d+(\.\d{0,2})?$/.test(val)) setWealthAmount(val);
+                      }}
+                      className="w-full flex-1 px-4 py-3 bg-black/20 border border-white/10 rounded-2xl text-sm text-white outline-none placeholder:text-slate-700 focus:border-blue-500/50 transition-colors"
+                      placeholder="Amount"
+                      required
+                    />
+                    <div className="shrink-0">
+                      <UnitSelector currentUnit={wealthUnit} onSelect={setWealthUnit} />
+                    </div>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={wealthName}
+                    onChange={(e) => setWealthName(e.target.value)}
+                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-2xl text-sm text-white outline-none placeholder:text-slate-700 focus:border-blue-500/50 transition-colors"
+                    placeholder={wealthType === 'asset' ? "e.g. Gold, House" : "e.g. Credit Card"}
+                    required
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-blue-900/20 active:scale-95 transition-all mt-2 text-xs uppercase tracking-widest"
+              >
+                Add {isLoan ? 'Structured Loan' : 'Item'}
+              </button>
+            </form>
           </div>
-        )}
-      </div>
+
+          {/* Portfolio Allocation Pie Chart */}
+          {wealthItems.filter(i => i.type === 'asset').length > 0 && (
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] relative overflow-hidden">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-6">
+                <PieIcon className="w-4 h-4 text-amber-400" /> Asset Allocation
+              </h3>
+              <div className="space-y-6">
+                <div className="h-48 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RePieChart>
+                      <Pie
+                        data={(() => {
+                          const assets = wealthItems.filter(i => i.type === 'asset');
+                          const groups = assets.reduce((acc, item) => {
+                            const title = (item.title || 'Other').split(' ')[0];
+                            acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
+                            return acc;
+                          }, {});
+                          const data = Object.entries(groups).map(([name, value]) => ({ name, value }));
+                          return data;
+                        })()}
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {(() => {
+                          const assets = wealthItems.filter(i => i.type === 'asset');
+                          const groups = assets.reduce((acc, item) => {
+                            const title = (item.title || 'Other').split(' ')[0];
+                            acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
+                            return acc;
+                          }, {});
+                          return Object.entries(groups).map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
+                          ));
+                        })()}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '12px' }}
+                        itemStyle={{ color: '#fff', fontSize: '10px', fontWeight: 'bold' }}
+                        formatter={(value) => formatIndianCompact(value)}
+                      />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">Assets</p>
+                    <p className="text-sm font-black text-white">{formatIndianCompact(totalAssets)}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                  {(() => {
+                    const assets = wealthItems.filter(i => i.type === 'asset');
+                    const groups = assets.reduce((acc, item) => {
+                      const title = (item.title || 'Other').split(' ')[0];
+                      acc[title] = (acc[title] || 0) + parseFloat(item.amount || 0);
+                      return acc;
+                    }, {});
+                    return Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([name, value], idx) => {
+                      const pct = ((value / totalAssets) * 100).toFixed(1);
+                      const color = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-rose-500', 'bg-violet-500'][idx % 5];
+                      return (
+                        <div key={name} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${color}`} />
+                            <span className="text-[10px] font-bold text-slate-400 truncate max-w-[80px]">{name}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-white">{pct}%</span>
+                            <span className="text-[9px] text-slate-500 font-bold">{formatIndianCompact(value)}</span>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
     </div>
+  </div>
   );
 };
 

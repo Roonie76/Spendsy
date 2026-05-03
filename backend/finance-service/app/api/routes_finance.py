@@ -537,6 +537,8 @@ def profile_settings(
             profile.dependents = updates["dependents"]
         if "life_stage" in updates:
             profile.life_stage = updates["life_stage"]
+        if "preferences" in updates:
+            profile.preferences = updates["preferences"]
         try:
             db.commit()
         except SQLAlchemyError:
@@ -554,6 +556,7 @@ def profile_settings(
         "riskTolerance": profile.risk_tolerance,
         "dependents": int(profile.dependents),
         "lifeStage": profile.life_stage,
+        "preferences": profile.preferences or {},
     }
     return success_response(request, payload_out)
 

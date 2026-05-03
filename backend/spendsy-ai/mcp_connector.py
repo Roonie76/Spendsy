@@ -161,4 +161,7 @@ async def fetch_context_via_mcp(user_id: int, *, use_cache: bool = True) -> Dict
     if isinstance(result, dict) and "error" in result:
         logger.warning(f"MCP context fetch failed: {result['error']}")
         return {}
+    if isinstance(result, str):
+        # Result should have been a dict. If it's a string, it's likely an unparsed error message.
+        return {"error": result}
     return result

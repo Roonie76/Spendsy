@@ -138,9 +138,10 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       FINANCE_SERVICE_URL: http://finance-service:8000
       SPENDSY_MCP_URL: http://spendsy-mcp:8006/mcp/sse
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-      MODEL_GEMMA: gemma4:e2b
-      MODEL_LLAMA: gemma4:e2b
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-300}
+      MODEL_GEMMA: ${MODEL_GEMMA:-gemma:2b}
+      MODEL_LLAMA: ${MODEL_LLAMA:-gemma:2b}
       VAULT_BASE_PATH: /data/vaults
       # browserless/chromium exposes CDP on internal port 3000, not 9222.
       # Only active when the 'cdp' profile is passed; TORA gracefully skips

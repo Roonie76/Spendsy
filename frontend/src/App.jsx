@@ -13,10 +13,11 @@ import {
   ArrowUp,
   ChevronLeft,
   Layout as LayoutIcon,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import spendsyLogo from "./assets/spendsy_logo.png";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
-import { formatIndianCompact, normalizeDate } from "@shared/utils/helpers";
+import { formatIndianCompact, normalizeDate, formatLocalDate } from "@shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { Toast, ConfirmationDialog } from "./components/ui/Shared";
@@ -867,6 +868,20 @@ export default function App() {
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-black truncate">Hello, {firstName}</h1>
           </div>
           <div className="flex items-center gap-3 shrink-0">
+            <motion.button
+              whileHover={{ rotate: 90, scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => navigateToTab(TABS.SETTINGS)}
+              className={cn(
+                "p-2 rounded-xl border transition-all duration-200",
+                theme === "dark"
+                  ? "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10"
+                  : "bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white"
+              )}
+              aria-label="Settings"
+            >
+              <SettingsIcon className="w-5 h-5" />
+            </motion.button>
             <AlertsBell theme={theme} />
           </div>
         </header>
@@ -1071,6 +1086,7 @@ export default function App() {
                   onClearSection={() => setSettingsSection(null)}
                   transactions={transactions}
                   onRefreshUser={refreshUser}
+                  isLoading={historyLoading}
                 />
               )}
               {activeTab === TABS.PROFILE && (
@@ -1088,6 +1104,7 @@ export default function App() {
                     setSettingsSection(section);
                     navigateToTab(TABS.SETTINGS);
                   }}
+                  isLoading={historyLoading}
                 />
               )}
               {activeTab === TABS.DEBIT_CARDS && (
@@ -1123,6 +1140,7 @@ export default function App() {
                   }}
                   showToast={showToast}
                   triggerConfirm={triggerConfirm}
+                  isLoading={historyLoading}
                 />
               )}
               {activeTab === TABS.PLANNER && (
@@ -1146,11 +1164,12 @@ export default function App() {
                   refreshProfile={fetchTaxProfile}
                   user={currentUser}
                   apiBaseUrl={API_BASE_URL}
+                  isLoading={historyLoading}
                 />
               )}
 
               {activeTab === TABS.STATS && (
-                <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} wealthItems={wealthItems} showToast={showToast} />
+                <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} wealthItems={wealthItems} showToast={showToast} isLoading={historyLoading} />
               )}
 
               {activeTab === TABS.ITR && (
@@ -1162,6 +1181,7 @@ export default function App() {
                   setActiveTab={navigateToTab}
                   showToast={showToast}
                   refreshProfile={fetchTaxProfile}
+                  isLoading={historyLoading}
                 />
               )}
             </motion.div>

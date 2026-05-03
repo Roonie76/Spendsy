@@ -1,7 +1,7 @@
 //No database needed
 import React, { useState } from 'react';
 import { 
-  Home, ListFilter, Plus, ClipboardCheck, PieChart, Landmark, User, LogOut, Menu, X, Calendar
+  Home, ListFilter, Plus, ClipboardCheck, PieChart, Landmark, User, LogOut, Menu, X, Calendar, Settings
 } from 'lucide-react';
 import spendsyLogo from '../../assets/spendsy_logo.png';
 import { TABS } from '@shared/config/constants';
@@ -17,7 +17,8 @@ export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
     { id: TABS.STATS, icon: PieChart, label: "Stats" },
     { id: TABS.WEALTH, icon: Landmark, label: "Wealth" },
     { id: TABS.PLANNER, icon: Calendar, label: "Planner" },
-    { id: TABS.PROFILE, icon: User, label: "Profile" }
+    { id: TABS.PROFILE, icon: User, label: "Profile" },
+    { id: TABS.SETTINGS, icon: Settings, label: "Settings" }
   ];
 
   return (

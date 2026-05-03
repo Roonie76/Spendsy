@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef } from "react";
 import { downloadCSV } from "@shared/utils/exportUtils";
 import { authApi, financeApi } from "../api";
+import { cn } from "@shared/utils/cn";
 import { motion, AnimatePresence } from "framer-motion";
+import { SettingsSkeleton } from "../components/ui/Skeletons";
 import {
   User, Mail, Lock, Phone, Home as HomeIcon, Briefcase,
   Coins, Moon, Sun, Bell, Shield, ChevronLeft, ChevronRight,
@@ -17,7 +19,8 @@ import {
   AlertCircle, Clock, Zap, Languages, ChartBar,
   PiggyBank, ArrowRightLeft, Fingerprint, Link2,
   ExternalLink, Copy, Check, RotateCcw, LogIn,
-  BellOff, BellRing, Landmark, FileBarChart, BookOpen
+  BellOff, BellRing, Landmark, FileBarChart, BookOpen,
+  ListFilter, PieChart, Settings as SettingsIcon
 } from "lucide-react";
 
 // ─── Preferences Persistence ─────────────────────────────────────────────────
@@ -1258,6 +1261,7 @@ const AboutPage = ({ onBack }) => {
 const SECTIONS = [
   { key: "personal",     icon: User,       label: "Personal Information",   description: "Name, photo, KYC, tax IDs",          iconColor: "text-blue-400",    iconBg: "bg-blue-500/10",    group: "Account" },
   { key: "security",     icon: Shield,     label: "Privacy & Security",     description: "Password, 2FA, sessions, alerts",     iconColor: "text-emerald-400", iconBg: "bg-emerald-500/10", group: "Account" },
+  { key: "quick_actions",icon: SlidersHorizontal, label: "Quick Actions", description: "Customize your dashboard shortcuts", iconColor: "text-indigo-400", iconBg: "bg-indigo-500/10", group: "Account", badge: "New" },
   { key: "subscription", icon: Crown,      label: "Subscription & Billing", description: "Plan, invoices, coupons",             iconColor: "text-amber-400",   iconBg: "bg-amber-500/10",   group: "Account" },
   { key: "financial",    icon: Coins,      label: "Financial Settings",     description: "Currency, tax regime, accounts",      iconColor: "text-yellow-400",  iconBg: "bg-yellow-500/10",  group: "Finance" },
   { key: "notifications",icon: Bell,       label: "Notifications",          description: "Channels, tax deadlines, AI digest",  iconColor: "text-violet-400",  iconBg: "bg-violet-500/10",  group: "Finance" },
@@ -1270,7 +1274,7 @@ const SECTIONS = [
 
 const GROUPS = ["Account", "Finance", "App"];
 
-const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm, theme: currentTheme, onThemeChange, transactions, onDeleteAll, showToast, onNavigateImport, initialSection, onClearSection, onRefreshUser }) => {
+const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut, triggerConfirm, theme: currentTheme, onThemeChange, transactions, onDeleteAll, showToast, onNavigateImport, initialSection, onClearSection, onRefreshUser, isLoading }) => {
   const [currentSection, setCurrentSection] = useState(initialSection || null);
   const [search, setSearch] = useState("");
 
@@ -1293,6 +1297,8 @@ const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut
 
   const grouped = useMemo(() => GROUPS.map(g => ({ group: g, items: SECTIONS.filter(s => s.group === g) })), []);
 
+  if (isLoading) return <SettingsSkeleton />;
+
   const renderSection = () => {
     switch (currentSection) {
       case "personal":      return <PersonalInfoPage user={user} onBack={goBack} showToast={showToast} onRefreshUser={onRefreshUser} />;
@@ -1303,6 +1309,56 @@ const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut
       case "ai":            return <AIFeaturesPage onBack={goBack} user={user} onUpdateSettings={onUpdateSettings} />;
       case "data":          return <DataManagementPage onBack={goBack} triggerConfirm={triggerConfirm} transactions={transactions} onDeleteAll={onDeleteAll} showToast={showToast} onNavigateImport={onNavigateImport} />;
       case "subscription":  return <SubscriptionPage onBack={goBack} tier={user?.tier || "free"} />;
+      case "quick_actions": return (
+        <div className="space-y-6">
+          <PageHeader title="Quick Actions" subtitle="Configure Dashboard" onBack={goBack} />
+          <InfoCard color="indigo">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-white/10 rounded-2xl"><SlidersHorizontal className="w-6 h-6 text-indigo-400" /></div>
+              <div>
+                <p className="text-sm font-bold text-white">Customize your workspace</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">Choose up to 6 shortcuts to appear on your Profile and Home screens for rapid navigation.</p>
+              </div>
+            </div>
+          </InfoCard>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { id: "budget", label: "Budget", icon: Target, color: "text-amber-400" },
+              { id: "goals", label: "Goals", icon: Star, color: "text-emerald-400" },
+              { id: "loans", label: "Loans", icon: Briefcase, color: "text-rose-400" },
+              { id: "planner", label: "Planner", icon: TrendingUp, color: "text-indigo-400" },
+              { id: "itr", label: "ITR Filing", icon: FileBarChart, color: "text-violet-400" },
+              { id: "audit", label: "Tax Audit", icon: Receipt, color: "text-sky-400" },
+              { id: "history", label: "History", icon: ListFilter, color: "text-slate-400" },
+              { id: "wealth", label: "Wealth", icon: Landmark, color: "text-blue-400" },
+              { id: "add", label: "Add New", icon: Plus, color: "text-emerald-400" },
+              { id: "stats", label: "Stats", icon: PieChart, color: "text-orange-400" },
+            ].map(s => {
+              const selected = (user?.preferences?.quick_actions || ["budget", "goals", "loans", "planner", "itr", "audit"]).includes(s.id);
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    const current = user?.preferences?.quick_actions || ["budget", "goals", "loans", "planner", "itr", "audit"];
+                    const next = selected ? current.filter(id => id !== s.id) : [...current, s.id].slice(0, 6);
+                    onUpdateSettings({ preferences: { ...(user?.preferences || {}), quick_actions: next } });
+                  }}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${selected ? "bg-indigo-500/10 border-indigo-500/30" : "bg-white/[0.03] border-white/5 hover:border-white/10"}`}
+                >
+                  <div className={`p-2.5 rounded-xl bg-white/5 ${s.color}`}><s.icon className="w-5 h-5" /></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-white">{s.label}</p>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${selected ? "bg-indigo-500 border-indigo-500" : "border-white/10"}`}>
+                    {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
       case "help":          return <HelpSupportPage onBack={goBack} />;
       case "about":         return <AboutPage onBack={goBack} />;
       default: return null;
@@ -1332,102 +1388,118 @@ const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut
 
   return (
     <div className="space-y-0 pb-32">
-      <AnimatePresence mode="wait">
-        {currentSection ? (
-          <motion.div key={currentSection} variants={pageVariants} initial="initial" animate="animate" exit="exit">
-            {renderSection()}
-          </motion.div>
-        ) : (
-          <motion.div key="main" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Pane: Navigation & Menu */}
+        <div className={cn(
+          "lg:col-span-4 space-y-6 transition-all duration-300",
+          currentSection ? "hidden lg:block" : "block"
+        )}>
+          {/* Header */}
+          <div className="flex items-center justify-between pb-5 border-b border-white/5">
+            <div className="flex items-center gap-4">
+              <motion.button whileHover={{ scale: 1.05, x: -2 }} whileTap={{ scale: 0.95 }} onClick={onBack} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors shadow-lg lg:hidden">
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </motion.button>
+              <div>
+                <h1 className="text-2xl font-black text-white tracking-tight">Settings</h1>
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Configure your experience</p>
+              </div>
+            </div>
+          </div>
 
-            {/* Header */}
-            <div className="flex items-center justify-between pb-5 border-b border-white/5">
-              <div className="flex items-center gap-4">
-                <motion.button whileHover={{ scale: 1.05, x: -2 }} whileTap={{ scale: 0.95 }} onClick={onBack} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors shadow-lg">
-                  <ChevronLeft className="w-5 h-5 text-white" />
-                </motion.button>
-                <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Settings</h1>
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Configure your experience</p>
+          {/* User snapshot */}
+          <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-white/5" style={{ background: "rgba(255,255,255,0.03)" }}>
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-lg font-black text-white shadow-lg shrink-0">
+              {([user?.first_name, user?.last_name].filter(Boolean).map(n => n[0]).join("") || (user?.username || "U")[0]).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-white truncate">{[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || "User"}</p>
+              <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+            </div>
+            <Badge label={user?.tier || "Free"} color={user?.tier === "pro" ? "indigo" : user?.tier === "enterprise" ? "amber" : "slate"} />
+          </div>
+
+          {/* Search */}
+          <div className="relative group">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search settings…"
+              className="w-full pl-12 pr-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-sm outline-none focus:border-indigo-500/50 focus:bg-white/8 transition-all placeholder:text-slate-600"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Sections List */}
+          {filteredSections ? (
+            <div className="space-y-2">
+              {filteredSections.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Search className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+                  <p className="text-slate-500 text-sm font-bold">No results for "{search}"</p>
                 </div>
-              </div>
-            </div>
-
-            {/* User snapshot */}
-            <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-white/5" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-lg font-black text-white shadow-lg shrink-0">
-                {([user?.first_name, user?.last_name].filter(Boolean).map(n => n[0]).join("") || (user?.username || "U")[0]).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-white truncate">{[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || "User"}</p>
-                <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
-              </div>
-              <Badge label={user?.tier || "Free"} color={user?.tier === "pro" ? "indigo" : user?.tier === "enterprise" ? "amber" : "slate"} />
-            </div>
-
-            {/* Search */}
-            <div className="relative group">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search settings…"
-                className="w-full pl-12 pr-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-sm outline-none focus:border-indigo-500/50 focus:bg-white/8 transition-all placeholder:text-slate-600"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white">
-                  <X className="w-4 h-4" />
-                </button>
+              ) : (
+                filteredSections.map(s => <SectionButton key={s.key} s={s} />)
               )}
             </div>
+          ) : (
+            <div className="space-y-6">
+              {grouped.map(({ group, items }) => (
+                <div key={group} className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] px-2">{group}</p>
+                  <div className="space-y-2">
+                    {items.map(s => <SectionButton key={s.key} s={s} />)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-            {/* Sections */}
-            {filteredSections ? (
-              <div className="space-y-2">
-                {filteredSections.length === 0 ? (
-                  <div className="py-16 text-center">
-                    <Search className="w-8 h-8 text-slate-700 mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm font-bold">No results for "{search}"</p>
-                  </div>
-                ) : (
-                  filteredSections.map(s => <SectionButton key={s.key} s={s} />)
-                )}
-              </div>
+          {/* Logout */}
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            onClick={() => triggerConfirm?.("Are you sure you want to sign out?", onSignOut)}
+            className="w-full flex items-center gap-4 px-5 py-5 rounded-2xl bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 hover:border-rose-500/25 transition-all group mt-4"
+          >
+            <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 shrink-0 group-hover:scale-110 transition-transform">
+              <LogOut className="w-6 h-6" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-black text-rose-400">Sign Out</p>
+              <p className="text-[11px] text-rose-500/50 mt-0.5">End current session</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-rose-500/40 group-hover:text-rose-400 transition-colors shrink-0" />
+          </motion.button>
+
+          <p className="text-center text-[10px] font-black text-slate-800 uppercase tracking-[0.3em] pt-2">Spendsy v2.4.0-stable</p>
+        </div>
+
+        {/* Right Pane: Active Content */}
+        <div className={cn(
+          "lg:col-span-8 transition-all duration-500",
+          !currentSection ? "hidden lg:block" : "block"
+        )}>
+          <AnimatePresence mode="wait">
+            {currentSection ? (
+              <motion.div key={currentSection} variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                {renderSection()}
+              </motion.div>
             ) : (
-              <div className="space-y-6">
-                {grouped.map(({ group, items }) => (
-                  <div key={group} className="space-y-2">
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] px-2">{group}</p>
-                    <div className="space-y-2">
-                      {items.map(s => <SectionButton key={s.key} s={s} />)}
-                    </div>
-                  </div>
-                ))}
+              <div className="hidden lg:flex flex-col items-center justify-center py-48 opacity-10 border border-dashed border-white/20 rounded-[3rem]">
+                <SettingsIcon className="w-16 h-16 mb-4" />
+                <p className="text-xs font-black uppercase tracking-[0.4em]">Select a section to configure</p>
               </div>
             )}
-
-            {/* Logout */}
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              onClick={() => triggerConfirm?.("Are you sure you want to sign out?", onSignOut)}
-              className="w-full flex items-center gap-4 px-5 py-5 rounded-2xl bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 hover:border-rose-500/25 transition-all group mt-4"
-            >
-              <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 shrink-0 group-hover:scale-110 transition-transform">
-                <LogOut className="w-6 h-6" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-black text-rose-400">Sign Out of Spendsy</p>
-                <p className="text-[11px] text-rose-500/50 mt-0.5">End your current session</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-rose-500/40 group-hover:text-rose-400 transition-colors shrink-0" />
-            </motion.button>
-
-            <p className="text-center text-[10px] font-black text-slate-800 uppercase tracking-[0.3em] pt-2">Spendsy v2.4.0-stable</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 };
