@@ -12,7 +12,9 @@ import {
   CheckCircle2,
   Zap,
   RefreshCw,
+  LayoutGrid,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   PieChart as RePieChart,
   Pie,
@@ -26,6 +28,8 @@ import {
   CartesianGrid,
   AreaChart,
   Area,
+  Sankey,
+  Layer
 } from "recharts";
 import { CATEGORIES } from "@shared/config/constants";
 import {
@@ -50,6 +54,50 @@ const COLORS = [
   "#06b6d4",
   "#64748b",
 ];
+
+// --- SUB-COMPONENT: CUSTOM SANKEY NODE ---
+const CustomSankeyNode = ({ x, y, width, height, index, payload, containerWidth }) => {
+  const isOut = x > 150; // Simple threshold to flip labels to the left
+  return (
+    <Layer key={`node-${index}`}>
+      <rect x={x} y={y} width={width} height={height} fill="#3b82f6" fillOpacity={0.8} />
+      <text
+        x={isOut ? x - 10 : x + width + 10}
+        y={y + height / 2 + 4}
+        textAnchor={isOut ? 'end' : 'start'}
+        fill="#94a3b8"
+        fontSize="10"
+        fontWeight="bold"
+        className="uppercase tracking-widest"
+      >
+        {payload.name}
+      </text>
+    </Layer>
+  );
+};
+
+// --- SUB-COMPONENT: SPENDING HEATMAP ---
+const SpendingHeatmap = ({ data }) => {
+  if (!data || data.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start">
+      {data.map((day, idx) => (
+        <div
+          key={day.date}
+          title={`${day.date}: ₹${day.value.toLocaleString()}`}
+          className="w-3 h-3 rounded-[2px] transition-all hover:scale-125 cursor-help"
+          style={{
+            backgroundColor: day.value === 0 
+              ? 'rgba(255,255,255,0.05)' 
+              : `rgba(59, 130, 246, ${Math.max(0.2, day.intensity)})`,
+            boxShadow: day.intensity > 0.8 ? '0 0 8px rgba(59, 130, 246, 0.4)' : 'none'
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 // --- SUB-COMPONENT: CUSTOM CHART TOOLTIP ---
 const CustomTooltip = ({ active, payload, label }) => {
@@ -136,10 +184,65 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
   const [range, setRange] = useState("6M");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [exportStatus, setExportStatus] = useState("idle");
+  const [activeTab, setActiveTab] = useState("overview"); // 'overview', 'flow', 'trends'  // --- 1. Sankey Diagram Logic ---
+  const sankeyData = useMemo(() => {
+    const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const expenseGroups = transactions.filter(t => t.type === 'expense').reduce((acc, t) => {
+      const cat = CATEGORIES.find(c => c.id === t.category)?.name || t.category || 'Other';
+      acc[cat] = (acc[cat] || 0) + (parseFloat(t.amount) || 0);
+      return acc;
+    }, {});
 
+    if (income === 0 && Object.keys(expenseGroups).length === 0) return null;
 
+    const nodes = [{ name: 'Income' }];
+    const links = [];
+    
+    let totalExpense = 0;
+    Object.entries(expenseGroups).forEach(([cat, val]) => {
+      nodes.push({ name: cat });
+      links.push({ source: 0, target: nodes.length - 1, value: val });
+      totalExpense += val;
+    });
 
+    const savings = Math.max(0, income - totalExpense);
+    if (savings > 0 || totalExpense === 0) {
+      nodes.push({ name: 'Savings' });
+      links.push({ source: 0, target: nodes.length - 1, value: Math.max(1, savings) });
+    }
 
+    return { nodes, links };
+  }, [transactions]);
+
+  // --- 2. Heatmap Logic (Daily Density) ---
+  const heatmapData = useMemo(() => {
+    const activity = {};
+    transactions.forEach(t => {
+      if (t.type !== 'expense') return;
+      const d = normalizeDate(t.date);
+      if (!d) return;
+      const key = d.toISOString().split('T')[0];
+      activity[key] = (activity[key] || 0) + (parseFloat(t.amount) || 0);
+    });
+
+    const end = new Date();
+    const start = new Date();
+    start.setMonth(end.getMonth() - 6); // Last 6 months for heatmap
+
+    const data = [];
+    const max = Math.max(...Object.values(activity), 1);
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = d.toISOString().split('T')[0];
+      const val = activity[key] || 0;
+      data.push({
+        date: key,
+        value: val,
+        intensity: val / max
+      });
+    }
+    return data;
+  }, [transactions]);
   const pieChartData = useMemo(() => {
     const categoryMap = {};
     let total = 0;
@@ -453,276 +556,259 @@ const StatsPage = ({ transactions = [], netWorthHistory = [], wealthItems = [], 
         </div>
       )}
 
+      {/* --- TAB NAVIGATION --- */}
+      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-fit mx-auto sm:mx-1">
+        {[
+          { id: 'overview', label: 'Snapshot', icon: LayoutGrid },
+          { id: 'flow', label: 'Architecture', icon: RefreshCw },
+          { id: 'trends', label: 'History', icon: BarChart3 }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all ${
+              activeTab === tab.id 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Charts */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Category Breakdown */}
-          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <PieChart className="w-4 h-4" /> Category Breakdown
-              </h3>
-              <div className="sm:ml-auto flex bg-white/5 rounded-lg p-1 border border-white/10 self-start sm:self-auto">
-                <button
-                  onClick={() => setViewMode("expense")}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === "expense" ? "bg-rose-500/20 text-rose-300" : "text-slate-400"}`}
-                >
-                  Expense
-                </button>
-                <button
-                  onClick={() => setViewMode("income")}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === "income" ? "bg-emerald-500/20 text-emerald-300" : "text-slate-400"}`}
-                >
-                  Income
-                </button>
-              </div>
-            </div>
-            <div className="h-64 relative">
-              {pieChartData.data.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <RePieChart>
-                    <Pie
-                      data={pieChartData.data}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {pieChartData.data.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </RePieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
-                  No data available
-                </div>
-              )}
-              {pieChartData.data.length > 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xs text-slate-400 font-bold uppercase">
-                    Total
-                  </span>
-                  <span className="text-xl font-bold text-white">
-                    {formatIndianCompact(pieChartData.total)}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-              {pieChartData.data.map((entry, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedCategory((current) => current === entry.name ? null : entry.name)}
-                  className={`flex justify-between items-center text-xs bg-white/5 p-3 rounded-xl text-left transition-colors hover:bg-white/10 ${selectedCategory === entry.name ? "ring-1 ring-blue-400/60" : ""}`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <div
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    ></div>
-                    <span className="text-slate-300 truncate">{entry.name}</span>
-                  </div>
-                  <span className="font-bold text-slate-200 shrink-0 ml-2">
-                    {((entry.value / pieChartData.total) * 100).toFixed(0)}%
-                  </span>
-                </button>
-              ))}
-            </div>
-            {selectedCategory && (
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">{selectedCategory}</h4>
-                  <button onClick={() => setSelectedCategory(null)} className="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-tighter">Clear Selection</button>
-                </div>
-                <div className="max-h-40 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-                  {selectedCategoryTransactions.slice(0, 8).map((transaction) => (
-                    <div key={transaction.id || `${transaction.title}-${transaction.date}`} className="flex justify-between gap-3 rounded-lg bg-white/5 px-3 py-2 text-xs">
-                      <span className="truncate text-slate-300">{transaction.title || transaction.description || "Transaction"}</span>
-                      <span className="font-bold text-white">{formatIndianCompact(Number.parseFloat(transaction.amount) || 0)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Trend Analysis */}
-          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" /> Trend Analysis
-              </h3>
-              <div className="flex bg-black/20 p-1 rounded-xl border border-white/5 overflow-x-auto max-w-full">
-                {["1D", "1W", "1M", "6M", "1Y"].map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRange(r)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap ${range === r ? "bg-blue-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="h-[300px] w-full">
-              {hasTrendData ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={trendChartData} barGap={4}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="rgba(255,255,255,0.05)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="name"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#64748b", fontSize: 10 }}
-                      dy={10}
-                      interval={range === "1M" ? 2 : 0}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#64748b", fontSize: 10 }}
-                      tickFormatter={(val) =>
-                        `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`
-                      }
-                    />
-                    <Tooltip
-                      cursor={{ fill: "rgba(255,255,255,0.05)", radius: 4 }}
-                      content={<CustomTooltip />}
-                    />
-                    <Bar
-                      dataKey="income"
-                      name="Income"
-                      fill="#10b981"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={20}
-                    />
-                    <Bar
-                      dataKey="expense"
-                      name="Expense"
-                      fill="#f43f5e"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={20}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700/50 text-xs text-slate-500">
-                  No trend data for this range
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Net Worth History Tracker */}
-          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden group">
-            <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/10 transition-colors"></div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 relative z-10">
-              <div>
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-indigo-400" /> Net Worth History
+          <AnimatePresence mode="wait">
+            {activeTab === 'flow' && sankeyData && (
+              <motion.div 
+                key="flow"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 overflow-hidden"
+              >
+                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-8">
+                  <RefreshCw className="w-4 h-4 text-emerald-400" /> Money Flow Architecture
                 </h3>
-                <div className="flex items-baseline gap-3">
-                  <p className="text-3xl font-black text-white tracking-tight">
-                    {formatIndianCompact(augmentedNetWorthHistory.at(-1)?.net_worth || 0)}
-                  </p>
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <TrendingUp className="w-3 h-3 text-emerald-400" />
-                    <span className="text-[10px] font-bold text-emerald-400">Stable</span>
-                  </div>
+                <div className="h-80 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <Sankey
+                      data={sankeyData}
+                      node={<CustomSankeyNode />}
+                      link={{ stroke: 'rgba(59, 130, 246, 0.2)' }}
+                      margin={{ left: 10, right: 110, top: 20, bottom: 20 }}
+                      nodePadding={50}
+                    >
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '12px' }}
+                        itemStyle={{ color: '#fff', fontSize: '10px', fontWeight: 'bold' }}
+                        formatter={(v) => `₹${formatIndianCompact(v)}`}
+                      />
+                    </Sankey>
+                  </ResponsiveContainer>
                 </div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Assets vs Liabilities over time</p>
-              </div>
-              <div className="hidden sm:flex flex-col items-end">
-                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest">
-                  <div className="flex items-center gap-1.5 text-emerald-400">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                    Assets
-                  </div>
-                  <div className="flex items-center gap-1.5 text-rose-400">
-                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></div>
-                    Liabilities
-                  </div>
-                </div>
-              </div>
-            </div>
+              </motion.div>
+            )}
 
-            <div className="h-[300px] w-full relative">
-              {augmentedNetWorthHistory && augmentedNetWorthHistory.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <AreaChart data={augmentedNetWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                        <stop offset="50%" stopColor="#10b981" stopOpacity={0.1} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="colorLiabilities" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
-                        <stop offset="50%" stopColor="#f43f5e" stopOpacity={0.1} />
-                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }} dy={10}
-                      tickFormatter={(val) => {
-                        const d = new Date(val);
-                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                      }}
-                    />
-                    <YAxis
-                      axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }}
-                      tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
-                    />
-                    <Tooltip
-                      cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
-                      content={<CustomTooltip />}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="total_assets" 
-                      name="Assets" 
-                      stroke="#10b981" 
-                      strokeWidth={4} 
-                      fillOpacity={1} 
-                      fill="url(#colorAssets)"
-                      activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#10b981' }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="total_liabilities" 
-                      name="Liabilities" 
-                      stroke="#f43f5e" 
-                      strokeWidth={4} 
-                      fillOpacity={1} 
-                      fill="url(#colorLiabilities)"
-                      activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: '#f43f5e' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-700/50 rounded-xl">
-                  <TrendingUp className="w-8 h-8 mb-2 opacity-50 text-indigo-500" />
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No History Available</p>
-                  <p className="text-[10px] mt-1 text-slate-500 max-w-[250px] text-center">Take a snapshot on the Wealth tab to start tracking your net worth journey.</p>
+            {activeTab === 'overview' && (
+              <motion.div
+                key="overview"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                {/* Category Breakdown */}
+                <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <PieChart className="w-4 h-4" /> Category Distribution
+                    </h3>
+                    <div className="sm:ml-auto flex bg-white/5 rounded-lg p-1 border border-white/10 self-start sm:self-auto">
+                      <button
+                        onClick={() => setViewMode("expense")}
+                        className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${viewMode === "expense" ? "bg-rose-500/20 text-rose-300" : "text-slate-400"}`}
+                      >
+                        Expense
+                      </button>
+                      <button
+                        onClick={() => setViewMode("income")}
+                        className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${viewMode === "income" ? "bg-emerald-500/20 text-emerald-300" : "text-slate-400"}`}
+                      >
+                        Income
+                      </button>
+                    </div>
+                  </div>
+                  <div className="h-64 relative">
+                    {pieChartData.data.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <RePieChart>
+                          <Pie
+                            data={pieChartData.data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {pieChartData.data.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                        </RePieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
+                        No data available
+                      </div>
+                    )}
+                    {pieChartData.data.length > 0 && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">
+                          Total
+                        </span>
+                        <span className="text-xl font-bold text-white">
+                          {formatIndianCompact(pieChartData.total)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                    {pieChartData.data.map((entry, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedCategory((current) => current === entry.name ? null : entry.name)}
+                        className={`flex justify-between items-center text-[10px] bg-white/5 p-3 rounded-xl text-left transition-colors hover:bg-white/10 ${selectedCategory === entry.name ? "ring-1 ring-blue-400/60" : ""}`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <div
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          ></div>
+                          <span className="text-slate-300 truncate">{entry.name}</span>
+                        </div>
+                        <span className="font-bold text-slate-200 shrink-0 ml-2">
+                          {((entry.value / pieChartData.total) * 100).toFixed(0)}%
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
+
+                {/* Activity Heatmap */}
+                <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-6">
+                    <Zap className="w-4 h-4 text-blue-400" /> Spending Activity Density
+                  </h3>
+                  <SpendingHeatmap data={heatmapData} />
+                  <div className="mt-4 flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    <span>Less</span>
+                    <div className="flex gap-1">
+                      {[0, 0.2, 0.4, 0.6, 0.8].map(v => (
+                        <div key={v} className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: `rgba(59, 130, 246, ${Math.max(0.05, v)})` }}></div>
+                      ))}
+                    </div>
+                    <span>More</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'trends' && (
+              <motion.div
+                key="trends"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                {/* Trend Analysis */}
+                <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-emerald-400" /> Trend Analysis
+                    </h3>
+                    <div className="flex bg-black/20 p-1 rounded-xl border border-white/5 overflow-x-auto max-w-full">
+                      {["1D", "1W", "1M", "6M", "1Y"].map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => setRange(r)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap ${range === r ? "bg-blue-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-[280px] w-full">
+                    {hasTrendData ? (
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <BarChart data={trendChartData} barGap={4}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} dy={10} interval={range === "1M" ? 2 : 0} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`} />
+                          <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)", radius: 4 }} content={<CustomTooltip />} />
+                          <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                          <Bar dataKey="expense" name="Expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700/50 text-xs text-slate-500">No trend data for this range</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Net Worth Tracker */}
+                <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 relative overflow-hidden group">
+                  <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/10 transition-colors"></div>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 relative z-10">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-4 h-4 text-indigo-400" /> Wealth Evolution
+                      </h3>
+                      <p className="text-2xl font-black text-white tracking-tight">{formatIndianCompact(augmentedNetWorthHistory.at(-1)?.net_worth || 0)}</p>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest">
+                      <div className="flex items-center gap-1.5 text-emerald-400"><div className="w-2 h-2 rounded-full bg-emerald-500"></div>Assets</div>
+                      <div className="flex items-center gap-1.5 text-rose-400"><div className="w-2 h-2 rounded-full bg-rose-500"></div>Liabilities</div>
+                    </div>
+                  </div>
+
+                  <div className="h-[280px] w-full relative">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                      <AreaChart data={augmentedNetWorthHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorAssets" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorLiabilities" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9 }} dy={10} tickFormatter={(val) => new Date(val).toLocaleDateString("en-US", { month: "short", day: "numeric" })} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 9 }} tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`} />
+                        <Tooltip cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} content={<CustomTooltip />} />
+                        <Area type="monotone" dataKey="total_assets" name="Assets" stroke="#10b981" strokeWidth={3} fill="url(#colorAssets)" />
+                        <Area type="monotone" dataKey="total_liabilities" name="Liabilities" stroke="#f43f5e" strokeWidth={3} fill="url(#colorLiabilities)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Right Column: Suggestions & Quick Stats */}
