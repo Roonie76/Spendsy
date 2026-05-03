@@ -18,6 +18,15 @@ import { TABS } from "@shared/config/constants";
 import { normalizeDate, formatIndianCompact, getCurrentFinancialYear } from "@shared/utils/helpers";
 import { TaxService } from "@shared/services/taxService";
 import { cn } from "@shared/utils/cn";
+import { 
+  Sparkles, 
+  Activity, 
+  Lightbulb, 
+  ShieldCheck, 
+  TrendingUp as TrendUpIcon, 
+  ArrowUpRight,
+  ChevronRight
+} from "lucide-react";
 
 
 
@@ -91,7 +100,8 @@ const HomePage = ({
     const localMonthExpense = monthlyData
       .filter(t => t.type === "expense" || t.type === "debit")
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const expense = totals?.monthExpense !== undefined ? totals.monthExpense : localMonthExpense;
+    const serverExpense = totals?.month_expense || totals?.monthExpense;
+    const expense = serverExpense !== undefined ? parseFloat(serverExpense) : localMonthExpense;
 
     // Today spend
     const todayStr = now.toISOString().slice(0, 10);
@@ -216,8 +226,209 @@ const HomePage = ({
 
   const txList = Array.isArray(transactions) ? transactions : [];
 
+  // ── Health Score Calculation ───────────────────────────────────────────────
+  const healthScore = useMemo(() => {
+    const income = parseFloat(totals?.month_income || totals?.monthIncome || 0);
+    const expense = parseFloat(totals?.month_expense || totals?.monthExpense || 0);
+    const budget = parseFloat(settings?.monthlyBudget) || 0;
+    
+    // 1. Savings Rate (40%)
+    const savingsRate = income > 0 ? (income - expense) / income : 0;
+    const savingsScore = Math.min(100, Math.max(0, savingsRate * 200)); // 50% savings = 100 points
+    
+    // 2. Budget Adherence (40%)
+    let budgetScore = 100;
+    if (budget > 0) {
+      const ratio = expense / budget;
+      budgetScore = Math.max(0, 100 - (ratio > 1 ? (ratio - 1) * 200 : 0));
+    }
+    
+    // 3. Diversification (20%) - Mocked for now based on wealth count
+    const wealthCount = wealthItems.length;
+    const divScore = Math.min(100, wealthCount * 20); 
+    
+    const final = Math.round((savingsScore * 0.4) + (budgetScore * 0.4) + (divScore * 0.2));
+    return Math.min(100, Math.max(20, final));
+  }, [totals, settings, wealthItems]);
+
+  // ── Tora Pulse Insights ───────────────────────────────────────────────────
+  const pulseInsights = useMemo(() => {
+    const insights = [];
+    const budget = parseFloat(settings?.monthlyBudget) || 0;
+    const expense = parseFloat(totals?.month_expense || totals?.monthExpense || 0);
+
+    if (budget > 0 && expense > budget) {
+      insights.push({
+        text: `You've exceeded your monthly budget by ${formatIndianCompact(expense - budget)}.`,
+        icon: AlertTriangle,
+        color: "text-rose-500",
+        bg: "bg-rose-500/10"
+      });
+    } else if (budget > 0 && expense > budget * 0.8) {
+      insights.push({
+        text: "Approaching budget limit. Consider pausing non-essential spends.",
+        icon: TrendingDown,
+        color: "text-amber-500",
+        bg: "bg-amber-500/10"
+      });
+    }
+
+    if (netWorthChange?.isUp) {
+      insights.push({
+        text: `Impressive! Your net worth is up ${netWorthChange.pct}% this month.`,
+        icon: TrendUpIcon,
+        color: "text-emerald-500",
+        bg: "bg-emerald-500/10"
+      });
+    }
+
+    insights.push({
+      text: "Tora Tip: Tracking daily expenses increases savings by 15% on average.",
+      icon: Lightbulb,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10"
+    });
+
+    return insights;
+  }, [settings, totals, netWorthChange]);
+
+  const [currentPulseIdx, setCurrentPulseIdx] = useState(0);
+
+  // Auto-cycle insights every 5 seconds
+  React.useEffect(() => {
+    if (pulseInsights.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentPulseIdx((prev) => (prev + 1) % pulseInsights.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [pulseInsights]);
+
   return (
-    <div className="space-y-6 md:space-y-10 pb-28" role="main" aria-label="Financial dashboard">
+    <div className="space-y-6 md:space-y-8 pb-28" role="main" aria-label="Financial dashboard">
+      
+      {/* ── TOP BANNER: Pulse & Health ────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        
+        {/* TORA PULSE */}
+        <div className="md:col-span-8">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.01 }}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("open-tora", { 
+                detail: { query: `Tell me more about: ${pulseInsights[currentPulseIdx].text}` } 
+              }));
+            }}
+            className={cn(
+              "relative overflow-hidden h-full p-4 rounded-[2rem] border flex items-center gap-4 cursor-pointer group/pulse",
+              theme === "dark" ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.05]" : "bg-white border-slate-100 hover:border-blue-200"
+            )}
+          >
+            <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500/60">Tora Pulse</span>
+                <div className="flex gap-1">
+                  {pulseInsights.map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        "w-1 h-1 rounded-full transition-all duration-300",
+                        i === currentPulseIdx ? "w-3 bg-blue-500" : "bg-blue-500/20"
+                      )} 
+                    />
+                  ))}
+                </div>
+              </div>
+              <AnimatePresence mode="wait">
+                <motion.p 
+                  key={currentPulseIdx}
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  className={cn(
+                    "text-sm font-bold truncate",
+                    theme === "dark" ? "text-white" : "text-slate-900"
+                  )}
+                >
+                  {pulseInsights[currentPulseIdx].text}
+                </motion.p>
+              </AnimatePresence>
+            </div>
+            <motion.button 
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                setCurrentPulseIdx((prev) => (prev + 1) % pulseInsights.length);
+              }}
+              className="relative z-10 p-2 hover:bg-white/10 rounded-xl transition-colors shrink-0"
+              aria-label="Next insight"
+            >
+              <ChevronRight className="w-4 h-4 opacity-60" />
+            </motion.button>
+          </motion.div>
+        </div>
+
+        {/* HEALTH SCORE GAUGE */}
+        <div className="md:col-span-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={cn(
+              "p-4 rounded-[2rem] border flex items-center justify-between gap-4",
+              theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-white border-slate-100"
+            )}
+          >
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/60 mb-1">Financial Health</span>
+              <div className="flex items-baseline gap-1">
+                <span className={cn("text-2xl font-black tracking-tighter", theme === "dark" ? "text-white" : "text-slate-900")}>
+                  {healthScore}
+                </span>
+                <span className="text-xs font-bold opacity-30">/100</span>
+              </div>
+            </div>
+            
+            <div className="relative w-14 h-14">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  cx="28"
+                  cy="28"
+                  r="24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  className={theme === "dark" ? "text-white/5" : "text-slate-100"}
+                />
+                <motion.circle
+                  cx="28"
+                  cy="28"
+                  r="24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  strokeDasharray="150"
+                  initial={{ strokeDashoffset: 150 }}
+                  animate={{ strokeDashoffset: 150 - (150 * healthScore) / 100 }}
+                  transition={{ duration: 1.5, ease: "circOut" }}
+                  strokeLinecap="round"
+                  className={cn(
+                    healthScore > 80 ? "text-emerald-500" : healthScore > 50 ? "text-blue-500" : "text-rose-500"
+                  )}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Activity className={cn(
+                  "w-4 h-4",
+                  healthScore > 80 ? "text-emerald-500" : healthScore > 50 ? "text-blue-500" : "text-rose-500"
+                )} />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
 
 
 

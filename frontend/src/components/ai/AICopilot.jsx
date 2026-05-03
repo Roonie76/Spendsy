@@ -21,6 +21,17 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
   const authMissing = !authHeader;
   const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
   const toraBaseUrl = import.meta.env.VITE_TORA_URL || aiBaseUrl || `${gatewayUrl}/tora`;
+ 
+  React.useEffect(() => {
+    const handleOpenTora = (e) => {
+      setIsOpen(true);
+      if (e.detail?.query) {
+        setInput(e.detail.query);
+      }
+    };
+    window.addEventListener("open-tora", handleOpenTora);
+    return () => window.removeEventListener("open-tora", handleOpenTora);
+  }, []);
 
   // Handle tool call confirmation from the chat UI
   const handleConfirmTool = useCallback(async (messageIndex, tool) => {
