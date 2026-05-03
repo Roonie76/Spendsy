@@ -29,8 +29,24 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
         setInput(e.detail.query);
       }
     };
+    
+    const handleToraAction = (e) => {
+      const { label, intent, action } = e.detail;
+      // If it's a 'fix' intent, we prompt the AI to fix it
+      if (intent === "fix") {
+        setInput(`Please help me fix this issue: ${label}`);
+        // Auto-send if possible
+      } else if (action) {
+        setInput(action);
+      }
+    };
+
     window.addEventListener("open-tora", handleOpenTora);
-    return () => window.removeEventListener("open-tora", handleOpenTora);
+    window.addEventListener("TORA_ACTION", handleToraAction);
+    return () => {
+      window.removeEventListener("open-tora", handleOpenTora);
+      window.removeEventListener("TORA_ACTION", handleToraAction);
+    };
   }, []);
 
   // Handle tool call confirmation from the chat UI

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, TrendingUp, Target, Lightbulb, BarChart3, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ChevronDown, ChevronRight, TrendingUp, Target, Lightbulb, BarChart3, ThumbsUp, ThumbsDown, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 
 const SECTION_CONFIG = {
   "Financial Overview": { icon: BarChart3, color: "text-cyan-400", bg: "bg-cyan-500/10" },
@@ -149,6 +149,77 @@ function renderMarkdown(text) {
   return elements;
 }
 
+function RichUIBlock({ data }) {
+  if (!data) return null;
+
+  const { type, payload } = data;
+
+  if (type === "mini_chart") {
+    const max = Math.max(...payload.values);
+    return (
+      <div className="my-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+        <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">{payload.title}</h5>
+        <div className="flex items-end gap-2 h-24">
+          {payload.values.map((v, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+              <div 
+                className="w-full bg-cyan-500/30 rounded-t-md group-hover:bg-cyan-500 transition-all"
+                style={{ height: `${(v / max) * 100}%` }}
+              />
+              <span className="text-[8px] text-slate-500 font-bold uppercase truncate w-full text-center">{payload.labels[i]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "action_button") {
+    return (
+      <div className="my-3 flex flex-wrap gap-2">
+        {payload.actions.map((action, i) => (
+          <button
+            key={i}
+            onClick={() => window.dispatchEvent(new CustomEvent('TORA_ACTION', { detail: action }))}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-bold transition-all shadow-lg active:scale-95 ${
+              action.intent === "danger" 
+                ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20" 
+                : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
+            }`}
+          >
+            {action.intent === "fix" ? <AlertCircle size={14} className="text-amber-400" /> : <ArrowRight size={14} />}
+            {action.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function parseRichContent(content) {
+  if (typeof content !== "string") return { text: content, blocks: [] };
+  
+  const blocks = [];
+  let cleanText = content;
+
+  // Pattern for JSON blocks: [UI_BLOCK:{"type": "...", "payload": {...}}]
+  const blockRegex = /\[UI_BLOCK:(\{.*?\})\]/g;
+  let match;
+  while ((match = blockRegex.exec(content)) !== null) {
+    try {
+      const data = JSON.parse(match[1]);
+      blocks.push(data);
+      cleanText = cleanText.replace(match[0], "");
+    } catch (e) {
+      console.error("Failed to parse UI_BLOCK", e);
+    }
+  }
+
+  return { text: cleanText.trim(), blocks };
+}
+
 function SectionCard({ title, content }) {
   const [isOpen, setIsOpen] = useState(true);
   const config = SECTION_CONFIG[title] || SECTION_CONFIG["Financial Overview"];
@@ -198,8 +269,8 @@ export default function MessageBubble({ message }) {
   const hasSections = (typeof content === "object" && content !== null && !message.mode) || 
                       (structured && Object.keys(SECTION_CONFIG).some(k => structured[k] && structured[k] !== "N/A"));
 
-  // Unified data for sections
   const sectionData = structured || content;
+  const rich = parseRichContent(typeof content === "string" ? content : (content?.content || ""));
 
   return (
     <div className="max-w-[92%] space-y-3 mb-6">
@@ -210,8 +281,11 @@ export default function MessageBubble({ message }) {
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl bg-[#1e293b]/50 border border-white/5 px-4 py-4 text-[14px] leading-relaxed text-slate-200 shadow-xl backdrop-blur-md">
-          {renderMarkdown(typeof content === "string" ? content : (content?.content || ""))}
+        <div className="space-y-3">
+          <div className="rounded-2xl bg-[#1e293b]/50 border border-white/5 px-4 py-4 text-[14px] leading-relaxed text-slate-200 shadow-xl backdrop-blur-md">
+            {renderMarkdown(rich.text)}
+          </div>
+          {rich.blocks.map((block, i) => <RichUIBlock key={i} data={block} />)}
         </div>
       )}
 

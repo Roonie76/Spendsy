@@ -718,53 +718,53 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
     _t0 = time.perf_counter()
     _timings: dict[str, float] = {}
 
-    # 1. Fetch (Now async via MCP)
+    # 1. Concurrent Fetch (MCP + Memory + Universal Engine)
+    # This reduces total latency by overlapping I/O tasks.
+    _fetch_task = asyncio.create_task(fetch_financial_summary(user_id))
+    _history_task = asyncio.create_task(asyncio.to_thread(_load_recent_conversation, user_id, user_tier))
+    
+    # Wait for financial summary first as we need it for the engine
     try:
-        # Two concurrent MCP calls inside fetch_financial_summary — give it 8s.
-        raw_summary = await asyncio.wait_for(fetch_financial_summary(user_id), timeout=8.0)
+        raw_summary = await asyncio.wait_for(_fetch_task, timeout=8.0)
     except asyncio.TimeoutError:
         logger.warning("fetch_financial_summary timed out for user %s", user_id)
         raw_summary = {}
+    
     _timings["fetch"] = round(time.perf_counter() - _t0, 3)
+    
     if not raw_summary:
-        # Don't hard-error — let TORA respond helpfully even with no data yet
-        logger.warning("No financial summary for user %s — proceeding with empty context", user_id)
         raw_summary = {
             "monthly_income": 0, "monthly_expenses": 0, "account_balance": 0,
             "monthly_surplus": 0, "monthly_budget": 0,
             "loans": [], "credit_cards": [], "goals": [], "plans": [],
             "recent_transactions": [], "monthly_trends": [],
         }
-        
-    # 2. Simulate (tier-aware)
+
+    # Now run simulation and sanitization (CPU bound, but fast)
     simulations = run_financial_simulations(raw_summary, user_tier)
-    
-    # 3. Sanitize (tier-aware)
     clean_summary = sanitize_financial_data(raw_summary, user_tier)
+    user_surplus = float(clean_summary.get("monthly_surplus", 0) or 0)
+
+    # Launch engine and strategy tasks in parallel
+    _market_task = asyncio.create_task(resolve_and_fetch(question, user_surplus=user_surplus))
     
-    # 4. Load conversation history (tier-aware memory limits)
+    # Wait for history
     try:
-        conversation_history = _load_recent_conversation(user_id, user_tier)
-        logger.info(f"Loaded {len(conversation_history)} conversation messages for tier {user_tier}")
+        conversation_history = await _history_task
     except Exception as e:
         logger.warning(f"Could not load conversation history: {e}")
         conversation_history = []
 
-    # 4b. Universal Intelligence Engine — resolve entities, fetch plugin data.
+    # Wait for engine
     market_block = ""
     fetch_results = None
     try:
-        user_surplus = float(clean_summary.get("monthly_surplus", 0) or 0)
-        fetch_results = await resolve_and_fetch(question, user_surplus=user_surplus)
+        fetch_results = await _market_task
         if fetch_results:
             market_block = build_market_context_block(fetch_results)
-            logger.info(
-                "Universal Intelligence Engine resolved %s",
-                summarize_fetch_outcome(fetch_results),
-            )
     except Exception as e:
-        logger.warning(f"Universal engine failed, continuing without enrichment: {e}")
-        market_block = ""
+        logger.warning(f"Universal engine failed: {e}")
+    
     _timings["universal_engine"] = round(time.perf_counter() - _t0, 3)
 
     # 5a. Goal decompose + strategy ranking (Phase 3).
@@ -864,7 +864,8 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
     # === RECURRENT REASONING LOOP (OpenMythos Recurrent-Depth) ===
     # Even if thinking is disabled, we allow up to 2 loops if tool calls are present
     # so the model can process the tool output.
-    max_loops = 3 if thinking_enabled else 2
+    # CRITICAL: If thinking is disabled and it's a simple query, we drop to 1 pass for speed.
+    max_loops = 3 if thinking_enabled else (1 if len(question.split()) < 8 else 2)
     current_loop = 0
     raw_response = ""
     structured_advice = {}
@@ -887,7 +888,7 @@ async def generate_financial_strategy(user_id: int, question: str, model: str = 
                 if accumulated_tool_results:
                     user_message += "\n\n=== TOOL OUTPUTS (previous loop) ===\n"
                     user_message += json.dumps(accumulated_tool_results, indent=2)
-            raw_response = call_llm(
+            raw_response = await call_llm(
                 model, user_message, clean_summary,
                 system_prompt=loop_sys, thinking=thinking_enabled,
             )

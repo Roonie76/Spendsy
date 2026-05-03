@@ -1,8 +1,7 @@
 import json
 import logging
 import re
-import urllib.request
-import urllib.error
+import httpx
 from typing import Dict, Any, List
 from config import settings
 
@@ -19,7 +18,7 @@ def _strip_code_fences(text: str) -> str:
     m = _CODE_FENCE_RE.match(text)
     return m.group(1).strip() if m else text.strip()
 
-def call_ollama(
+async def call_ollama(
     model: str,
     prompt: str,
     context: Dict[str, Any],
@@ -28,18 +27,7 @@ def call_ollama(
     thinking: bool = False,
 ) -> str:
     """
-    Execute a chat completion request to the local Ollama API.
-
-    Args:
-        model: The name of the Ollama model (e.g., 'gemma4:e2b', 'gemma:2b')
-        prompt: The user-role content (the current question + grounded data)
-        context: Financial context (unused in raw HTTP call but kept for interface consistency)
-        options: Optional Ollama generation parameters
-        system_prompt: Optional full system prompt (TORA rules, schema, etc). Falls
-            back to a minimal default when not supplied.
-        thinking: If True, enable gemma4's thinking mode. Triples latency but
-            improves reasoning quality — gate on whether the query actually
-            needs it (track 2 decisions, comparisons, hypotheticals).
+    Execute a chat completion request to the local Ollama API (Asynchronously).
     """
     url = f"{settings.ollama_base_url}/api/chat"
 
@@ -73,7 +61,7 @@ def call_ollama(
             },
             "required": ["answer"]
         },
-        "keep_alive": f"{settings.ollama_keep_alive}s",  # Unload immediately if 0
+        "keep_alive": f"{settings.ollama_keep_alive}s",
         "options": options or {
             "temperature": 0.0,
             "top_p": 0.9,
@@ -84,30 +72,18 @@ def call_ollama(
         "think": bool(thinking)
     }
     
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    req = urllib.request.Request(
-        url, 
-        data=json.dumps(payload).encode('utf-8'), 
-        headers=headers, 
-        method="POST"
-    )
-    
-    logger.info(f"Calling local Ollama model: {model}")
+    logger.info(f"Calling local Ollama model (async): {model}")
     
     try:
-        with urllib.request.urlopen(req, timeout=300.0) as response:
-            result = json.loads(response.read().decode('utf-8'))
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            result = response.json()
             content = result.get("message", {}).get("content", "")
             cleaned = _strip_code_fences(content)
             if not cleaned:
                 raise RuntimeError(f"Ollama model {model} returned an empty response")
             return cleaned
-    except urllib.error.URLError as e:
-        logger.error(f"Ollama connection error: {e.reason}")
-        raise RuntimeError(f"Ollama connection error: {e.reason}")
     except Exception as e:
         logger.error(f"Ollama request failed: {str(e)}")
         raise RuntimeError(f"Ollama request failed: {str(e)}")
