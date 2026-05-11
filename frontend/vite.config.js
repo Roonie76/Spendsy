@@ -14,9 +14,6 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      'react': path.resolve(localNodeModules, 'react'),
-      'react-dom': path.resolve(localNodeModules, 'react-dom'),
-      'react/jsx-runtime': path.resolve(localNodeModules, 'react/jsx-runtime'),
       'lucide-react': path.resolve(localNodeModules, 'lucide-react'),
       'clsx': path.resolve(localNodeModules, 'clsx'),
       'tailwind-merge': path.resolve(localNodeModules, 'tailwind-merge'),
