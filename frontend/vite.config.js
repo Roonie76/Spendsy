@@ -2,10 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
-
-const rootNodeModules = fs.existsSync(path.resolve(__dirname, '../node_modules/react'))
-  ? path.resolve(__dirname, '../node_modules')
-  : path.resolve(__dirname, 'node_modules');
+const localNodeModules = path.resolve(__dirname, 'node_modules');
 
 export default defineConfig({
   plugins: [
@@ -17,12 +14,12 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      'react': path.resolve(rootNodeModules, 'react'),
-      'react-dom': path.resolve(rootNodeModules, 'react-dom'),
-      'react/jsx-runtime': path.resolve(rootNodeModules, 'react/jsx-runtime'),
-      'lucide-react': path.resolve(rootNodeModules, 'lucide-react'),
-      'clsx': path.resolve(rootNodeModules, 'clsx'),
-      'tailwind-merge': path.resolve(rootNodeModules, 'tailwind-merge'),
+      'react': path.resolve(localNodeModules, 'react'),
+      'react-dom': path.resolve(localNodeModules, 'react-dom'),
+      'react/jsx-runtime': path.resolve(localNodeModules, 'react/jsx-runtime'),
+      'lucide-react': path.resolve(localNodeModules, 'lucide-react'),
+      'clsx': path.resolve(localNodeModules, 'clsx'),
+      'tailwind-merge': path.resolve(localNodeModules, 'tailwind-merge'),
       '@shared': path.resolve(__dirname, '../shared'),
     },
     dedupe: ['react', 'react-dom'],
