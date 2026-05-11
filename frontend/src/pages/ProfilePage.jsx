@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   User, Settings as SettingsIcon, ChevronRight, ShieldCheck,
   Plus, Link2, Unlink, CheckCircle, AlertCircle, Clock,
@@ -8,7 +8,9 @@ import {
   IndianRupee, PiggyBank, Activity, FileBarChart,
   Calendar, Receipt, Shield, Star, ExternalLink,
   RefreshCw, BadgeCheck, CircleDashed, Info,
-  ListFilter, PieChart as PieChartIcon, SlidersHorizontal, Check, X
+  ListFilter, PieChart as PieChartIcon, SlidersHorizontal, Check, X,
+  LogOut, Trash2, Key, Bell, ShieldAlert,
+  Smartphone, Monitor, Globe, MapPin, UserCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -16,6 +18,7 @@ import { TABS } from "@shared/config/constants";
 import { TierBadge } from "../components/ui/TierBadge";
 import { formatIndianCompact } from "@shared/utils/helpers";
 import { ProfileSkeleton } from "../components/ui/Skeletons";
+import { alertsApi, authApi } from "../api";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -35,18 +38,96 @@ const Card = ({ children, className = "", glow }) => (
 );
 
 const Pill = ({ label, color = "indigo" }) => {
-  const c = { indigo: "bg-indigo-500/15 border-indigo-500/30 text-indigo-400", emerald: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400", amber: "bg-amber-500/15 border-amber-500/30 text-amber-400", rose: "bg-rose-500/15 border-rose-500/30 text-rose-400", slate: "bg-slate-500/15 border-slate-500/30 text-slate-400", violet: "bg-violet-500/15 border-violet-500/30 text-violet-400" };
+  const c = { 
+    indigo: "bg-indigo-500/15 border-indigo-500/30 text-indigo-400", 
+    emerald: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400", 
+    amber: "bg-amber-500/15 border-amber-500/30 text-amber-400", 
+    rose: "bg-rose-500/15 border-rose-500/30 text-rose-400", 
+    slate: "bg-slate-500/15 border-slate-500/30 text-slate-400", 
+    violet: "bg-violet-500/15 border-violet-500/30 text-violet-400",
+    blue: "bg-blue-500/15 border-blue-500/30 text-blue-400"
+  };
   return <span className={`px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${c[color] || c.indigo}`}>{label}</span>;
 };
 
+const Modal = ({ isOpen, onClose, title, subtitle, children, icon: Icon }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden"
+        >
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {Icon && (
+                <div className="p-3 bg-white/5 rounded-2xl text-indigo-400">
+                  <Icon className="w-6 h-6" />
+                </div>
+              )}
+              <div>
+                <h3 className="text-xl font-black text-white">{title}</h3>
+                {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+          <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            {children}
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+);
+
+const FormField = ({ label, children, error }) => (
+  <div className="space-y-1.5">
+    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">{label}</label>
+    {children}
+    {error && <p className="text-[10px] text-rose-500 font-bold pl-1 mt-1">{error}</p>}
+  </div>
+);
+
+const Input = ({ ...props }) => (
+  <input 
+    {...props}
+    className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl px-4 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-700"
+  />
+);
+
+const Select = ({ options, ...props }) => (
+  <select 
+    {...props}
+    className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl px-4 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all appearance-none"
+  >
+    {options.map(opt => (
+      <option key={opt.value} value={opt.value} className="bg-[#1e293b] text-white">
+        {opt.label}
+      </option>
+    ))}
+  </select>
+);
+
 // ─── 1. HERO ─────────────────────────────────────────────────────────────────
 
-const HeroSection = ({ user, setActiveTab, onLogout }) => {
+const HeroSection = ({ user, setActiveTab, onLogout, onEdit }) => {
   const initials = [user?.first_name, user?.last_name].filter(Boolean).map(n => n[0]).join("").toUpperCase() || (user?.username || "U")[0].toUpperCase();
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || "User";
+  const occupation = user?.preferences?.occupation || user?.lifeStage || "Member";
+
   return (
     <Card className="p-6" glow="bg-indigo-500/20">
-      <div className="relative z-10 flex items-start justify-between gap-4">
+      <div className="relative z-10 flex flex-col sm:flex-row items-start justify-between gap-6">
         <div className="flex items-center gap-5 min-w-0">
           <div className="relative shrink-0">
             <motion.div
@@ -60,16 +141,25 @@ const HeroSection = ({ user, setActiveTab, onLogout }) => {
             </div>
           </div>
           <div className="min-w-0">
-            <h2 className="text-xl font-black text-white tracking-tight truncate">{displayName}</h2>
+            <h2 className="text-2xl font-black text-white tracking-tight truncate">{displayName}</h2>
             <p className="text-xs text-slate-500 truncate mt-0.5">{user?.email || "—"}</p>
-            <div className="flex gap-2 flex-wrap mt-2.5">
+            <div className="flex gap-2 flex-wrap mt-3">
               <TierBadge tier={user?.tier || "free"} showLabel size="sm" />
               <Pill label="Verified" color="emerald" />
-              {user?.occupation && <Pill label={user.occupation} color="slate" />}
+              <Pill label={occupation} color="slate" />
             </div>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 self-end sm:self-start">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onEdit}
+            className="px-4 py-2 bg-white/5 rounded-2xl border border-white/10 text-xs font-black text-white hover:bg-white/10 transition-all flex items-center gap-2"
+          >
+            <UserCircle className="w-4 h-4 text-indigo-400" />
+            Edit Profile
+          </motion.button>
           <motion.button
             whileHover={{ rotate: 90, scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -78,25 +168,25 @@ const HeroSection = ({ user, setActiveTab, onLogout }) => {
           >
             <SettingsIcon className="w-5 h-5" />
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onLogout}
-            className="p-2.5 bg-rose-500/10 rounded-2xl border border-rose-500/20 text-rose-400 hover:text-white hover:bg-rose-500 transition-all flex items-center gap-2"
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">Sign Out</span>
-          </motion.button>
         </div>
       </div>
-      <div className="relative z-10 mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[11px] text-slate-600">
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Member since {user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear()}</span>
+      <div className="relative z-10 mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-[11px] text-slate-600">
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Joined {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : "Recently"}</span>
+          </div>
+          {user?.preferences?.location && (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>{user.preferences.location}</span>
+            </div>
+          )}
         </div>
-        <button onClick={() => setActiveTab(TABS.SETTINGS)} className="text-[11px] text-indigo-400 font-bold hover:text-indigo-300 transition-colors flex items-center gap-1">
-          Edit Profile <ChevronRight className="w-3 h-3" />
-        </button>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Live Active</span>
+        </div>
       </div>
     </Card>
   );
@@ -104,14 +194,15 @@ const HeroSection = ({ user, setActiveTab, onLogout }) => {
 
 // ─── 2. QUICK STATS BAR ───────────────────────────────────────────────────────
 
-const QuickStatsBar = ({ wealthItems, transactions, settings }) => {
+const QuickStatsBar = ({ wealthItems, transactions, settings, onEditFinance }) => {
   const totalAssets = wealthItems.filter(i => i.type === "asset").reduce((s, i) => s + parseFloat(i.amount || 0), 0);
   const totalLiab   = wealthItems.filter(i => i.type === "liability").reduce((s, i) => s + parseFloat(i.amount || 0), 0);
   const netWorth    = totalAssets - totalLiab;
   const income      = parseFloat(settings?.monthlyIncome || 0);
   const budget      = parseFloat(settings?.monthlyBudget || 0);
   const savingsRate = income > 0 ? Math.max(0, ((income - budget) / income) * 100) : 0;
-  const thisMonth   = useMemo(() => {
+  
+  const thisMonth = useMemo(() => {
     const now = new Date();
     return transactions.filter(t => {
       const d = new Date(t.date || t.created_at);
@@ -119,24 +210,58 @@ const QuickStatsBar = ({ wealthItems, transactions, settings }) => {
     }).reduce((s, t) => s + parseFloat(t.amount || 0), 0);
   }, [transactions]);
 
+  const budgetPct = budget > 0 ? Math.min(100, (thisMonth / budget) * 100) : 0;
+  const budgetStatus = thisMonth > budget ? "Limit Reached" : thisMonth > budget * 0.8 ? "Warning" : "On Track";
+
   const stats = [
-    { label: "Net Worth",    value: `₹${fmt(netWorth)}`,   color: netWorth >= 0 ? "text-emerald-400" : "text-rose-400" },
-    { label: "Monthly Spend", value: `₹${fmt(thisMonth)}`, color: "text-white" },
+    { label: "Net Worth",    value: `${fmt(netWorth)}`,   color: netWorth >= 0 ? "text-emerald-400" : "text-rose-400" },
+    { label: "Monthly Spend", value: `${fmt(thisMonth)}`, color: "text-white" },
     { label: "Savings Rate", value: `${savingsRate.toFixed(0)}%`, color: savingsRate >= 20 ? "text-emerald-400" : savingsRate >= 10 ? "text-amber-400" : "text-rose-400" },
-    { label: "Total Debt",   value: totalLiab > 0 ? `₹${fmt(totalLiab)}` : "Debt Free", color: totalLiab > 0 ? "text-rose-400" : "text-emerald-400" },
+    { label: "Total Debt",   value: totalLiab > 0 ? `${fmt(totalLiab)}` : "Debt Free", color: totalLiab > 0 ? "text-rose-400" : "text-emerald-400" },
   ];
 
   return (
-    <Card className="p-4">
-      <div className="grid grid-cols-4 divide-x divide-white/5">
-        {stats.map((s, i) => (
-          <div key={i} className="px-3 first:pl-0 last:pr-0 flex flex-col gap-0.5">
-            <span className="text-[9px] text-slate-600 font-black uppercase tracking-widest leading-tight">{s.label}</span>
-            <span className={`text-sm font-black leading-tight ${s.color}`}>{s.value}</span>
+    <div className="space-y-3">
+      <Card className="p-4">
+        <div className="grid grid-cols-4 divide-x divide-white/5">
+          {stats.map((s, i) => (
+            <div key={i} className="px-3 first:pl-0 last:pr-0 flex flex-col gap-0.5">
+              <span className="text-[9px] text-slate-600 font-black uppercase tracking-widest leading-tight">{s.label}</span>
+              <span className={`text-sm font-black leading-tight ${s.color}`}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+      
+      <Card className="p-3 bg-white/[0.02]">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Monthly Budget Progress</span>
+            {budget > 0 && (
+              <Pill label={budgetStatus} color={budgetStatus === "Limit Reached" ? "rose" : budgetStatus === "Warning" ? "amber" : "emerald"} />
+            )}
           </div>
-        ))}
-      </div>
-    </Card>
+          <button onClick={onEditFinance} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest">
+            Adjust Goals
+          </button>
+        </div>
+        {budget > 0 ? (
+          <div className="relative h-2 rounded-full bg-white/5 overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }} 
+              animate={{ width: `${budgetPct}%` }} 
+              className={`h-full rounded-full transition-colors ${budgetPct > 100 ? "bg-rose-500" : budgetPct > 80 ? "bg-amber-500" : "bg-indigo-500"}`} 
+            />
+          </div>
+        ) : (
+          <div className="text-center py-1">
+            <button onClick={onEditFinance} className="text-[10px] text-slate-600 hover:text-slate-500 font-bold">
+              + Set monthly budget to track spending
+            </button>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 };
 
@@ -380,7 +505,7 @@ const PortfolioSnapshot = ({ wealthItems, setActiveTab }) => {
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em]">Portfolio</p>
-          <p className="text-lg font-black text-white mt-0.5">₹{fmt(netWorth)}</p>
+          <p className="text-lg font-black text-white mt-0.5">{fmt(netWorth)}</p>
         </div>
         <button onClick={() => setActiveTab(TABS.WEALTH)} className="text-[11px] text-indigo-400 font-bold hover:text-indigo-300 flex items-center gap-0.5 transition-colors">
           Full View <ExternalLink className="w-3 h-3" />
@@ -407,7 +532,7 @@ const PortfolioSnapshot = ({ wealthItems, setActiveTab }) => {
             <div key={lbl}>
               <div className="flex justify-between text-[10px] mb-1">
                 <span className="text-slate-500 font-bold">{lbl}</span>
-                <span className="font-black" style={{color:col}}>₹{fmt(val)}</span>
+                <span className="font-black" style={{color:col}}>{fmt(val)}</span>
               </div>
               <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: totalA+totalL>0?`${(val/(totalA+totalL))*100}%`:"0%", backgroundColor:col }} />
@@ -580,14 +705,29 @@ const NavShortcuts = ({ setActiveTab, settings, user, onUpdateActions }) => {
 
 // ─── 7. TORA ACTIVITY ────────────────────────────────────────────────────────
 
-const RECENT_INSIGHTS = [
-  { text: "Your food spending is 22% above last month's average.", time: "2h ago", type: "warning" },
-  { text: "On track to save ₹18K this month — great discipline!", time: "1d ago", type: "positive" },
-  { text: "New Regime saves ₹12,400 more vs Old Regime this FY.", time: "3d ago", type: "info" },
-];
-
 const ToraActivity = ({ user, setActiveTab }) => {
-  const isPro    = user?.tier === "pro" || user?.tier === "enterprise";
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const isPro = user?.tier === "pro" || user?.tier === "enterprise";
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchAlerts = async () => {
+      try {
+        const data = await alertsApi.list({ unreadOnly: false });
+        if (mounted) {
+          setAlerts((data?.data || data || []).slice(0, 3));
+        }
+      } catch (err) {
+        console.error("Failed to fetch alerts for profile", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchAlerts();
+    return () => { mounted = false; };
+  }, []);
+
   const memUsed  = isPro ? 37 : 14;
   const memLimit = isPro ? 100 : 20;
   const memPct   = (memUsed / memLimit) * 100;
@@ -601,7 +741,7 @@ const ToraActivity = ({ user, setActiveTab }) => {
           </div>
           <div>
             <p className="text-xs font-black text-white">TORA Activity</p>
-            <p className="text-[10px] text-slate-600 mt-0.5">Your AI agent's recent work</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">AI Insights & Surveillance</p>
           </div>
         </div>
         <button onClick={() => setActiveTab(TABS.CHAT)} className="px-3 py-1.5 rounded-xl bg-violet-600/20 border border-violet-500/25 text-violet-400 text-[10px] font-black hover:bg-violet-600/30 transition-colors">
@@ -609,33 +749,102 @@ const ToraActivity = ({ user, setActiveTab }) => {
         </button>
       </div>
 
-      <div className="mb-4 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+      <div className="mb-6 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <Brain className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-[10px] text-slate-500 font-bold">Conversation Memory</span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Context Memory</span>
           </div>
           <span className="text-[10px] font-black text-white">{memUsed} / {memLimit} msgs</span>
         </div>
         <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-          <div className={`h-full rounded-full ${memPct > 80 ? "bg-rose-500" : memPct > 60 ? "bg-amber-500" : "bg-violet-500"}`} style={{ width: `${memPct}%` }} />
+          <div className={`h-full rounded-full transition-all duration-1000 ${memPct > 80 ? "bg-rose-500" : memPct > 60 ? "bg-amber-500" : "bg-violet-500"}`} style={{ width: `${memPct}%` }} />
         </div>
-        {!isPro && <p className="text-[10px] text-slate-700 mt-1.5">Upgrade to Pro for 100-msg memory</p>}
+        {!isPro && (
+          <div className="mt-2.5 p-2 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-center justify-between">
+            <p className="text-[9px] text-amber-500/70 font-bold italic">Memory is 70% full on Free Tier</p>
+            <button onClick={() => setActiveTab(TABS.SETTINGS)} className="text-[9px] text-amber-400 font-black uppercase underline">Upgrade</button>
+          </div>
+        )}
       </div>
 
-      <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Recent Insights</p>
+      <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3 pl-1">Recent Intelligence</p>
       <div className="space-y-2">
-        {RECENT_INSIGHTS.map((ins, i) => (
-          <div key={i} className={`flex items-start gap-2.5 p-3 rounded-2xl border ${ins.type === "positive" ? "bg-emerald-500/5 border-emerald-500/15" : ins.type === "warning" ? "bg-amber-500/5 border-amber-500/15" : "bg-blue-500/5 border-blue-500/10"}`}>
-            <div className={`mt-0.5 shrink-0 ${ins.type === "positive" ? "text-emerald-400" : ins.type === "warning" ? "text-amber-400" : "text-blue-400"}`}>
-              {ins.type === "positive" ? <TrendingUp className="w-3.5 h-3.5" /> : ins.type === "warning" ? <AlertCircle className="w-3.5 h-3.5" /> : <Info className="w-3.5 h-3.5" />}
+        {loading ? (
+          [1,2].map(i => <div key={i} className="h-16 w-full bg-white/5 rounded-2xl animate-pulse" />)
+        ) : alerts.length > 0 ? (
+          alerts.map((ins, i) => (
+            <div key={i} className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all hover:translate-x-1 ${ins.severity === "danger" ? "bg-rose-500/5 border-rose-500/15" : ins.severity === "warning" ? "bg-amber-500/5 border-amber-500/15" : "bg-indigo-500/5 border-indigo-500/10"}`}>
+              <div className={`mt-0.5 shrink-0 ${ins.severity === "danger" ? "text-rose-400" : ins.severity === "warning" ? "text-amber-400" : "text-indigo-400"}`}>
+                {ins.alert_type === "spike" ? <TrendingUp className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-white mb-0.5">{ins.title}</p>
+                <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-2">{ins.description}</p>
+                <p className="text-[8px] text-slate-600 mt-1.5 uppercase font-black tracking-widest">{new Date(ins.created_at).toLocaleDateString()}</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-slate-300 leading-relaxed">{ins.text}</p>
-              <p className="text-[9px] text-slate-600 mt-1">{ins.time}</p>
-            </div>
+          ))
+        ) : (
+          <div className="p-8 rounded-2xl border border-dashed border-white/5 text-center">
+            <Bot className="w-8 h-8 text-slate-800 mx-auto mb-2" />
+            <p className="text-[10px] text-slate-700 font-bold italic">Tora is still learning your patterns.</p>
           </div>
-        ))}
+        )}
+      </div>
+    </Card>
+  );
+};
+
+const SecurityCard = ({ onLogout, onPasswordChange }) => {
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="p-2 bg-rose-500/15 rounded-xl text-rose-400">
+          <ShieldAlert className="w-4 h-4" />
+        </div>
+        <div>
+          <p className="text-xs font-black text-white">Security & Access</p>
+          <p className="text-[10px] text-slate-600 mt-0.5">Control your account</p>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <button 
+          onClick={onPasswordChange}
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all text-left"
+        >
+          <div className="flex items-center gap-3">
+            <Key className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-bold text-white">Update Password</span>
+          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+        </button>
+        
+        <button 
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all text-left opacity-50 cursor-not-allowed"
+        >
+          <div className="flex items-center gap-3">
+            <Smartphone className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-bold text-white">Two-Factor Auth (2FA)</span>
+          </div>
+          <Pill label="Coming Soon" color="slate" />
+        </button>
+        
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-rose-500/5 border border-rose-500/10 hover:bg-rose-500/10 transition-all text-left text-rose-400 mt-4"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="text-xs font-black uppercase tracking-widest">Sign Out Everywhere</span>
+        </button>
+      </div>
+      
+      <div className="mt-6 pt-5 border-t border-white/5">
+        <button className="text-[10px] font-black text-slate-800 hover:text-rose-900 transition-colors flex items-center gap-2 mx-auto">
+          <Trash2 className="w-3 h-3" />
+          <span>Permanently Delete Account</span>
+        </button>
       </div>
     </Card>
   );
@@ -739,7 +948,90 @@ const ProfilePage = ({
   onLogout,
   isLoading,
 }) => {
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showEditFinance, setShowEditFinance] = useState(false);
+  const [showChangePass, setShowChangePass] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Form States
+  const [profileForm, setProfileForm] = useState({
+    first_name: user?.first_name || "",
+    last_name: user?.last_name || "",
+    location: user?.preferences?.location || "",
+    occupation: user?.preferences?.occupation || "",
+  });
+
+  const [financeForm, setFinanceForm] = useState({
+    monthlyIncome: settings?.monthlyIncome || 0,
+    monthlyBudget: settings?.monthlyBudget || 0,
+    lifeStage: settings?.lifeStage || "early_career",
+    riskTolerance: settings?.riskTolerance || "balanced",
+    dependents: settings?.dependents || 0,
+  });
+
+  const [passForm, setPassForm] = useState({ current: "", new: "", confirm: "" });
+
   if (isLoading) return <ProfileSkeleton />;
+
+  const handleUpdateProfile = async () => {
+    setIsSaving(true);
+    try {
+      // 1. Update Auth Profile (Names)
+      await authApi.updateProfile({ 
+        first_name: profileForm.first_name, 
+        last_name: profileForm.last_name 
+      });
+
+      // 2. Update Finance Profile (Prefs - Location/Occupation)
+      const newPrefs = { 
+        ...(user?.preferences || {}), 
+        location: profileForm.location, 
+        occupation: profileForm.occupation 
+      };
+      await onUpdateSettings({ preferences: newPrefs });
+
+      showToast("Profile updated successfully", "success");
+      setShowEditProfile(false);
+    } catch (err) {
+      showToast(err.message || "Failed to update profile", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateFinance = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdateSettings(financeForm);
+      showToast("Financial goals updated", "success");
+      setShowEditFinance(false);
+    } catch (err) {
+      showToast(err.message || "Failed to update goals", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (passForm.new !== passForm.confirm) {
+      showToast("New passwords do not match", "error");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await authApi.changePassword({ 
+        current_password: passForm.current, 
+        new_password: passForm.new 
+      });
+      showToast("Password changed successfully", "success");
+      setShowChangePass(false);
+      setPassForm({ current: "", new: "", confirm: "" });
+    } catch (err) {
+      showToast(err.message || "Failed to change password", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <motion.div
@@ -748,25 +1040,157 @@ const ProfilePage = ({
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className="space-y-4 pb-32"
     >
-    <HeroSection user={user} setActiveTab={setActiveTab} onLogout={onLogout} />
-    <QuickStatsBar wealthItems={wealthItems} transactions={transactions} settings={settings} />
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <HealthScoreSection wealthItems={wealthItems} settings={settings} />
-      <ConnectionsHub setActiveTab={setActiveTab} showToast={showToast} />
-    </div>
-    <PortfolioSnapshot wealthItems={wealthItems} setActiveTab={setActiveTab} />
-    <NavShortcuts 
-      setActiveTab={setActiveTab} 
-      settings={settings} 
-      user={user} 
-      onUpdateActions={(ids) => {
-        const newPrefs = { ...(user?.preferences || {}), quick_actions: ids };
-        onUpdateSettings({ preferences: newPrefs });
-      }}
-    />
-    <ToraActivity user={user} setActiveTab={setActiveTab} />
-    <AccountCompleteness user={user} wealthItems={wealthItems} settings={settings} setActiveTab={setActiveTab} />
-    <TierBanner user={user} setActiveTab={setActiveTab} />
+      <HeroSection user={user} setActiveTab={setActiveTab} onLogout={onLogout} onEdit={() => setShowEditProfile(true)} />
+      
+      <QuickStatsBar 
+        wealthItems={wealthItems} 
+        transactions={transactions} 
+        settings={settings} 
+        onEditFinance={() => setShowEditFinance(true)} 
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <HealthScoreSection wealthItems={wealthItems} settings={settings} />
+        <ConnectionsHub setActiveTab={setActiveTab} showToast={showToast} />
+      </div>
+
+      <PortfolioSnapshot wealthItems={wealthItems} setActiveTab={setActiveTab} />
+      
+      <NavShortcuts 
+        setActiveTab={setActiveTab} 
+        settings={settings} 
+        user={user} 
+        onUpdateActions={(ids) => {
+          const newPrefs = { ...(user?.preferences || {}), quick_actions: ids };
+          onUpdateSettings({ preferences: newPrefs });
+        }}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ToraActivity user={user} setActiveTab={setActiveTab} />
+        <SecurityCard onLogout={onLogout} onPasswordChange={() => setShowChangePass(true)} />
+      </div>
+
+      <AccountCompleteness user={user} wealthItems={wealthItems} settings={settings} setActiveTab={setActiveTab} />
+      
+      <TierBanner user={user} setActiveTab={setActiveTab} />
+
+      {/* ─── Modals ─────────────────────────────────────────────────────────── */}
+
+      <Modal 
+        isOpen={showEditProfile} 
+        onClose={() => setShowEditProfile(false)}
+        title="Edit Profile"
+        subtitle="Update your personal identity details"
+        icon={UserCircle}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="First Name">
+              <Input value={profileForm.first_name} onChange={e => setProfileForm({...profileForm, first_name: e.target.value})} />
+            </FormField>
+            <FormField label="Last Name">
+              <Input value={profileForm.last_name} onChange={e => setProfileForm({...profileForm, last_name: e.target.value})} />
+            </FormField>
+          </div>
+          <FormField label="Occupation">
+            <Input value={profileForm.occupation} onChange={e => setProfileForm({...profileForm, occupation: e.target.value})} placeholder="e.g. Software Engineer" />
+          </FormField>
+          <FormField label="Location">
+            <Input value={profileForm.location} onChange={e => setProfileForm({...profileForm, location: e.target.value})} placeholder="e.g. Mumbai, India" />
+          </FormField>
+          <button 
+            disabled={isSaving}
+            onClick={handleUpdateProfile}
+            className="w-full h-12 bg-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest text-white mt-4 disabled:opacity-50"
+          >
+            {isSaving ? "Saving..." : "Save Profile"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal 
+        isOpen={showEditFinance} 
+        onClose={() => setShowEditFinance(false)}
+        title="Financial Goals"
+        subtitle="Set your monthly targets and life stage"
+        icon={Target}
+      >
+        <div className="space-y-4">
+          <FormField label="Monthly Income (₹)">
+            <Input type="number" value={financeForm.monthlyIncome} onChange={e => setFinanceForm({...financeForm, monthlyIncome: e.target.value})} />
+          </FormField>
+          <FormField label="Monthly Budget (₹)">
+            <Input type="number" value={financeForm.monthlyBudget} onChange={e => setFinanceForm({...financeForm, monthlyBudget: e.target.value})} />
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Life Stage">
+              <Select 
+                value={financeForm.lifeStage} 
+                onChange={e => setFinanceForm({...financeForm, lifeStage: e.target.value})}
+                options={[
+                  { label: "Early Career", value: "early_career" },
+                  { label: "Married", value: "married" },
+                  { label: "Parent", value: "parent" },
+                  { label: "Pre-Retirement", value: "pre_retirement" },
+                  { label: "Retired", value: "retired" },
+                  { label: "Student", value: "student" },
+                ]}
+              />
+            </FormField>
+            <FormField label="Risk Tolerance">
+              <Select 
+                value={financeForm.riskTolerance} 
+                onChange={e => setFinanceForm({...financeForm, riskTolerance: e.target.value})}
+                options={[
+                  { label: "Conservative", value: "conservative" },
+                  { label: "Balanced", value: "balanced" },
+                  { label: "Aggressive", value: "aggressive" },
+                ]}
+              />
+            </FormField>
+          </div>
+          <FormField label="Number of Dependents">
+            <Input type="number" value={financeForm.dependents} onChange={e => setFinanceForm({...financeForm, dependents: e.target.value})} />
+          </FormField>
+          <button 
+            disabled={isSaving}
+            onClick={handleUpdateFinance}
+            className="w-full h-12 bg-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest text-white mt-4 disabled:opacity-50"
+          >
+            {isSaving ? "Updating Goals..." : "Sync Financial Profile"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal 
+        isOpen={showChangePass} 
+        onClose={() => setShowChangePass(false)}
+        title="Change Password"
+        subtitle="Keep your financial data secure"
+        icon={Key}
+      >
+        <div className="space-y-4">
+          <FormField label="Current Password">
+            <Input type="password" value={passForm.current} onChange={e => setPassForm({...passForm, current: e.target.value})} />
+          </FormField>
+          <div className="h-px bg-white/5 my-2" />
+          <FormField label="New Password">
+            <Input type="password" value={passForm.new} onChange={e => setPassForm({...passForm, new: e.target.value})} />
+          </FormField>
+          <FormField label="Confirm New Password">
+            <Input type="password" value={passForm.confirm} onChange={e => setPassForm({...passForm, confirm: e.target.value})} />
+          </FormField>
+          <button 
+            disabled={isSaving}
+            onClick={handleChangePassword}
+            className="w-full h-12 bg-rose-600 rounded-2xl text-xs font-black uppercase tracking-widest text-white mt-4 disabled:opacity-50"
+          >
+            {isSaving ? "Processing..." : "Update Security Key"}
+          </button>
+        </div>
+      </Modal>
+
     </motion.div>
   );
 };

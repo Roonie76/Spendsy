@@ -7,6 +7,7 @@ import {
 import { cn } from "@shared/utils/cn";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Zap,
   Sun,
   Moon,
   ArrowDown,
@@ -851,16 +852,7 @@ export default function App() {
         <header className="pt-6 md:pt-10 mb-6 md:mb-8 flex justify-between items-center md:items-end gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              {activeTab !== TABS.HOME && (
-                <button
-                  onClick={() => window.history.back()}
-                  className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-200 mr-1"
-                  aria-label="Go back"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-              )}
-              <img src={spendsyLogo} alt="Spendsy Logo" className="w-5 h-5 object-contain" />
+              <Zap className="w-4 h-4 text-blue-500 fill-blue-500" />
               <span className="text-[10px] font-bold tracking-[0.3em] uppercase opacity-60">
                 Spendsy
               </span>
@@ -868,20 +860,6 @@ export default function App() {
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-black truncate">Hello, {firstName}</h1>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <motion.button
-              whileHover={{ rotate: 90, scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => navigateToTab(TABS.SETTINGS)}
-              className={cn(
-                "p-2 rounded-xl border transition-all duration-200",
-                theme === "dark"
-                  ? "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10"
-                  : "bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white"
-              )}
-              aria-label="Settings"
-            >
-              <SettingsIcon className="w-5 h-5" />
-            </motion.button>
             <AlertsBell theme={theme} />
           </div>
         </header>
@@ -1100,6 +1078,7 @@ export default function App() {
                   authToken={authToken}
                   onLogout={handleLogout}
                   setActiveTab={navigateToTab}
+                  onUpdateSettings={saveSettings}
                   openSettingsSection={(section) => {
                     setSettingsSection(section);
                     navigateToTab(TABS.SETTINGS);

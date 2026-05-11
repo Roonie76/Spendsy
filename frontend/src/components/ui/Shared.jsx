@@ -41,8 +41,8 @@ export const Loading = ({ message }) => (
         
         {/* Center Icon (Pulsing) */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-slate-900/50 backdrop-blur-sm p-2 rounded-full border border-white/10 shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse">
-             <img src={spendsyLogo} alt="Spendsy Logo" className="w-8 h-8 object-contain" />
+          <div className="bg-slate-900/50 backdrop-blur-sm p-3 rounded-full border border-white/10 shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse">
+             <Wallet className="w-6 h-6 text-blue-400" />
           </div>
         </div>
       </div>

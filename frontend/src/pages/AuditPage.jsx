@@ -524,7 +524,7 @@ const AuditPage = ({
       </div>
 
       {/* AI Consultant Section */}
-      <div className="bg-[#0f172a] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-xl print:hidden">
+      {/* <div className="bg-[#0f172a] p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shadow-xl print:hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none"></div>
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
@@ -588,7 +588,7 @@ const AuditPage = ({
             </div>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Deductions & Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
