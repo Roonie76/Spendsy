@@ -1,8 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 
-const rootNodeModules = path.resolve(__dirname, '../node_modules');
+const rootNodeModules = fs.existsSync(path.resolve(__dirname, '../node_modules/react'))
+  ? path.resolve(__dirname, '../node_modules')
+  : path.resolve(__dirname, 'node_modules');
 
 export default defineConfig({
   plugins: [
