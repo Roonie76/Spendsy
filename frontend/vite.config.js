@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 const localNodeModules = path.resolve(__dirname, 'node_modules');
 
 export default defineConfig({
@@ -14,9 +17,9 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      'lucide-react': path.resolve(localNodeModules, 'lucide-react'),
-      'clsx': path.resolve(localNodeModules, 'clsx'),
-      'tailwind-merge': path.resolve(localNodeModules, 'tailwind-merge'),
+      'lucide-react': require.resolve('lucide-react'),
+      'clsx': require.resolve('clsx'),
+      'tailwind-merge': require.resolve('tailwind-merge'),
       '@shared': path.resolve(__dirname, '../shared'),
     },
     dedupe: ['react', 'react-dom'],
