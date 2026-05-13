@@ -17,7 +17,10 @@ export const API_BASE = import.meta.env.VITE_FINANCE_URL
 export const AUTH_BASE = import.meta.env.VITE_AUTH_URL
   ? `${import.meta.env.VITE_AUTH_URL}`
   : `${GATEWAY_URL}/auth`;
-export const AI_BASE = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/tora`;
+export const AI_BASE =
+  import.meta.env.VITE_TORA_URL ||
+  import.meta.env.VITE_AI_URL ||
+  `${GATEWAY_URL}/tora`;
 const ACCESS_TOKEN_KEYS = ["access_token", "auth_token", "token"];
 const REFRESH_TOKEN_KEY = "refresh_token";
 

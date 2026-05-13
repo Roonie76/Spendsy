@@ -17,6 +17,7 @@ const getEnv = (key) => {
     FINANCE_URL: viteEnv.VITE_FINANCE_URL,
     AUTH_URL: viteEnv.VITE_AUTH_URL,
     AI_URL: viteEnv.VITE_AI_URL,
+    TORA_URL: viteEnv.VITE_TORA_URL,
     LEGACY_API_URL: viteEnv.VITE_API_URL,
   };
 
@@ -49,7 +50,11 @@ export const AI_BASE_URL =
   getEnv("LEGACY_AI_URL") || viteEnv.VITE_LEGACY_AI_URL || `${GATEWAY_URL}/ai_legacy`;
 
 export const TORA_BASE_URL =
-  getEnv("AI_URL") || viteEnv.VITE_AI_URL || `${GATEWAY_URL}/tora`;
+  getEnv("TORA_URL") ||
+  viteEnv.VITE_TORA_URL ||
+  getEnv("AI_URL") ||
+  viteEnv.VITE_AI_URL ||
+  `${GATEWAY_URL}/tora`;
 
 // --- DOMAIN CONSTANTS ---
 const {

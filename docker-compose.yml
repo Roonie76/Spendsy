@@ -32,7 +32,8 @@ services:
       PYTHONPATH: /app
       ENVIRONMENT: production
       FINANCE_SERVICE_URL: http://finance-service:8000
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-300}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

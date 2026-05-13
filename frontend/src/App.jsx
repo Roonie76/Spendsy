@@ -50,7 +50,10 @@ export default function App() {
   const API_BASE_URL = import.meta.env.VITE_FINANCE_URL
     ? `${import.meta.env.VITE_FINANCE_URL}`
     : `${GATEWAY_URL}/finance`;
-  const AI_BASE_URL = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/tora`;
+  const AI_BASE_URL =
+    import.meta.env.VITE_TORA_URL ||
+    import.meta.env.VITE_AI_URL ||
+    `${GATEWAY_URL}/tora`;
   const initialDefaultProfile = useMemo(
     () => ({
       annualRent: 0,
