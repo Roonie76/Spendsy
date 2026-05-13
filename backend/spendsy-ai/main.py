@@ -74,7 +74,7 @@ def root():
 async def health_check():
     """Deep health check — verifies Ollama connectivity and model availability."""
     from agents.llm_router import check_ollama_health
-    ollama = check_ollama_health()
+    ollama = await check_ollama_health()
     primary = settings.model_gemma
     fallback = settings.model_llama
     models_available = ollama.get("models", [])

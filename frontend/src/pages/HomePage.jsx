@@ -194,8 +194,8 @@ const HomePage = ({
         className={cn(
           "relative overflow-hidden p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border text-left w-full transition-shadow duration-300",
           isSpecial ? "bg-blue-600 border-blue-400 shadow-blue-500/40"
-            : theme === "dark" ? "bg-white/10 border-white/10 backdrop-blur-md shadow-2xl"
-              : "bg-white border-white shadow-xl shadow-blue-500/10",
+            : theme === "dark" ? "glass-card hover-lift"
+              : "bg-white border-white shadow-xl shadow-blue-500/10 hover-lift",
         )}
       >
         <div className={cn("mb-4 p-3 rounded-2xl inline-flex", isSpecial ? "bg-white/20 text-white" : colorClass)} aria-hidden="true">
@@ -322,7 +322,7 @@ const HomePage = ({
             }}
             className={cn(
               "relative overflow-hidden h-full p-4 rounded-[2rem] border flex items-center gap-4 cursor-pointer group/pulse",
-              theme === "dark" ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.05]" : "bg-white border-slate-100 hover:border-blue-200"
+              theme === "dark" ? "glass hover-lift" : "bg-white border-slate-100 hover:border-blue-200 hover-lift"
             )}
           >
             <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
@@ -378,7 +378,7 @@ const HomePage = ({
             animate={{ opacity: 1, scale: 1 }}
             className={cn(
               "p-4 rounded-[2rem] border flex items-center justify-between gap-4",
-              theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-white border-slate-100"
+              theme === "dark" ? "glass-card hover-lift" : "bg-white border-slate-100 hover-lift"
             )}
           >
             <div className="flex flex-col">
@@ -442,7 +442,7 @@ const HomePage = ({
           <div
             className={cn(
               "p-5 rounded-[1.5rem] border",
-              theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-white border-slate-100",
+              theme === "dark" ? "glass-card hover-lift" : "bg-white border-slate-100 hover-lift",
             )}
             role="region"
             aria-label="Monthly budget tracker"
@@ -526,7 +526,7 @@ const HomePage = ({
             subtitle={taxData ? `${metrics.recommendedRegime === "new" ? "New" : "Old"} Regime · FY ${fiscalYear}` : `FY ${fiscalYear}`}
             icon={Scale}
             colorClass="bg-rose-500/10 text-rose-500"
-            tab={TABS.ITR}
+            tab={TABS.AUDIT}
           />
 
           {/* 2×2 grid */}
@@ -592,7 +592,7 @@ const HomePage = ({
             className={cn(
               "p-3 sm:p-6 rounded-[2rem] md:rounded-[3rem] lg:rounded-[3.5rem] border shadow-2xl transition-all",
               theme === "dark"
-                ? "bg-white/[0.02] border-white/5 backdrop-blur-md"
+                ? "glass-card"
                 : "bg-white/80 border-white/50 backdrop-blur-xl",
             )}
             role="region"

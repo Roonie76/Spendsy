@@ -267,7 +267,7 @@ export const TABS = {
   STATS: "stats",
   WEALTH: "wealth",
   PROFILE: "profile",
-  ITR: "itr",
+
   DEBIT_CARDS: "debit_cards",
   CREDIT_CARDS: "credit_cards",
   SETTINGS: "settings",
@@ -277,6 +277,7 @@ export const TABS = {
   BUDGET: "budget",
   LOANS: "loans",
   CHAT: "chat",
+  ITR_FILING: "itr_filing",
 };
 
 export const BANKS = [
@@ -310,76 +311,145 @@ export const UNITS = [
 ];
 
 export const TAX_CONSTANTS = {
+  // ── FY 2025-26 New Regime (Union Budget 2025) ────────────────────────────
   NEW_REGIME: {
     SLABS: [
-      { limit: 300000, rate: 0.0 },
-      { limit: 700000, rate: 0.05 },
-      { limit: 1000000, rate: 0.10 },
-      { limit: 1200000, rate: 0.15 },
-      { limit: 1500000, rate: 0.20 },
-      { limit: null, rate: 0.30 },
+      { limit: 400000,  rate: 0.00 },
+      { limit: 800000,  rate: 0.05 },
+      { limit: 1200000, rate: 0.10 },
+      { limit: 1600000, rate: 0.15 },
+      { limit: 2000000, rate: 0.20 },
+      { limit: 2400000, rate: 0.25 },
+      { limit: null,    rate: 0.30 },
     ],
-    REBATE_LIMIT: 700000,
-    REBATE_MAX: 25000,
+    REBATE_LIMIT: 1200000,   // ₹12L — full tax rebate u/s 87A
+    REBATE_MAX: 60000,       // Max rebate amount
     STANDARD_DEDUCTION: 75000,
     CESS: 0.04,
-    MAX_SURCHARGE_RATE: 0.25, // Capped at 25% in new regime
+    MAX_SURCHARGE_RATE: 0.25,  // Surcharge capped at 25% in new regime
   },
+
+  // ── Old Regime (unchanged) ───────────────────────────────────────────────
   OLD_REGIME: {
     SLABS: [
-      { limit: 250000, rate: 0.0 },
-      { limit: 500000, rate: 0.05 },
-      { limit: 1000000, rate: 0.2 },
-      { limit: null, rate: 0.3 },
+      { limit: 250000,  rate: 0.00 },
+      { limit: 500000,  rate: 0.05 },
+      { limit: 1000000, rate: 0.20 },
+      { limit: null,    rate: 0.30 },
     ],
     SLABS_SENIOR: [
-      { limit: 300000, rate: 0.0 },
-      { limit: 500000, rate: 0.05 },
-      { limit: 1000000, rate: 0.2 },
-      { limit: null, rate: 0.3 },
+      { limit: 300000,  rate: 0.00 },
+      { limit: 500000,  rate: 0.05 },
+      { limit: 1000000, rate: 0.20 },
+      { limit: null,    rate: 0.30 },
     ],
     SLABS_SUPER_SENIOR: [
-      { limit: 500000, rate: 0.0 },
-      { limit: 1000000, rate: 0.2 },
-      { limit: null, rate: 0.3 },
+      { limit: 500000,  rate: 0.00 },
+      { limit: 1000000, rate: 0.20 },
+      { limit: null,    rate: 0.30 },
     ],
     REBATE_LIMIT: 500000,
     REBATE_MAX: 12500,
-    STANDARD_DEDUCTION: 50000,
+    STANDARD_DEDUCTION: 75000,  // Raised to ₹75K from FY24-25 onwards
     CESS: 0.04,
     MAX_SURCHARGE_RATE: 0.37,
   },
+
+  // ── Surcharge tiers ──────────────────────────────────────────────────────
   SURCHARGE: [
-    { threshold: 5000000, rate: 0.10 },
+    { threshold: 5000000,  rate: 0.10 },
     { threshold: 10000000, rate: 0.15 },
     { threshold: 20000000, rate: 0.25 },
-    { threshold: 50000000, rate: 0.37 },
+    { threshold: 50000000, rate: 0.37 },  // 0.25 in new regime (capped above)
   ],
+
+  // ── Deduction limits (Chapter VI-A, FY 2025-26) ──────────────────────────
   LIMITS: {
+    // 80C aggregate
     SECTION_80C: 150000,
+
+    // 80D — health insurance
     SECTION_80D_SELF: 25000,
     SECTION_80D_SELF_SENIOR: 50000,
-    SECTION_80D_PARENTS: 25000,
-    SECTION_80D_PARENTS_SENIOR: 50000,
-    SEC_80CCD_1B: 50000,
+    SECTION_80D_PARENTS: 50000,         // ₹25K if non-senior, ₹50K if senior
+    SECTION_80D_PARENTS_SENIOR: 100000, // both parents senior
+    SECTION_80D_PREVENTIVE: 5000,       // sub-limit, no bills needed
+
+    // 80DD — disabled dependent
+    SECTION_80DD: 75000,
+    SECTION_80DD_SEVERE: 125000,
+
+    // 80DDB — specified diseases
+    SECTION_80DDB: 40000,
+    SECTION_80DDB_SENIOR: 100000,
+
+    // 80E — education loan (no upper limit)
+    SECTION_80E: null,
+
+    // 80EEA — affordable housing loan interest
+    SECTION_80EEA: 150000,
+
+    // 80EEB — EV loan interest
+    SECTION_80EEB: 150000,
+
+    // 80G — donations (split by bucket)
+    SECTION_80G_100_PCT: 1.00,  // multiplier on donation amount
+    SECTION_80G_50_PCT: 0.50,
+    SECTION_80G_CAPPED_GTI: 0.10, // max 10% of Adjusted GTI
+
+    // 80GG — rent if no HRA
+    SECTION_80GG_ANNUAL: 60000,   // ₹5K/month × 12
+    SECTION_80GG_MONTHLY: 5000,
+
+    // 80GGA — scientific research donations
+    SECTION_80GGA: null,
+
+    // 80GGC — political party donations
+    SECTION_80GGC: null,
+
+    // 80NPS
+    SEC_80CCD_1B: 50000,          // NPS self — over and above 80C
+
+    // 80TTA / 80TTB
     SECTION_80TTA: 10000,
     SECTION_80TTB_SENIOR: 50000,
-    SECTION_80G_100: 1.0,
-    SECTION_80G_50: 0.5,
-    SECTION_80GG_MONTHLY: 5000,
-    SECTION_80EE: 50000,
-    SECTION_80EEB: 150000,
-    SECTION_24B_SOP: 200000,
-    PRESUMPTIVE_44ADA: 0.5,
-    PRESUMPTIVE_TURNOVER_LIMIT: 30000000,
+
+    // 80U — self disability
+    SECTION_80U: 75000,
+    SECTION_80U_SEVERE: 125000,
+
+    // House property / home loans
+    SECTION_24B_SOP: 200000,     // Self-occupied — ₹2L cap
+    SECTION_80EE: 50000,          // First-home buyers (older loans)
+
+    // Presumptive taxation
+    PRESUMPTIVE_44ADA: 0.50,              // 50% of gross receipts
+    PRESUMPTIVE_TURNOVER_LIMIT: 30000000, // ₹3 Cr for 44AD with digital receipts
+    PRESUMPTIVE_44AD_RATE: 0.08,          // 8% of turnover (6% for digital)
+    PRESUMPTIVE_44AE_PER_VEHICLE: 7500,   // per vehicle per month
   },
-  // Capital gains rates (post Budget 2024)
+
+  // ── Capital Gains rates (post Budget 2024) ────────────────────────────────
   CAPITAL_GAINS: {
-    STCG_111A: 0.20,          // Listed equity STCG
-    LTCG_112A: 0.125,         // Listed equity LTCG
-    LTCG_112A_EXEMPT: 125000, // Annual exemption
-    LTCG_112: 0.125,          // Other assets LTCG (no indexation)
-    CRYPTO_VDA: 0.30,         // Section 115BBH
-    LOTTERY_115BB: 0.30,      // Lottery/game show
+    STCG_111A: 0.20,          // Listed equity / equity MF STCG (raised from 15% in Budget 2024)
+    LTCG_112A: 0.125,         // Listed equity / equity MF LTCG (raised from 10%)
+    LTCG_112A_EXEMPT: 125000, // Annual exemption (raised from ₹1L)
+    LTCG_112: 0.125,          // Other LTCG without indexation
+    STCG_OTHER: null,         // Taxed at slab rates
+    LTCG_PROPERTY_WITH_IDX: 0.20,  // With indexation (grandfathered pre-Jul 2024)
+    LTCG_PROPERTY_NO_IDX: 0.125,   // Without indexation (post Jul 2024 Budget)
+    CRYPTO_VDA: 0.30,         // Section 115BBH — no deduction / set-off
+    LOTTERY_115BB: 0.30,      // Lottery / game show winnings
+    BONDS_54EC_EXEMPT: 5000000, // Max exemption under Sec 54EC (₹50L)
   },
+
+  // ── Advance Tax schedule ─────────────────────────────────────────────────
+  ADVANCE_TAX: [
+    { installment: 1, dueDate: "15 June",      cumPct: 0.15 },
+    { installment: 2, dueDate: "15 September", cumPct: 0.45 },
+    { installment: 3, dueDate: "15 December",  cumPct: 0.75 },
+    { installment: 4, dueDate: "15 March",     cumPct: 1.00 },
+  ],
+
+
 };

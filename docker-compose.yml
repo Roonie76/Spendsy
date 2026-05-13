@@ -44,6 +44,26 @@ services:
           memory: 1024M
 
 
+  document-parser:
+    build:
+      context: .
+      dockerfile: backend/document-parser/Dockerfile
+    container_name: spendsy_doc_parser
+    restart: always
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+      ENVIRONMENT: production
+    ports:
+      - "8007:8000"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+
   frontend:
     build:
       context: .

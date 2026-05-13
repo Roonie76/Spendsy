@@ -128,6 +128,50 @@ class ITRData(Base):
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+
+class ParsedDocument(Base):
+    """
+    Stores a user-uploaded tax document (Form 16, 26AS, CG statement, etc.)
+    and its machine-parsed structured output.
+
+    doc_type values:
+        form16          Form 16 Part A + B from employer
+        form26as        Form 26AS / AIS / TIS from income-tax portal
+        cg_statement    Broker capital gains P&L (Zerodha, Groww, Upstox, etc.)
+        nps_statement   NPS CRA annual statement
+        ppf_passbook    PPF passbook / statement
+        elss_statement  ELSS / mutual fund investment statement
+        rent_receipt    Rent receipts for HRA / 80GG
+        hl_certificate  Home loan interest certificate
+        health_ins      Health insurance premium receipt
+        other           Any other supporting document
+    """
+    __tablename__ = "finance_parsed_document"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
+    ay = Column(String(7), nullable=False, default="2025-26")
+    # Document identity
+    doc_type = Column(String(30), nullable=False)                   # see docstring above
+    filename = Column(String(255), nullable=True)
+    file_hash = Column(String(64), nullable=True, index=True)       # SHA-256 — dedup guard
+
+    # Parse output
+    parsed_data = Column(JSONB, default=dict)                       # structured fields from parser
+    parse_status = Column(String(20), nullable=False, default="pending")  # pending/done/failed
+    parse_error = Column(String(500), nullable=True)
+    confidence_score = Column(Numeric(5, 2), nullable=True)         # 0–100 overall confidence
+    field_confidence = Column(JSONB, default=dict)                  # {field: confidence_pct}
+
+    # Parser metadata
+    parser_version = Column(String(20), nullable=True)
+    page_count = Column(Integer, nullable=True)
+    ocr_used = Column(Boolean, default=False)
+
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class ApiAuditLog(Base):
     __tablename__ = "finance_apiauditlog"
 

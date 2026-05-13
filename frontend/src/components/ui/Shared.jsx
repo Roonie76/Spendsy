@@ -1,7 +1,7 @@
 //No database needed
 import React from 'react';
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
-import spendsyLogo from '../../assets/spendsy_logo.png';
+import spendsyLogo from '../../assets/logo.svg';
 
 export const Toast = ({ message, type, isVisible, onClose }) => {
   if (!isVisible) return null;

@@ -355,3 +355,89 @@ export const aiApi = {
       body: JSON.stringify(body),
     }),
 };
+
+// ─── Tax / ITR ────────────────────────────────────────────────────────────────
+
+export const taxApi = {
+  /** Compute both regimes from raw data (no persistence). */
+  compute: (body) =>
+    apiFetch(`${API_BASE}/tax/compute`, { method: "POST", body: JSON.stringify(body) }),
+
+  /** Run pre-filing audit checks. */
+  audit: (body) =>
+    apiFetch(`${API_BASE}/tax/audit`, { method: "POST", body: JSON.stringify(body) }),
+
+
+};
+
+// ─── Tax Constants (FY 2025-26 / AY 2026-27) ─────────────────────────────────
+
+export const TAX_CONSTANTS = {
+  CURRENT_AY: "2025-26",
+  CURRENT_FY: "FY 2025-26",
+  FILING_DEADLINE: "2025-07-31",
+
+  NEW_REGIME_SLABS: [
+    { upto: 400000, rate: 0 },
+    { upto: 800000, rate: 0.05 },
+    { upto: 1200000, rate: 0.10 },
+    { upto: 1600000, rate: 0.15 },
+    { upto: 2000000, rate: 0.20 },
+    { upto: 2400000, rate: 0.25 },
+    { upto: Infinity, rate: 0.30 },
+  ],
+  NEW_REGIME_REBATE_LIMIT: 1200000,   // 87A rebate — zero tax up to ₹12L
+  NEW_REGIME_STANDARD_DEDUCTION: 75000,
+
+  OLD_REGIME_SLABS: [
+    { upto: 250000, rate: 0 },
+    { upto: 500000, rate: 0.05 },
+    { upto: 1000000, rate: 0.20 },
+    { upto: Infinity, rate: 0.30 },
+  ],
+  OLD_REGIME_REBATE_LIMIT: 500000,    // 87A rebate for old regime
+  OLD_REGIME_STANDARD_DEDUCTION: 50000,
+
+  SURCHARGE_SLABS: [
+    { above: 5000000, rate: 0.10 },
+    { above: 10000000, rate: 0.15 },
+    { above: 20000000, rate: 0.25 },
+    { above: 50000000, rate: 0.37 },
+  ],
+  HEALTH_EDUCATION_CESS: 0.04,
+
+  DEDUCTION_LIMITS: {
+    section_80c: 150000,
+    nps_80ccd_1b: 50000,
+    section_80d_self: 25000,
+    section_80d_self_senior: 50000,
+    section_80d_parents: 25000,
+    section_80d_parents_senior: 50000,
+    section_80d_preventive: 5000,
+    section_80dd: 75000,
+    section_80dd_severe: 125000,
+    section_80ddb: 40000,
+    section_80ddb_senior: 100000,
+    section_80e: Infinity,        // actual interest paid
+    section_80eea: 150000,
+    section_80gg_annual: 60000,   // min(5k/mo, 25% GTI, actual-10% GTI)
+    section_80gga: null,
+    section_80tta: 10000,
+    section_80ttb: 50000,         // seniors
+    section_80g: Infinity,        // varies by fund
+    hra_max_metro_pct: 0.50,
+    hra_max_non_metro_pct: 0.40,
+    home_loan_self_occupied: 200000,
+    home_loan_let_out: Infinity,
+    family_pension_std_ded: 15000,
+  },
+
+  ADVANCE_TAX_SCHEDULE: [
+    { due: "2025-06-15", pct: 15, label: "15 Jun 2025" },
+    { due: "2025-09-15", pct: 45, label: "15 Sep 2025" },
+    { due: "2025-12-15", pct: 75, label: "15 Dec 2025" },
+    { due: "2026-03-15", pct: 100, label: "15 Mar 2026" },
+  ],
+
+};
+

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Eye, EyeOff, LoaderCircle,Wallet } from "lucide-react";
-import spendsyLogo from "../assets/spendsy_logo.png";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, LoaderCircle, Wallet } from "lucide-react";
+import spendsyLogo from "../assets/logo.svg";
 import { APP_VERSION } from "@shared/config/constants";
 import { authApi } from "../api";
 
