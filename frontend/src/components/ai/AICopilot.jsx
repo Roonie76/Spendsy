@@ -19,8 +19,7 @@ export default function AICopilot({ authToken, aiBaseUrl, userId }) {
 
   const authHeader = useMemo(() => buildAuthHeader(authToken || ""), [authToken]);
   const authMissing = !authHeader;
-  const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
-  const toraBaseUrl = import.meta.env.VITE_TORA_URL || aiBaseUrl || `${gatewayUrl}/tora`;
+  const toraBaseUrl = aiBaseUrl;
  
   React.useEffect(() => {
     const handleOpenTora = (e) => {

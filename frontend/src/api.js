@@ -10,16 +10,24 @@
  *   { ok: boolean, data: any, message: string, error?: string }
  */
 
-const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
+function ensureProtocol(url) {
+  if (!url) return url;
+  if (!/^https?:\/\//i.test(url)) {
+    return url.includes("localhost") || url.startsWith("127.0.0.1") ? `http://${url}` : `https://${url}`;
+  }
+  return url;
+}
+
+const GATEWAY_URL = ensureProtocol(import.meta.env.VITE_GATEWAY_URL) || "http://localhost:8080";
 export const API_BASE = import.meta.env.VITE_FINANCE_URL
-  ? `${import.meta.env.VITE_FINANCE_URL}`
+  ? `${ensureProtocol(import.meta.env.VITE_FINANCE_URL)}`
   : `${GATEWAY_URL}/finance`;
 export const AUTH_BASE = import.meta.env.VITE_AUTH_URL
-  ? `${import.meta.env.VITE_AUTH_URL}`
+  ? `${ensureProtocol(import.meta.env.VITE_AUTH_URL)}`
   : `${GATEWAY_URL}/auth`;
 export const AI_BASE =
-  import.meta.env.VITE_TORA_URL ||
-  import.meta.env.VITE_AI_URL ||
+  ensureProtocol(import.meta.env.VITE_TORA_URL) ||
+  ensureProtocol(import.meta.env.VITE_AI_URL) ||
   `${GATEWAY_URL}/tora`;
 const ACCESS_TOKEN_KEYS = ["access_token", "auth_token", "token"];
 const REFRESH_TOKEN_KEY = "refresh_token";

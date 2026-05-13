@@ -43,17 +43,11 @@ import ActiveLoansPage from "./pages/ActiveLoansPage";
 import BudgetPage from "./pages/BudgetPage";
 import AICopilot from "./components/ai/AICopilot";
 import ITRFilingPage from "./pages/ITRFilingPage";
-import { apiFetch, authApi, clearStoredAuth } from "./api";
+import { apiFetch, authApi, clearStoredAuth, API_BASE, AI_BASE } from "./api";
 
 export default function App() {
-  const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
-  const API_BASE_URL = import.meta.env.VITE_FINANCE_URL
-    ? `${import.meta.env.VITE_FINANCE_URL}`
-    : `${GATEWAY_URL}/finance`;
-  const AI_BASE_URL =
-    import.meta.env.VITE_TORA_URL ||
-    import.meta.env.VITE_AI_URL ||
-    `${GATEWAY_URL}/tora`;
+  const API_BASE_URL = API_BASE;
+  const AI_BASE_URL = AI_BASE;
   const initialDefaultProfile = useMemo(
     () => ({
       annualRent: 0,
