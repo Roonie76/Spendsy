@@ -1,7 +1,7 @@
 """add ParsedDocument table
 
 Revision ID: 20260506_01
-Revises: 20260505_01
+Revises: 20260503_02
 Create Date: 2026-05-06
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
 revision = "20260506_01"
-down_revision = "20260505_01"
+down_revision = "20260503_02"
 branch_labels = None
 depends_on = None
 
