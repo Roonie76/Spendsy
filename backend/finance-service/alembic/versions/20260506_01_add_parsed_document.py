@@ -21,7 +21,6 @@ def upgrade() -> None:
         "finance_parsed_document",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column("user_id", sa.BigInteger(), nullable=False),
-        sa.Column("submission_id", sa.BigInteger(), nullable=True),
         sa.Column("ay", sa.String(7), nullable=False, server_default="2025-26"),
 
         sa.Column("doc_type", sa.String(30), nullable=False),
@@ -42,15 +41,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
 
         sa.PrimaryKeyConstraint("id"),
-        sa.ForeignKeyConstraint(
-            ["submission_id"], ["finance_itr_submission.id"],
-            name="fk_parsed_doc_submission",
-            ondelete="SET NULL",
-        ),
     )
     op.create_index("ix_finance_parsed_document_id",            "finance_parsed_document", ["id"])
     op.create_index("ix_finance_parsed_document_user_id",       "finance_parsed_document", ["user_id"])
-    op.create_index("ix_finance_parsed_document_submission_id", "finance_parsed_document", ["submission_id"])
     op.create_index("ix_finance_parsed_document_file_hash",     "finance_parsed_document", ["file_hash"])
 
 
