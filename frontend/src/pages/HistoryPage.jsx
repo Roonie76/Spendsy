@@ -1,5 +1,3 @@
-//Database needed
-// Section 2 History Page
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { AlertTriangle, CheckCircle2, LoaderCircle, Search, X, Trash2, Filter, SlidersHorizontal, Download, Undo2 } from 'lucide-react';
 import TransactionItem from '../components/domain/TransactionItem';

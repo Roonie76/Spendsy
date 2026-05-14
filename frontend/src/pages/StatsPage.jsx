@@ -2,7 +2,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Download,
-  Bot,
   Sparkles,
   Loader2,
   PieChart,
@@ -32,12 +31,7 @@ import {
   Layer
 } from "recharts";
 import { CATEGORIES } from "@shared/config/constants";
-import {
-  normalizeDate,
-  formatIndianCompact,
-  formatLocalDate,
-} from "@shared/utils/helpers";
-import { AIService } from "@shared/services/aiService";
+import { normalizeDate, formatIndianCompact, formatLocalDate } from "@shared/utils/helpers";
 import { downloadCSV } from "@shared/utils/exportUtils";
 import { StatsSkeleton } from "../components/ui/Skeletons";
 

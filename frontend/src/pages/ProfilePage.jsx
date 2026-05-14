@@ -1,16 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  User, Settings as SettingsIcon, ChevronRight, ShieldCheck,
-  Plus, Link2, Unlink, CheckCircle, AlertCircle, Clock,
-  Building2, CreditCard, Wallet, ArrowUpRight, ArrowDownRight,
-  Target, Landmark, Briefcase, TrendingUp, TrendingDown,
-  BarChart2, Zap, Bot, Brain, Sparkles, Crown,
-  IndianRupee, PiggyBank, Activity, FileBarChart,
-  Calendar, Receipt, Shield, Star, ExternalLink,
-  RefreshCw, BadgeCheck, CircleDashed, Info,
-  ListFilter, PieChart as PieChartIcon, SlidersHorizontal, Check, X,
-  LogOut, Trash2, Key, Bell, ShieldAlert,
-  Smartphone, Monitor, Globe, MapPin, UserCircle
+  Settings as SettingsIcon, ChevronRight, ShieldCheck, CheckCircle,
+  CreditCard, Wallet, Target, Landmark, Briefcase, TrendingUp,
+  Bot, Brain, Sparkles, Crown, Calendar, Receipt, Star, ExternalLink,
+  CircleDashed, Info, ListFilter, PieChart as PieChartIcon, SlidersHorizontal, Check, X,
+  LogOut, Key, ShieldAlert, MapPin, UserCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";

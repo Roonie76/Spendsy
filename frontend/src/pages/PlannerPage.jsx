@@ -5,7 +5,7 @@ import CreatePlanModal from '../components/planner/CreatePlanModal';
 import PlanDetailsDrawer from '../components/planner/PlanDetailsDrawer';
 import AIRecommendations from '../components/planner/AIRecommendations';
 import ProTierFeatures from '../components/planner/ProTierFeatures';
-import { Filter, Archive, Search } from 'lucide-react';
+import { Archive, Search } from 'lucide-react';
 import { financeApi } from '../api';
 
 export default function PlannerPage({ user, theme, showToast }) {

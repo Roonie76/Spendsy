@@ -9,9 +9,7 @@ import {
   Landmark,
   AlertTriangle,
   TrendingDown,
-  TrendingUp,
   Inbox,
-  Calendar,
 } from "lucide-react";
 import TransactionItem from "../components/domain/TransactionItem";
 import { TABS } from "@shared/config/constants";

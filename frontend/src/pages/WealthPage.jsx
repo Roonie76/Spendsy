@@ -10,15 +10,12 @@ import {
 } from "recharts";
 import { 
   TrendingUp, 
-  Plus, 
   PieChart as PieIcon, 
   Wallet, 
   Camera, 
-  PlusCircle,
-  LayoutGrid,
-  RefreshCw
+  PlusCircle
 } from "lucide-react";
-import { formatIndianCompact, buildAuthHeader, formatLocalDate } from "@shared/utils/helpers";
+import { formatIndianCompact, formatLocalDate } from "@shared/utils/helpers";
 import { BANKS, CURRENCY_SYMBOL } from "@shared/config/constants";
 import UnitSelector from "../components/domain/UnitSelector";
 import WealthItem from "../components/domain/WealthItem";
