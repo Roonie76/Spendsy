@@ -25,10 +25,13 @@ export const API_BASE = import.meta.env.VITE_FINANCE_URL
 export const AUTH_BASE = import.meta.env.VITE_AUTH_URL
   ? `${ensureProtocol(import.meta.env.VITE_AUTH_URL)}`
   : `${GATEWAY_URL}/auth`;
-export const AI_BASE =
-  ensureProtocol(import.meta.env.VITE_TORA_URL) ||
-  ensureProtocol(import.meta.env.VITE_AI_URL) ||
-  `${GATEWAY_URL}/tora`;
+export const AI_BASE = (() => {
+  const raw = import.meta.env.VITE_TORA_URL || import.meta.env.VITE_AI_URL;
+  if (!raw) return `${GATEWAY_URL}/tora`;
+  // Allow relative paths (e.g. /api) for Vercel serverless functions
+  if (raw.startsWith("/")) return raw;
+  return ensureProtocol(raw);
+})();
 const ACCESS_TOKEN_KEYS = ["access_token", "auth_token", "token"];
 const REFRESH_TOKEN_KEY = "refresh_token";
 
