@@ -23,7 +23,7 @@ router = APIRouter(tags=["tora"])
 OLLAMA_BASE_URL = os.environ.get(
     "OLLAMA_BASE_URL", "http://host.docker.internal:11434"
 )
-OLLAMA_MODEL = os.environ.get("MODEL_GEMMA", "gemma2:2b")
+OLLAMA_MODEL = os.environ.get("MODEL_GEMMA", "gemma4:e2b")
 
 # The ngrok free tier shows an interstitial page unless this header is sent.
 NGROK_HEADERS = {"ngrok-skip-browser-warning": "true"}
