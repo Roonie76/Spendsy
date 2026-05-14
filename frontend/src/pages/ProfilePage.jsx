@@ -4,7 +4,7 @@ import {
   CreditCard, Wallet, Target, Landmark, Briefcase, TrendingUp,
   Bot, Brain, Sparkles, Crown, Calendar, Receipt, Star, ExternalLink,
   CircleDashed, Info, ListFilter, PieChart as PieChartIcon, SlidersHorizontal, Check, X,
-  LogOut, Key, ShieldAlert, MapPin, UserCircle
+  LogOut, Key, ShieldAlert, MapPin, UserCircle, Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";

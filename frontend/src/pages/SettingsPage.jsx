@@ -20,7 +20,7 @@ import {
   PiggyBank, ArrowRightLeft, Fingerprint, Link2,
   ExternalLink, Copy, Check, RotateCcw, LogIn,
   BellOff, BellRing, Landmark, FileBarChart, BookOpen,
-  ListFilter, PieChart, Settings as SettingsIcon
+  ListFilter, PieChart, Settings as SettingsIcon, Plus
 } from "lucide-react";
 
 // ─── Preferences Persistence ─────────────────────────────────────────────────
