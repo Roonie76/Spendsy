@@ -923,7 +923,7 @@ export default function App() {
               >
                 {activeTab === TABS.WEALTH
                   ? formatIndianCompact(netWorth.assets - netWorth.liabilities)
-                  : `₹${rangedBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+                  : `₹${(balanceRange === "LIFE" && rangedBalance < 0 ? 0 : rangedBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
               </h2>
 
               {/* ── Sparkline trend chart ──────────────────────────────────── */}

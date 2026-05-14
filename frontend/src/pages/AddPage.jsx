@@ -38,6 +38,7 @@ const AddPage = ({
   const [date, setDate] = useState(formatLocalDate(new Date()));
   const [isRecurring, setIsRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
 
   // Inline validation state
   const [touched, setTouched] = useState({});
@@ -95,7 +96,7 @@ const AddPage = ({
 
     // Validate form
     if (!isTypeValid) {
-      showToast("Select a transaction type: Income or Expense", "error");
+      setShowTypeSelectionModal(true);
       return;
     }
     if (!isAmountValid) {
@@ -510,13 +511,13 @@ const AddPage = ({
             {/* Submit Button */}
             <motion.button
               type="submit"
-              whileHover={isFormValid && !isSubmitting ? { scale: 1.02 } : {}}
-              whileTap={isFormValid && !isSubmitting ? { scale: 0.98 } : {}}
-              disabled={isSubmitting || !isFormValid}
+              whileHover={!isSubmitting ? { scale: 1.02 } : {}}
+              whileTap={!isSubmitting ? { scale: 0.98 } : {}}
+              disabled={isSubmitting}
               aria-label={isSubmitting ? "Saving transaction..." : "Save transaction"}
               className={cn(
                 "w-full py-4 rounded-2xl font-black text-white shadow-xl transition-all",
-                isFormValid && !isSubmitting
+                !isSubmitting
                   ? "bg-blue-600 hover:bg-blue-500 shadow-blue-900/40"
                   : "bg-blue-600/40 cursor-not-allowed shadow-none",
                 "disabled:opacity-50",
@@ -560,6 +561,56 @@ const AddPage = ({
               refreshData={refreshData}
             />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Type Selection Modal */}
+      <AnimatePresence>
+        {showTypeSelectionModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className={cn(
+                "p-6 rounded-2xl w-full max-w-sm border shadow-2xl mx-4",
+                theme === "dark" ? "bg-slate-900 border-white/10" : "bg-white border-slate-200"
+              )}
+            >
+              <h3 className={cn("text-lg font-bold mb-4", theme === "dark" ? "text-white" : "text-slate-900")}>
+                Select Transaction Type
+              </h3>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setType("income");
+                    setShowTypeSelectionModal(false);
+                  }}
+                  className="flex-1 py-3 bg-emerald-500/20 text-emerald-300 rounded-xl font-bold hover:bg-emerald-500/30 transition-colors"
+                >
+                  Income
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setType("expense");
+                    setShowTypeSelectionModal(false);
+                  }}
+                  className="flex-1 py-3 bg-rose-500/20 text-rose-300 rounded-xl font-bold hover:bg-rose-500/30 transition-colors"
+                >
+                  Expense
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTypeSelectionModal(false)}
+                className="mt-4 w-full py-2 text-sm text-slate-500 hover:text-slate-300"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </motion.div>
