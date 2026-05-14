@@ -350,138 +350,6 @@ const HealthScoreSection = ({ wealthItems, settings }) => {
   );
 };
 
-// ─── 4. CONNECTIONS HUB ──────────────────────────────────────────────────────
-
-const CONN_STATUS = { connected: "connected", pending: "pending", off: "off" };
-
-const BANK_ROWS = [
-  { id: "aa",    label: "Account Aggregator", sub: "RBI-approved AA — no credentials stored", icon: Link2,     color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", status: CONN_STATUS.off,  isAA: true },
-  { id: "hdfc",  label: "HDFC Bank",           sub: "Savings & Current accounts",             icon: Building2, color: "text-blue-400",   bg: "bg-blue-500/10",   border: "border-blue-500/20",  status: CONN_STATUS.off },
-  { id: "sbi",   label: "State Bank of India", sub: "Savings account",                        icon: Building2, color: "text-sky-400",    bg: "bg-sky-500/10",    border: "border-sky-500/20",   status: CONN_STATUS.off },
-  { id: "icici", label: "ICICI Bank",           sub: "Savings account",                        icon: Building2, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20",status: CONN_STATUS.off },
-];
-
-const StatusDot = ({ status }) => {
-  if (status === CONN_STATUS.connected) return <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />;
-  if (status === CONN_STATUS.pending)   return <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />;
-  return <div className="w-2 h-2 rounded-full bg-white/10" />;
-};
-
-const ConnectionsHub = ({ setActiveTab, showToast }) => {
-  const [conns, setConns] = useState(BANK_ROWS);
-  const [expanded, setExpanded] = useState(false);
-  const [connecting, setConnecting] = useState(null);
-  const connectedCount = conns.filter(c => c.status === CONN_STATUS.connected).length;
-
-  const handleConnect = async (id) => {
-    setConnecting(id);
-    await new Promise(r => setTimeout(r, 1400));
-    setConns(prev => prev.map(c => c.id === id ? { ...c, status: CONN_STATUS.pending } : c));
-    setConnecting(null);
-    showToast?.("Request sent — approve in your bank app", "success");
-  };
-
-  const handleDisconnect = (id) => {
-    setConns(prev => prev.map(c => c.id === id ? { ...c, status: CONN_STATUS.off } : c));
-    showToast?.("Account disconnected", "success");
-  };
-
-  const visible = expanded ? conns.slice(1) : conns.slice(1, 3);
-
-  return (
-    <Card className="overflow-visible">
-      <div className="px-5 pt-5 pb-4 border-b border-white/5">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em]">Connected Accounts</p>
-              {connectedCount > 0 && <Pill label={`${connectedCount} Live`} color="emerald" />}
-            </div>
-            <p className="text-xs text-slate-500">Automatic transaction sync</p>
-          </div>
-        </div>
-        {/* AA Banner */}
-        <div className="p-3 rounded-2xl bg-gradient-to-r from-violet-500/10 to-indigo-500/8 border border-violet-500/20 flex items-center gap-3">
-          <div className="p-2 bg-violet-500/20 rounded-xl shrink-0">
-            <Shield className="w-4 h-4 text-violet-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-black text-white">Account Aggregator (AA)</p>
-            <p className="text-[10px] text-slate-500 mt-0.5">Secure · RBI-certified · No passwords stored</p>
-          </div>
-          <button
-            onClick={() => handleConnect("aa")}
-            disabled={!!connecting || conns.find(c=>c.id==="aa")?.status !== CONN_STATUS.off}
-            className="px-3 py-1.5 rounded-xl bg-violet-600/80 hover:bg-violet-500 text-white text-[10px] font-black uppercase tracking-wider transition-colors shrink-0 disabled:opacity-50"
-          >
-            {connecting === "aa" ? "…" : conns.find(c=>c.id==="aa")?.status === CONN_STATUS.pending ? "Pending" : "Connect"}
-          </button>
-        </div>
-      </div>
-
-      <div className="p-3 space-y-2">
-        {visible.map(conn => (
-          <motion.div key={conn.id} layout
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all ${conn.status === CONN_STATUS.connected ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/5 bg-white/[0.02]"}`}
-          >
-            <div className={`p-2.5 ${conn.bg} ${conn.color} rounded-xl shrink-0`}>
-              <conn.icon className="w-4 h-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-bold text-white truncate">{conn.label}</p>
-                <StatusDot status={conn.status} />
-              </div>
-              <p className="text-[10px] text-slate-600 mt-0.5 truncate">
-                {conn.status === CONN_STATUS.connected ? "Syncing automatically" : conn.status === CONN_STATUS.pending ? "Awaiting approval in bank app" : conn.sub}
-              </p>
-            </div>
-            {conn.status === CONN_STATUS.connected ? (
-              <button onClick={() => handleDisconnect(conn.id)} className="p-1.5 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-colors shrink-0">
-                <Unlink className="w-3.5 h-3.5" />
-              </button>
-            ) : conn.status === CONN_STATUS.pending ? (
-              <Pill label="Pending" color="amber" />
-            ) : (
-              <button onClick={() => handleConnect(conn.id)} disabled={!!connecting}
-                className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-wider transition-all shrink-0 disabled:opacity-40 flex items-center gap-1.5"
-              >
-                {connecting === conn.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                {connecting === conn.id ? "…" : "Link"}
-              </button>
-            )}
-          </motion.div>
-        ))}
-
-        {conns.length > 3 && (
-          <button onClick={() => setExpanded(v => !v)} className="w-full py-2.5 rounded-2xl text-[11px] text-slate-600 hover:text-slate-400 font-bold transition-colors flex items-center justify-center gap-1">
-            {expanded ? "Show less" : `+${conns.length - 3} more`}
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${expanded ? "-rotate-90" : "rotate-90"}`} />
-          </button>
-        )}
-
-        <button onClick={() => setActiveTab(TABS.BANK_ACCOUNTS)} className="w-full py-3 rounded-2xl border border-dashed border-white/10 text-slate-600 hover:text-slate-400 hover:border-white/20 text-[11px] font-bold transition-all flex items-center justify-center gap-2">
-          <Plus className="w-3.5 h-3.5" /> Connect another bank
-        </button>
-      </div>
-
-      <div className="px-3 pb-3 grid grid-cols-2 gap-2">
-        {[
-          { label: "Debit Cards",  icon: CreditCard, color: "text-sky-400",    bg: "bg-sky-500/10",    tab: TABS.DEBIT_CARDS },
-          { label: "Credit Cards", icon: CreditCard, color: "text-violet-400", bg: "bg-violet-500/10", tab: TABS.CREDIT_CARDS },
-        ].map(c => (
-          <motion.button key={c.label} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab(c.tab)}
-            className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/[0.025] border border-white/5 hover:bg-white/5 transition-all text-left"
-          >
-            <div className={`p-2 ${c.bg} ${c.color} rounded-xl shrink-0`}><c.icon className="w-4 h-4" /></div>
-            <p className="text-xs font-bold text-white truncate">{c.label}</p>
-          </motion.button>
-        ))}
-      </div>
-    </Card>
-  );
-};
 
 // ─── 5. PORTFOLIO SNAPSHOT ────────────────────────────────────────────────────
 
@@ -569,6 +437,8 @@ const ALL_SHORTCUTS = [
   { id: TABS.WEALTH, label: "Wealth", icon: Landmark, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", sub: "Net valuation" },
   { id: TABS.ADD, label: "Add New", icon: Plus, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", sub: "Manual entry" },
   { id: TABS.STATS, label: "Stats", icon: PieChartIcon, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", sub: "Spending analysis" },
+  { id: TABS.DEBIT_CARDS, label: "Debit Cards", icon: CreditCard, color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20", sub: "Manage cards" },
+  { id: TABS.CREDIT_CARDS, label: "Credit Cards", icon: CreditCard, color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", sub: "Manage cards" },
 ];
 
 const QuickActionsModal = ({ isOpen, onClose, currentActions, onSave }) => {
@@ -822,28 +692,11 @@ const SecurityCard = ({ onLogout, onPasswordChange }) => {
         </button>
         
         <button 
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all text-left opacity-50 cursor-not-allowed"
-        >
-          <div className="flex items-center gap-3">
-            <Smartphone className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-bold text-white">Two-Factor Auth (2FA)</span>
-          </div>
-          <Pill label="Coming Soon" color="slate" />
-        </button>
-        
-        <button 
           onClick={onLogout}
           className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-rose-500/5 border border-rose-500/10 hover:bg-rose-500/10 transition-all text-left text-rose-400 mt-4"
         >
           <LogOut className="w-4 h-4" />
           <span className="text-xs font-black uppercase tracking-widest">Sign Out Everywhere</span>
-        </button>
-      </div>
-      
-      <div className="mt-6 pt-5 border-t border-white/5">
-        <button className="text-[10px] font-black text-slate-800 hover:text-rose-900 transition-colors flex items-center gap-2 mx-auto">
-          <Trash2 className="w-3 h-3" />
-          <span>Permanently Delete Account</span>
         </button>
       </div>
     </Card>
@@ -1049,9 +902,8 @@ const ProfilePage = ({
         onEditFinance={() => setShowEditFinance(true)} 
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
         <HealthScoreSection wealthItems={wealthItems} settings={settings} />
-        <ConnectionsHub setActiveTab={setActiveTab} showToast={showToast} />
       </div>
 
       <PortfolioSnapshot wealthItems={wealthItems} setActiveTab={setActiveTab} />
