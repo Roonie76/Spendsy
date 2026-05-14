@@ -563,7 +563,7 @@ const ALL_SHORTCUTS = [
   { id: TABS.GOALS, label: "Goals", icon: Star, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", sub: "Track milestones" },
   { id: TABS.LOANS, label: "Loans", icon: Briefcase, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20", sub: "Liabilities" },
   { id: TABS.PLANNER, label: "Planner", icon: TrendingUp, color: "text-indigo-400", bg: "bg-indigo-500/10", border: "border-indigo-500/20", sub: "AI-driven plans" },
-  { id: TABS.ITR, label: "ITR Filing", icon: FileBarChart, color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", sub: "File your return" },
+
   { id: TABS.AUDIT, label: "Tax Audit", icon: Receipt, color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20", sub: "Deductions score" },
   { id: TABS.HISTORY, label: "History", icon: ListFilter, color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/20", sub: "All transactions" },
   { id: TABS.WEALTH, label: "Wealth", icon: Landmark, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", sub: "Net valuation" },
@@ -655,7 +655,7 @@ const QuickActionsModal = ({ isOpen, onClose, currentActions, onSave }) => {
 const NavShortcuts = ({ setActiveTab, settings, user, onUpdateActions }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const preferences = user?.preferences || {};
-  const selectedIds = preferences.quick_actions || [TABS.BUDGET, TABS.GOALS, TABS.LOANS, TABS.PLANNER, TABS.ITR, TABS.AUDIT];
+  const selectedIds = preferences.quick_actions || [TABS.BUDGET, TABS.GOALS, TABS.LOANS, TABS.PLANNER, TABS.AUDIT];
   
   const shortcuts = ALL_SHORTCUTS.filter(s => selectedIds.includes(s.id));
   const hasBudget = parseFloat(settings?.monthlyBudget || 0) > 0;

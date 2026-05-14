@@ -15,20 +15,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Ask Tora AI Service")
 
-# Add CORS middleware — restrict to known frontend origins
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8080",
-]
+# Add CORS middleware - restrict to configured frontend origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origin_list,
     allow_credentials=True,
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
@@ -74,7 +64,7 @@ def root():
 async def health_check():
     """Deep health check — verifies Ollama connectivity and model availability."""
     from agents.llm_router import check_ollama_health
-    ollama = check_ollama_health()
+    ollama = await check_ollama_health()
     primary = settings.model_gemma
     fallback = settings.model_llama
     models_available = ollama.get("models", [])

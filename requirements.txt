@@ -38,3 +38,4 @@ pgvector
 trafilatura==1.12.2
 playwright==1.49.0
 chromadb==0.5.23
+fpdf2

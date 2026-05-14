@@ -1,46 +1,6 @@
 import { TAX_CONSTANTS } from "../config/constants";
 import { normalizeDate } from "../utils/helpers";
 
-/**
- * Determines the applicable ITR form based on income profile.
- * ITR-1: Salary + 1HP + Other, ≤50L, resident individual
- * ITR-2: Capital gains or >50L, no business income
- * ITR-3: Business/professional income (non-presumptive)
- * ITR-4: Presumptive income u/s 44AD/44ADA/44AE
- */
-export const getITRFormType = (income = {}, profile = {}) => {
-  const salary = parseFloat(income.salary || 0);
-  const hp = parseFloat(income.houseProperty || 0);
-  const business = parseFloat(income.businessIncome || 0);
-  const cg = parseFloat(income.capitalGains || 0);
-  const other = parseFloat(income.otherIncome || 0) + parseFloat(income.interestIncome || 0);
-  const total = salary + Math.abs(hp) + business + cg + other;
-
-  const isPresumptive = !!profile.isPresumptive;
-  const hasBusiness = business > 0;
-  const hasCapitalGains = cg > 0;
-  const hasMultipleHP = !!profile.multipleHouseProperties;
-  const isForeignAssets = !!profile.foreignAssets;
-  const isNRI = !!profile.isNRI;
-
-  // ITR-4 (Sugam): presumptive business, no CG, total ≤ 50L
-  if (isPresumptive && !hasCapitalGains && total <= 5000000 && !isForeignAssets && !isNRI) {
-    return { form: "ITR-4", name: "Sugam", reason: "Presumptive business income u/s 44AD/44ADA" };
-  }
-
-  // ITR-3: non-presumptive business/professional income
-  if (hasBusiness) {
-    return { form: "ITR-3", name: "Business & Profession", reason: "Business or professional income declared" };
-  }
-
-  // ITR-2: capital gains, >50L, multiple HP, foreign assets, or NRI
-  if (hasCapitalGains || total > 5000000 || hasMultipleHP || isForeignAssets || isNRI) {
-    return { form: "ITR-2", name: "Capital Gains", reason: hasCapitalGains ? "Capital gains income present" : total > 5000000 ? "Total income exceeds ₹50 Lakh" : isForeignAssets ? "Foreign assets/income reported" : isNRI ? "Non-resident taxpayer" : "Multiple house properties" };
-  }
-
-  // ITR-1 (Sahaj): default for salaried individuals
-  return { form: "ITR-1", name: "Sahaj", reason: "Salaried individual with income ≤ ₹50L" };
-};
 
 export const TaxService = {
   calculate: (

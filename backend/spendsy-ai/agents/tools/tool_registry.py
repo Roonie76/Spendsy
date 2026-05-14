@@ -24,5 +24,5 @@ def get_tool_registry():
         "sync_credit_card_payments": sync_credit_card_payments,
         "get_transactions": get_transactions,
         "query_spending_data": query_spending_data,
-        "search_internet": search_internet
+        "search_internet": search_internet,
     }

@@ -2,17 +2,31 @@
 Tax API Routes — Server-side tax computation endpoints.
 
 Provides:
-  POST /tax/compute      — Full tax computation under both regimes
-  GET  /tax/compute/{uid} — Compute from saved ITR data
-  POST /tax/itr-form     — Determine the correct ITR form
+  POST /tax/compute               — Full tax computation under both regimes
+  GET  /tax/compute/{uid}         — Compute from saved ITR data
+  POST /tax/itr-form              — Determine the correct ITR form
+  POST /tax/audit                 — Pre-filing audit checks
+  POST /tax/submission            — Upsert ITRSubmission for an AY
+  GET  /tax/submission/{ay}       — Load saved submission
+  PATCH /tax/submission/{id}/field — Update a single JSONB field
+  POST /tax/submission/{id}/compute — Re-run compare_regimes, cache result
+  POST /tax/submission/{id}/finalize — Lock + final hash
+  GET  /tax/submission/{id}/verify   — Run hash-chain verification
+  GET  /tax/submission/{id}/pdf      — Generate + stream summary PDF
+  POST /tax/prefill/{ay}          — Run prefill from transactions + wealth
+  GET  /tax/gap-analysis          — Deduction gaps for current draft
+  POST /tax/simulate              — What-if with hypothetical overrides
+  GET  /tax/checklist/{form_type} — Form-specific filing checklist
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import asdict
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Any, Optional
@@ -242,3 +256,5 @@ def run_audit_endpoint(
         {"errors": errors, "warnings": warnings, "error_count": len(errors), "warning_count": len(warnings)},
         message="Audit completed",
     )
+
+

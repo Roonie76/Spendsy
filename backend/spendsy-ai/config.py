@@ -1,9 +1,17 @@
+import json
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_FILES = (
+    os.path.join(BASE_DIR, ".env"),
+    os.path.join(os.path.dirname(BASE_DIR), ".env"),
+    os.path.join(os.path.dirname(os.path.dirname(BASE_DIR)), ".env"),
+)
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
+        env_file=ENV_FILES,
         case_sensitive=False, 
         extra="ignore"
     )
@@ -13,6 +21,20 @@ class Settings(BaseSettings):
     google_api_key: str | None = None
     e2b_api_key: str | None = None
     obscura_cdp_url: str = "ws://obscura:9222"
+    allowed_origins: str = (
+        "http://localhost:5173,http://localhost:5174,http://localhost:3000,"
+        "http://localhost:8080,http://127.0.0.1:5173,http://127.0.0.1:5174,"
+        "http://127.0.0.1:3000,http://127.0.0.1:8080,"
+        "https://spendsy-fintech.vercel.app"
+    )
+
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        value = self.allowed_origins.strip()
+        if value.startswith("["):
+            parsed = json.loads(value)
+            return [origin.strip() for origin in parsed if origin.strip()]
+        return [origin.strip() for origin in value.split(",") if origin.strip()]
     
     # Ollama Configuration (Local Inference)
     ollama_base_url: str = "http://host.docker.internal:11434"

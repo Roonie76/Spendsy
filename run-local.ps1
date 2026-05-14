@@ -31,6 +31,13 @@ function Write-Status($Message, $Color = "White") {
     Write-Host "  $Message" -ForegroundColor $Color
 }
 
+function Assert-LastCommand($Message) {
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: $Message" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+}
+
 function Check-Docker {
     try {
         docker info > $null 2>&1
@@ -105,8 +112,10 @@ if (-not $SkipDockerPull) {
 Write-Step "Launching Backend Services"
 if ($NoBuild) {
     docker compose -f $COMPOSE_FILE up -d $BackendServices
+    Assert-LastCommand "Docker services failed to start."
 } else {
     docker compose -f $COMPOSE_FILE up -d --build $BackendServices
+    Assert-LastCommand "Docker image build or service startup failed."
 }
 Write-Status "Containers started" -Color Green
 
@@ -163,6 +172,7 @@ Write-Host ""
 Write-Host "  Frontend:  http://localhost:5173  (Vite HMR)" -ForegroundColor Green
 Write-Host "  Gateway:   http://localhost:8080  (nginx)" -ForegroundColor White
 Write-Host "  TORA AI:   http://localhost:8004/health" -ForegroundColor White
+Write-Host "  Tunnel:    run cloudflared/ngrok in a second PowerShell window" -ForegroundColor White
 
 Write-Host ""
 Write-Host "  Ctrl+C to stop everything." -ForegroundColor Yellow

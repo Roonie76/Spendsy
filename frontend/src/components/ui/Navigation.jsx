@@ -1,7 +1,9 @@
 //No database needed
 import React, { useState } from 'react';
-import { 
-  Home, ListFilter, Plus, ClipboardCheck, PieChart, Landmark, User, Wallet, LogOut, Menu, X, Calendar, Settings} from 'lucide-react';
+import {
+  Home, ListFilter, Plus, ClipboardCheck, PieChart, Landmark, User, Wallet, LogOut, Menu, X, Calendar, Settings, FileText
+} from 'lucide-react';
+import spendsyLogo from '../../assets/logo.svg';
 import { TABS } from '@shared/config/constants';
 
 export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
@@ -12,6 +14,7 @@ export const Navigation = ({ activeTab, setActiveTab, onSignOut }) => {
     { id: TABS.HISTORY, icon: ListFilter, label: "History" },
     { id: TABS.ADD, icon: Plus, label: "Add New" },
     { id: TABS.AUDIT, icon: ClipboardCheck, label: "Tax Audit" },
+    { id: TABS.ITR_FILING, icon: FileText, label: "ITR Filing" },
     { id: TABS.STATS, icon: PieChart, label: "Stats" },
     { id: TABS.WEALTH, icon: Landmark, label: "Wealth" },
     { id: TABS.PLANNER, icon: Calendar, label: "Planner" },

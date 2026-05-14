@@ -359,7 +359,7 @@ const PersonalInfoPage = ({ user, onBack, showToast, onRefreshUser }) => {
         </SettingSection>
 
         {/* KYC / Tax IDs */}
-        <SettingSection title="Tax & KYC Identifiers" subtitle="Used for ITR filing and compliance">
+        <SettingSection title="Tax & KYC Identifiers" subtitle="Used for tax compliance">
           <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-white/5" style={{ background: "rgba(255,255,255,0.03)" }}>
             <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl shrink-0"><Receipt className="w-5 h-5" /></div>
             <div className="flex-1 min-w-0">
@@ -691,7 +691,7 @@ const FinancialSettingsPage = ({ onBack, showToast }) => {
         <SettingSection title="Indian Tax Regime">
           <InfoCard color="amber">
             <p className="text-xs font-black text-white mb-1">Active Tax Regime</p>
-            <p className="text-[11px] text-slate-400 mb-3">This affects TORA's tax calculations and ITR recommendations.</p>
+            <p className="text-[11px] text-slate-400 mb-3">This affects TORA's tax calculations.</p>
             <div className="flex gap-2">
               {[["new", "New Regime", "Lower rates, no deductions"], ["old", "Old Regime", "Higher rates, all deductions"]].map(([key, label, sub]) => (
                 <button
@@ -752,7 +752,7 @@ const NotificationsPage = ({ onBack }) => {
   const [budgetAlert, toggleBudget] = mk("notif_budget", true);
   const [goalAlert, toggleGoal] = mk("notif_goal", true);
   const [loanAlert, toggleLoan] = mk("notif_loan", true);
-  const [itrAlert, toggleITR] = mk("notif_itr", true);
+
   const [taxDeadline, toggleTaxDeadline] = mk("notif_tax_deadline", true);
   const [advTax, toggleAdvTax] = mk("notif_adv_tax", true);
   const [toraWeekly, toggleToraWeekly] = mk("notif_tora_weekly", true);
@@ -781,7 +781,7 @@ const NotificationsPage = ({ onBack }) => {
         </SettingSection>
 
         <SettingSection title="Tax & Compliance (Indian)" subtitle="Critical dates you cannot miss">
-          <SettingRow icon={FileBarChart} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="ITR Filing Deadlines" description="July 31 & belated return reminders" trailing={<Toggle enabled={itrAlert} onChange={toggleITR} />} />
+
           <SettingRow icon={Calendar} iconColor="text-orange-400" iconBg="bg-orange-500/10" label="Advance Tax Due Dates" description="June 15, Sep 15, Dec 15, Mar 15" trailing={<Toggle enabled={advTax} onChange={toggleAdvTax} />} />
           <SettingRow icon={Receipt} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="Tax-Saving Deadlines" description="80C/80D investment deadline reminders" trailing={<Toggle enabled={taxDeadline} onChange={toggleTaxDeadline} />} />
         </SettingSection>
@@ -1189,7 +1189,7 @@ const HelpSupportPage = ({ onBack }) => (
       <SettingSection title="Self-Service">
         <SettingRow icon={BookOpen} iconColor="text-blue-400" iconBg="bg-blue-500/10" label="Help Center" description="Browse guides, tutorials, and FAQs" />
         <SettingRow icon={FileText} iconColor="text-violet-400" iconBg="bg-violet-500/10" label="Getting Started Guide" description="Set up Spendsy in 5 minutes" />
-        <SettingRow icon={Calculator} iconColor="text-amber-400" iconBg="bg-amber-500/10" label="ITR Filing Walkthrough" description="Step-by-step ITR on Spendsy" />
+
         <SettingRow icon={Bot} iconColor="text-indigo-400" iconBg="bg-indigo-500/10" label="TORA User Manual" description="How to get the best from your AI agent" />
       </SettingSection>
       <SettingSection title="Contact">
@@ -1224,7 +1224,7 @@ const AboutPage = ({ onBack }) => {
             <p className="text-xs text-slate-500 font-black uppercase tracking-widest">Personal Finance OS</p>
           </div>
           <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-            Built for India. AI-powered wealth management, ITR filing, and tax optimization in one app.
+            Built for India. AI-powered wealth management and tax optimization in one app.
           </p>
         </div>
 
@@ -1328,19 +1328,19 @@ const SettingsPage = ({ user, settings = {}, onUpdateSettings, onBack, onSignOut
               { id: "goals", label: "Goals", icon: Star, color: "text-emerald-400" },
               { id: "loans", label: "Loans", icon: Briefcase, color: "text-rose-400" },
               { id: "planner", label: "Planner", icon: TrendingUp, color: "text-indigo-400" },
-              { id: "itr", label: "ITR Filing", icon: FileBarChart, color: "text-violet-400" },
+
               { id: "audit", label: "Tax Audit", icon: Receipt, color: "text-sky-400" },
               { id: "history", label: "History", icon: ListFilter, color: "text-slate-400" },
               { id: "wealth", label: "Wealth", icon: Landmark, color: "text-blue-400" },
               { id: "add", label: "Add New", icon: Plus, color: "text-emerald-400" },
               { id: "stats", label: "Stats", icon: PieChart, color: "text-orange-400" },
             ].map(s => {
-              const selected = (user?.preferences?.quick_actions || ["budget", "goals", "loans", "planner", "itr", "audit"]).includes(s.id);
+              const selected = (user?.preferences?.quick_actions || ["budget", "goals", "loans", "planner", "audit"]).includes(s.id);
               return (
                 <button
                   key={s.id}
                   onClick={() => {
-                    const current = user?.preferences?.quick_actions || ["budget", "goals", "loans", "planner", "itr", "audit"];
+                    const current = user?.preferences?.quick_actions || ["budget", "goals", "loans", "planner", "audit"];
                     const next = selected ? current.filter(id => id !== s.id) : [...current, s.id].slice(0, 6);
                     onUpdateSettings({ preferences: { ...(user?.preferences || {}), quick_actions: next } });
                   }}

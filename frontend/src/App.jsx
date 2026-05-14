@@ -16,7 +16,7 @@ import {
   Layout as LayoutIcon,
   Settings as SettingsIcon,
 } from "lucide-react";
-import spendsyLogo from "./assets/spendsy_logo.png";
+import spendsyLogo from "./assets/logo.svg";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import { formatIndianCompact, normalizeDate, formatLocalDate } from "@shared/utils/helpers";
 import { Navigation } from "./components/ui/Navigation";
@@ -33,7 +33,6 @@ import WealthPage from "./pages/WealthPage";
 import ProfilePage from "./pages/ProfilePage";
 import AuditPage from "./pages/AuditPage";
 import StatsPage from "./pages/StatsPage";
-import ITRPage from "./pages/ITRPage";
 import DebitCardsPage from "./pages/DebitCardsPage";
 import CreditCardsPage from "./pages/CreditCardsPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -43,14 +42,12 @@ import PlannerPage from "./pages/PlannerPage";
 import ActiveLoansPage from "./pages/ActiveLoansPage";
 import BudgetPage from "./pages/BudgetPage";
 import AICopilot from "./components/ai/AICopilot";
-import { apiFetch, authApi, clearStoredAuth } from "./api";
+import ITRFilingPage from "./pages/ITRFilingPage";
+import { apiFetch, authApi, clearStoredAuth, API_BASE, AI_BASE } from "./api";
 
 export default function App() {
-  const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
-  const API_BASE_URL = import.meta.env.VITE_FINANCE_URL
-    ? `${import.meta.env.VITE_FINANCE_URL}`
-    : `${GATEWAY_URL}/finance`;
-  const AI_BASE_URL = import.meta.env.VITE_AI_URL || `${GATEWAY_URL}/tora`;
+  const API_BASE_URL = API_BASE;
+  const AI_BASE_URL = AI_BASE;
   const initialDefaultProfile = useMemo(
     () => ({
       annualRent: 0,
@@ -1131,6 +1128,14 @@ export default function App() {
                   showToast={showToast}
                 />
               )}
+              {activeTab === TABS.ITR_FILING && (
+                <ITRFilingPage
+                  user={currentUser}
+                  showToast={showToast}
+                  theme={theme}
+                />
+              )}
+
               {activeTab === TABS.AUDIT && (
                 <AuditPage
                   transactions={transactions}
@@ -1151,18 +1156,7 @@ export default function App() {
                 <StatsPage transactions={transactions} netWorthHistory={netWorthHistory} wealthItems={wealthItems} showToast={showToast} isLoading={historyLoading} />
               )}
 
-              {activeTab === TABS.ITR && (
-                <ITRPage
-                  user={currentUser}
-                  authToken={authToken}
-                  apiBaseUrl={API_BASE_URL}
-                  transactions={transactions}
-                  setActiveTab={navigateToTab}
-                  showToast={showToast}
-                  refreshProfile={fetchTaxProfile}
-                  isLoading={historyLoading}
-                />
-              )}
+
             </motion.div>
           </AnimatePresence>
         </main>
