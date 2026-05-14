@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes_auth import router as auth_router
+from app.api.routes_tora import router as tora_router
 from app.api.routes_health import router as health_router
 from app.core.config import settings
 from app.core.middleware import SecurityHeadersMiddleware
@@ -52,3 +53,4 @@ async def sqlalchemy_exception_handler(
 
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(tora_router)
