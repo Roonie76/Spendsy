@@ -13,7 +13,8 @@ async def check_ollama_health() -> dict:
     """Quick connectivity check against Ollama. Returns status dict."""
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            response = await client.get(f"{settings.ollama_base_url}/api/tags")
+            headers = {"ngrok-skip-browser-warning": "true"}
+            response = await client.get(f"{settings.ollama_base_url}/api/tags", headers=headers)
             response.raise_for_status()
             data = response.json()
             models = [m.get("name", "") for m in data.get("models", [])]

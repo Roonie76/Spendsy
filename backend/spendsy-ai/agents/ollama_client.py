@@ -76,7 +76,8 @@ async def call_ollama(
     
     try:
         async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(url, json=payload)
+            headers = {"ngrok-skip-browser-warning": "true"}
+            response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
             result = response.json()
             content = result.get("message", {}).get("content", "")
