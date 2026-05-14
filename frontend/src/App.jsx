@@ -269,7 +269,16 @@ export default function App() {
       : res;
   }, [balanceRange, transactions, serverSummary]);
 
-  const rangedBalance = rangedTotals.income - rangedTotals.expenses;
+  const rangedBalance = useMemo(() => {
+    if (balanceRange === "LIFE" && Array.isArray(transactions) && transactions.length > 0) {
+      // Find the most recent transaction that has a parsed running balance
+      const latestWithBalance = transactions.find(t => t.balance !== null && t.balance !== undefined && t.balance !== "");
+      if (latestWithBalance) {
+        return Number(latestWithBalance.balance);
+      }
+    }
+    return rangedTotals.income - rangedTotals.expenses;
+  }, [balanceRange, transactions, rangedTotals]);
 
   // ── Sparkline data for the balance hero card ──────────────────────────────
   // Builds a small day-by-day net array for the selected range so the
